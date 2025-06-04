@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import lalla from '../../assets/PROFILE DR LALLA.jpg'
-import chandan from '../../assets/mr_chandan_profile.jpg';
+import lalla from '../../assets/DR LALLA.png';
+import chandan from '../../assets/Chandan.png';
 
 const mentors = [
   {
@@ -15,23 +15,7 @@ His approach combines meticulous strategy, empathetic mentorship, and motivation
     quote: "Your potential is limitless when matched with the right guidance. Let's unleash it together.",
     image: lalla
   },
-  {
-    id: 'kritika-swami',
-    name: 'Kritika Swami',
-    title: 'Operations Head | Mentor | Academic Strategist at Eyeconic',
-    description: 'Kritika Swami is the calm command center behind many of Eyeconic\'s most impactful student journeys. With a rock-solid academic background in Chemistry (M.Sc.) and a fierce passion for teaching, she has become one of our most dependable and driven mentors.',
-    longDescription: `Known for her sharp planning skills, unwavering discipline, and an innate knack for student psychology, Kritika ensures every student under her watch has a clear plan, strong accountability, and personal motivation to succeed. Her ability to maintain structure while offering genuine emotional support makes her the perfect blend of mentor and manager.
 
-But beyond the Google Sheets and strategy calls, Kritika is a natural-born teacher. Her love for science shines through every session she takes. She's been a guiding force for many, thanks to unwavering belief in every student's potential.`,
-    specialties: [
-      'Razor-sharp with academic planning and routine design',
-      'Passionate about conceptual clarity over cramming',
-      'Known for her 100% accuracy and no-nonsense discipline',
-      'Warm, responsive, and deeply invested in every student\'s growth'
-    ],
-    quote: "I don't just want you to prepare—I want you to believe, act, and conquer. Let's build the version of you that wins.",
-    image: '/images/mentors/kritika.jpg'
-  },
   {
     id: 'mr-chandan',
     name: 'Mr. Chandan',

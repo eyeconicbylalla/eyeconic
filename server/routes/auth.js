@@ -46,6 +46,21 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// Save GT Score Predictor (protected)
+router.post('/gt-score', auth, async (req, res) => {
+  const { current, time, predicted } = req.body;
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { gtScore: { current, time, predicted } },
+      { new: true }
+    );
+    res.json({ gtScore: user.gtScore });
+  } catch (err) {
+    res.status(500).send('Server error');
+  }
+});
+
 // Get student dashboard (protected)
 router.get('/dashboard', auth, async (req, res) => {
   try {
@@ -67,7 +82,7 @@ router.post('/admin', async (req, res) => {
     return res.status(401).json({ msg: 'Unauthorized' });
   }
   try {
-    const users = await User.find({}, 'name email phone calledStatus buyStatus batchInterest adminNotes').sort({ createdAt: -1 });
+    const users = await User.find({}, 'name email phone calledStatus buyStatus batchInterest adminNotes gtScore').sort({ createdAt: -1 });
     res.json({
       total: users.length,
       students: users
@@ -79,7 +94,7 @@ router.post('/admin', async (req, res) => {
 
 // Admin update student info (PATCH /api/auth/admin/student/:id)
 router.patch('/admin/student/:id', async (req, res) => {
-  const { email, password, calledStatus, buyStatus, batchInterest, adminNotes } = req.body;
+  const { email, password, calledStatus, buyStatus, batchInterest, adminNotes, resetGt } = req.body;
   // Hardcoded admin credentials
   if (
     email !== 'admin@eyeconic1.com' ||
@@ -88,17 +103,44 @@ router.patch('/admin/student/:id', async (req, res) => {
     return res.status(401).json({ msg: 'Unauthorized' });
   }
   try {
+    const update = {
+      ...(calledStatus !== undefined && { calledStatus }),
+      ...(buyStatus !== undefined && { buyStatus }),
+      ...(batchInterest !== undefined && { batchInterest }),
+      ...(adminNotes !== undefined && { adminNotes }),
+    };
+    if (resetGt) update.gtScore = undefined;
+    // If resetGt is true, also unset gtScore in DB (for full removal)
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      {
-        ...(calledStatus !== undefined && { calledStatus }),
-        ...(buyStatus !== undefined && { buyStatus }),
-        ...(batchInterest !== undefined && { batchInterest }),
-        ...(adminNotes !== undefined && { adminNotes }),
-      },
+      update,
       { new: true }
     );
+    if (resetGt) {
+      // Unset gtScore field in DB (removes the field completely)
+      await User.updateOne({ _id: req.params.id }, { $unset: { gtScore: "" } });
+      user.gtScore = undefined;
+    }
     res.json(user);
+  } catch (err) {
+    res.status(500).send('Server error');
+  }
+});
+
+// Admin delete student (DELETE /api/auth/admin/student/:id)
+router.delete('/admin/student/:id', async (req, res) => {
+  const { email, password } = req.body;
+  // Hardcoded admin credentials
+  if (
+    email !== 'admin@eyeconic1.com' ||
+    password !== 'admin@eyeconic$'
+  ) {
+    return res.status(401).json({ msg: 'Unauthorized' });
+  }
+  try {
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) return res.status(404).json({ msg: 'User not found' });
+    res.json({ msg: 'User deleted' });
   } catch (err) {
     res.status(500).send('Server error');
   }

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar } from 'lucide-react';
+
 import mentorshipImg from '../../assets/Mentorship.jpg';
 import gtAnalysisImg from '../../assets/GTAnalysis.jpg';
 import personalized from '../../assets/Personalized Task.jpg';
+import live from '../../assets/Live.jpg';
 
 const features = [
   {
@@ -24,7 +25,7 @@ const features = [
     description: "Follow customized study plans designed to strengthen your weak areas and optimize your study time."
   },
   {
-    icon: <Calendar className="feature-icon" />,
+    img : live,
     title: "Live Sessions",
     description: "Participate in interactive live sessions focusing on high-yield topics and exam strategies."
   }

@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle } from 'lucide-react';
+import student from '../../assets/PROGRESS TRACKING.png';
 
 const benefits = [
   {
@@ -34,7 +35,7 @@ const WhyItMattersSection: React.FC = () => {
             transition={{ duration: 0.6 }}
           >
             <img 
-              src="https://images.pexels.com/photos/3184327/pexels-photo-3184327.jpeg?auto=compress&cs=tinysrgb&w=600" 
+              src={student}
               alt="Students studying together" 
               className="rounded-lg shadow-lg"
             />

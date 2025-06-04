@@ -25,6 +25,11 @@ const UserSchema = new mongoose.Schema({
   buyStatus: { type: String, enum: ['Have to Pay', 'Will Buy', 'Paid'], default: 'Have to Pay' },
   batchInterest: { type: String, enum: ['Arjuna', 'Nurture 3.1', 'Foundation 2.1', ''], default: '' },
   adminNotes: { type: String, default: '' },
+  gtScore: {
+    current: { type: Number },
+    time: { type: String },
+    predicted: { type: Number }
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);

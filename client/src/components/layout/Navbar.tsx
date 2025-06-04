@@ -3,7 +3,7 @@ import { Menu, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import LoginModal from '../auth/LoginModal';
 import SignupModal from '../auth/SignupModal';
-import logo from '../../assets/Asset 1-Photoroom.jpg'; // <-- Add your logo file here
+import logo from '../../assets/Logo.png'; // <-- Add your logo file here
 
 const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);

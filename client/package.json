@@ -11,11 +11,15 @@
   },
   "dependencies": {
     "axios": "^1.9.0",
+    "chart.js": "^4.4.9",
     "framer-motion": "^11.0.3",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
+    "react-chartjs-2": "^5.3.0",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.22.3"
+    "react-router-dom": "^6.22.3",
+    "react-router-hash-link": "^2.4.3",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
