@@ -1,15 +1,16 @@
 import React from 'react';
 import { Facebook, Instagram, Linkedin, Twitter, MapPin, Phone, Mail } from 'lucide-react';
-import Logo from '../ui/Logo';
+import logo from '../../assets/Logo.png'
 
 const Footer: React.FC = () => {
   return (
-    <footer className="bg-teal-500 text-white pt-16 pb-8">
+    <footer className="bg-teal-900 text-white pt-16 pb-8">
       <div className="container mx-auto px-4 max-w-full overflow-x-hidden">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
-            <div className="mb-6">
-              <Logo />
+            <div className="mb-6 flex items-center">
+              <img src={logo} alt="Footer Logo" className="h-12 w-auto" />
+              <span className="ml-3 text-2xl font-bold text-white">EyeConic</span>
             </div>
             <p className="mb-6 font-semibold">Transform your academic journey with personalized mentorship from Dr. Gourav Lalla, helping you achieve your educational goals.</p>
             <div className="flex space-x-4">
@@ -56,15 +57,15 @@ const Footer: React.FC = () => {
             <ul className="space-y-4">
               <li className="flex items-start">
                 <MapPin size={20} className="mr-2 mt-1 flex-shrink-0" />
-                <span>123 Education Lane, Academic City, India</span>
+                <span>Jaipur, India</span>
               </li>
               <li className="flex items-center">
                 <Mail size={20} className="mr-2 flex-shrink-0" />
-                <span>info@eyeconicmentorship.com</span>
+                <span>eyeconiclalla@gmail.com</span>
               </li>
               <li className="flex items-center">
                 <Phone size={20} className="mr-2 flex-shrink-0" />
-                <span>+91 9876 543 210</span>
+                <span>+91 91163 24253</span>
               </li>
             </ul>
           </div>

@@ -51,7 +51,7 @@ const MentorsSection: React.FC = () => {
             Meet the Mentors
           </h2>
           <p className="text-lg text-gray-700 max-w-3xl mx-auto">
-            Behind every successful NEET PG aspirant is a team of dedicated mentors. Meet the experts who will guide you through your journey.
+            Behind every successful NEET PG aspirant is a team of dedicated mentors. <br/> Meet the experts who will guide you through your journey.
           </p>
         </motion.div>
 
@@ -102,12 +102,7 @@ const MentorsSection: React.FC = () => {
                   <blockquote className="italic text-lg text-blue-800 border-l-4 border-teal-500 pl-4 mb-6">
                     "{mentor.quote}"
                   </blockquote>
-                  <a 
-                    href={`/mentors/${mentor.id}`}
-                    className="inline-block px-6 py-2 bg-teal-600 text-white rounded-lg font-semibold shadow hover:bg-teal-700 transition-colors"
-                  >
-                    View Profile
-                  </a>
+                 
                 </div>
               </div>
             </motion.div>

@@ -68,10 +68,10 @@ const TimelineSection: React.FC = () => {
 							>
 								{index % 2 === 0 && (
 									<>
-										<h3 className="text-lg md:text-xl font-bold text-blue-900 mb-2">
+										<h3 className="text-base md:text-lg font-bold text-blue-900 mb-2">
 											{item.title}
 										</h3>
-										<p className="text-gray-700 font-semibold">
+										<p className="text-sm text-gray-700 font-semibold">
 											{item.description}
 										</p>
 									</>
@@ -79,7 +79,7 @@ const TimelineSection: React.FC = () => {
 							</div>
 							{/* Year Circle */}
 							<div className="flex flex-col items-center md:w-0 w-full mb-4 md:mb-0">
-								<div className="flex items-center justify-center w-12 h-12 bg-blue-800 text-white rounded-full font-bold text-lg border-4 border-white shadow-md">
+								<div className="flex items-center justify-center w-16 h-12 bg-blue-800 text-white rounded-full font-bold text-lg border-4 border-white shadow-md">
 									{item.year}
 								</div>
 							</div>
@@ -91,10 +91,10 @@ const TimelineSection: React.FC = () => {
 							>
 								{index % 2 !== 0 && (
 									<>
-										<h3 className="text-lg md:text-xl font-bold text-blue-900 mb-2">
+										<h3 className="text-base md:text-lg font-bold text-blue-900 mb-2">
 											{item.title}
 										</h3>
-										<p className="text-gray-700 font-semibold">
+										<p className="text-sm text-gray-700 font-semibold">
 											{item.description}
 										</p>
 									</>
@@ -102,10 +102,10 @@ const TimelineSection: React.FC = () => {
 							</div>
 							{/* Mobile: always show content below year */}
 							<div className="w-full md:hidden text-center mt-4">
-								<h3 className="text-lg md:text-xl font-bold text-blue-900 mb-2">
+								<h3 className="text-base md:text-lg font-bold text-blue-900 mb-2">
 									{item.title}
 								</h3>
-								<p className="text-gray-700 font-semibold">
+								<p className="text-sm text-gray-700 font-semibold">
 									{item.description}
 								</p>
 							</div>
@@ -205,7 +205,7 @@ const TimelineSection: React.FC = () => {
 								isn’t just probable; it's inevitable.
 							</p>
 							<a
-								href="#about"
+								href="#mentors"
 								className="inline-block mt-2 px-6 py-2 bg-teal-600 text-white rounded-lg font-semibold shadow hover:bg-teal-700 transition-colors"
 							>
 								More About Dr. Lalla

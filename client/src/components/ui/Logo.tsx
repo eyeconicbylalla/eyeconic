@@ -8,7 +8,7 @@ const Logo: React.FC = () => {
         <Eye className="absolute text-teal-400" size={32} />
         <div className="absolute top-0 left-0 w-8 h-8 border-2 border-navy-900 rounded-full"></div>
       </div>
-      <span className="text-navy-900 font-bold text-xl">EYE-CONIC</span>
+      <span className="text-navy-900 font-bold text-xl">EyeConic</span>
     </a>
   );
 };

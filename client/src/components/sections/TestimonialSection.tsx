@@ -146,15 +146,7 @@ const TestimonialSection: React.FC = () => {
             </button>
           </div>
 
-          <div className="text-center mt-12">
-            <a
-              href="/testimonials"
-              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              View All Success Stories
-              <ChevronRight size={20} className="ml-2" />
-            </a>
-          </div>
+          
         </div>
       </div>
     </section>

@@ -5,7 +5,7 @@ import { ArrowRight } from 'lucide-react';
 const courses = [
   {
     id: 'arjuna',
-    title: 'Arjuna',
+    title: 'Arjun',
     subtitle: 'The Final Push for NEET PG Victory',
     description: 'Designed specifically for those who are in their final stage of NEET PG preparation, ready to sprint towards their dreams with precision and confidence.',
     highlights: [
@@ -22,7 +22,7 @@ const courses = [
   },
   {
     id: 'nurture',
-    title: 'Nurture 3.1',
+    title: 'Nurture',
     subtitle: 'Building Strong Foundations for NEET PG',
     description: 'Perfect for dedicated students in their mid-preparation phase who want to solidify concepts, build robust foundations, and systematically cover their syllabus without overwhelming pressure.',
     highlights: [
@@ -39,7 +39,7 @@ const courses = [
   },
   {
     id: 'foundation',
-    title: 'Foundation 2.1',
+    title: 'Foundation ',
     subtitle: 'Early Advantage for Future NEET PG Stars',
     description: 'Specially crafted for early-stage aspirants (2nd and 3rd-year MBBS students) who aim for an early, structured start in their NEET PG preparation journey.',
     highlights: [
@@ -118,14 +118,11 @@ const CoursesSection: React.FC = () => {
                   </ul>
                 </div>
                 <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 mt-6">
+                 
                   <a 
-                    href={`/courses/${course.id}`}
-                    className="btn bg-teal-600 text-white hover:bg-teal-700 transition-colors"
-                  >
-                    Learn More
-                  </a>
-                  <a 
-                    href={`/enroll/${course.id}`}
+                    href="https://docs.google.com/forms/d/e/1FAIpQLSccHeq1gUBguz8MYr4JGFzYFlsZeHCOsEq2BQ6g1chlvmkIuQ/viewform"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="btn bg-white border-2 border-teal-600 text-teal-600 hover:bg-teal-50 transition-colors flex items-center justify-center"
                   >
                     Enroll Now <ArrowRight size={16} className="ml-2" />

@@ -17,7 +17,7 @@ const faqs = [
   },
   {
     question: 'Can I join Eyeconic during my internship or MBBS?',
-    answer: 'Absolutely! We have separate programs for interns (Nurture 3.1), UG students (Foundation 2.1), and focused dropper prep (Arjuna).'
+    answer: 'Absolutely! We have separate programs for interns (Nurture ), UG students (Foundation), and focused dropper prep (Arjun).'
   },
   {
     question: 'Is this a one-time payment or monthly?',

@@ -152,9 +152,7 @@ const OfferingsSection: React.FC = () => {
                 <h3 className="text-2xl font-bold mb-4">{tabContent[activeTab].title}</h3>
                 <p className="text-gray-700">{tabContent[activeTab].description}</p>
                 
-                <div className="mt-6">
-                  <a href="#contact" className="btn btn-primary">Learn More</a>
-                </div>
+               
               </div>
             </div>
           </motion.div>

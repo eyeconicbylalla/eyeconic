@@ -53,35 +53,39 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose, onSignupSucc
         <form onSubmit={handleSignup} className="space-y-4">
           <input
             type="text"
-            className="w-full border border-teal-200 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500"
+            className="w-full border border-teal-200 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500 bg-transparent text-black"
             placeholder="Name"
             value={name}
             onChange={e => setName(e.target.value)}
             required
+            autoComplete="off"
           />
           <input
             type="email"
-            className="w-full border border-teal-200 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500"
+            className="w-full border border-teal-200 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500 bg-transparent text-black"
             placeholder="Email"
             value={email}
             onChange={e => setEmail(e.target.value)}
             required
+            autoComplete="off"
           />
           <input
             type="text"
-            className="w-full border border-teal-200 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500"
+            className="w-full border border-teal-200 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500 bg-transparent text-black"
             placeholder="Phone"
             value={phone}
             onChange={e => setPhone(e.target.value)}
             required
+            autoComplete="off"
           />
           <input
             type="password"
-            className="w-full border border-teal-200 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500"
+            className="w-full border border-teal-200 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500 bg-transparent text-black"
             placeholder="Password"
             value={password}
             onChange={e => setPassword(e.target.value)}
             required
+            autoComplete="off"
           />
           {error && <div className="text-red-600 text-sm text-center">{error}</div>}
           <button
@@ -92,7 +96,7 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose, onSignupSucc
             {loading ? 'Signing up...' : 'Sign Up'}
           </button>
         </form>
-        <div className="text-center mt-4 text-sm">
+        <div className="text-center mt-4 text-sm text-black">
           Already have an account?{' '}
           <button onClick={onSwitchToLogin} className="text-teal-700 font-semibold hover:underline">Login</button>
         </div>

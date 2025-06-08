@@ -220,14 +220,15 @@ const Dashboard: React.FC = () => {
                   </div>
                   {/* Add call-to-action line */}
                   <div className="mt-4">
-                    <HashLink
-                      to="/#contact"
-                      smooth
+                    <a
+                      href="https://forms.gle/CAa6xLNsjsdhJt5M7"
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="inline-block bg-gradient-to-r from-teal-500 to-blue-500 text-white font-semibold px-4 py-2 rounded-lg shadow hover:from-teal-600 hover:to-blue-600 transition-colors text-base"
                       style={{ borderLeft: '5px solid #14b8a6' }}
                     >
                       🚀 Want to boost your GT score even more? <span className="underline">Book a free call now!</span>
-                    </HashLink>
+                    </a>
                   </div>
 
                 </div>

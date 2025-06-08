@@ -4,7 +4,7 @@ import { Calendar } from 'lucide-react';
 
 const CTASection: React.FC = () => {
   return (
-    <section id="contact" className="py-20 bg-gradient-to-r from-teal-500 to-teal-600 text-white">
+    <section id="contact" className="py-20 bg-gradient-to-r from-teal-900 to-teal-500 text-white">
       <div className="container mx-auto px-4">
         <div className="flex flex-col lg:flex-row items-center justify-between">
           <motion.div 
@@ -14,9 +14,9 @@ const CTASection: React.FC = () => {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready for a Transformation?</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">Ready for a Transformation?</h2>
             <p className="text-xl text-teal-50 mb-6">
-              Take the first step towards achieving your dream medical seat. 
+              Take the first step towards achieving your dream medical seat. <br/>
               Book a free consultation with our mentors to discuss your preparation journey.
             </p>
             <ul className="mb-8 space-y-2">
@@ -45,10 +45,17 @@ const CTASection: React.FC = () => {
             <div className="bg-white p-8 rounded-lg shadow-lg text-gray-800">
               <h3 className="text-2xl font-bold mb-6 text-center text-navy-900">Book Your Free Session</h3>
               
-              <button className="w-full bg-teal-500 hover:bg-teal-600 text-white py-4 rounded-lg mb-6 flex items-center justify-center transition-colors">
-                <Calendar className="mr-2" />
-                Book a Call
-              </button>
+              <a
+                href="https://forms.gle/CAa6xLNsjsdhJt5M7"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full block"
+              >
+                <button className="w-full bg-teal-500 hover:bg-teal-600 text-white py-4 rounded-lg mb-6 flex items-center justify-center transition-colors">
+                  <Calendar className="mr-2" />
+                  Book a Call
+                </button>
+              </a>
               
               <p className="text-sm text-gray-500 text-center">
                 No obligation, just a friendly conversation to help you succeed.

@@ -46,7 +46,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
         <form onSubmit={handleLogin} className="space-y-4">
           <input
             type="email"
-            className="w-full border border-teal-200 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500"
+            className="w-full border border-teal-200 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500 bg-transparent text-black"
             placeholder="Email"
             value={email}
             onChange={e => setEmail(e.target.value)}
@@ -54,7 +54,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
           />
           <input
             type="password"
-            className="w-full border border-teal-200 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500"
+            className="w-full border border-teal-200 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500 bg-transparent text-black"
             placeholder="Password"
             value={password}
             onChange={e => setPassword(e.target.value)}
@@ -69,7 +69,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
-        <div className="text-center mt-4 text-sm">
+        <div className="text-center mt-4 text-sm text-black">
           Don't have an account?{' '}
           <button onClick={onSwitchToSignup} className="text-teal-700 font-semibold hover:underline">Sign up</button>
         </div>

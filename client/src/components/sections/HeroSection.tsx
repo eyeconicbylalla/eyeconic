@@ -1,10 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
+import SignupModal from '../auth/SignupModal';
+import LoginModal from '../auth/LoginModal';
 
 const HeroSection: React.FC = () => {
+  // Check if user is logged in
+  const isLoggedIn = Boolean(localStorage.getItem('token'));
+  const [signupOpen, setSignupOpen] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
+
   return (
-    <section id="home" className="pt-28 pb-20 bg-teal-500 text-white">
+    <section id="home" className="pt-28 pb-20 bg-gradient-to-b from-teal-900 to-teal-500 text-white">
       <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row items-center">
           <motion.div 
@@ -13,7 +20,7 @@ const HeroSection: React.FC = () => {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
+            <h1 className="text-white text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
               Transform Your Academic Journey with Expert Mentorship
             </h1>
             <p className="text-lg md:text-xl mb-8 text-teal-50">
@@ -27,6 +34,12 @@ const HeroSection: React.FC = () => {
               <a href="#about" className="btn bg-transparent border border-white hover:bg-teal-400 transition-colors flex items-center scroll-smooth">
                 Know More <ArrowRight size={16} className="ml-2" />
               </a>
+            </div>
+            <div className="mt-4 flex items-center">
+              <div className="bg-white p-4 rounded-lg shadow-lg border border-teal-200 flex items-center">
+                <div className="bg-green-500 h-3 w-3 rounded-full mr-2"></div>
+                <span className="text-teal-600 font-bold">98% Success Rate</span>
+              </div>
             </div>
             <div className="mt-8 flex items-center">
               <img 
@@ -54,14 +67,45 @@ const HeroSection: React.FC = () => {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
           >
-            <div className="relative">
-              
-              <div className="absolute -bottom-5 -left-5 bg-white p-4 rounded-lg shadow-lg border border-teal-200">
-                <div className="flex items-center">
-                  <div className="bg-green-500 h-3 w-3 rounded-full mr-2"></div>
-                  <span className="text-teal-600 font-bold">98% Success Rate</span>
+            <div className="relative flex flex-col items-center justify-center h-full min-h-[300px]">
+              {!isLoggedIn && (
+                <div className="bg-white bg-opacity-90 rounded-xl shadow-lg border border-teal-200 p-6 text-center max-w-md mx-auto">
+                  <h3 className="text-xl font-bold text-teal-700 mb-2">Unlock Free NEET PG Tools!</h3>
+                  <p className="text-teal-800 mb-4">
+                    <span className="font-semibold">Sign up to access:</span>
+                    <ul className="list-disc list-inside text-teal-700 mt-2 mb-2 text-left">
+                      <li>Free GT Score Predictor</li>
+                      <li>Exclusive NEET PG Resources</li>
+                      <li>Personalized Dashboard</li>
+                    </ul>
+                  </p>
+                  <button
+                    className="bg-teal-600 hover:bg-teal-700 text-white font-semibold px-6 py-2 rounded-lg shadow transition-colors"
+                    type="button"
+                    onClick={() => setSignupOpen(true)}
+                  >
+                    Sign Up Now
+                  </button>
                 </div>
-              </div>
+              )}
+              <SignupModal
+                isOpen={signupOpen}
+                onClose={() => setSignupOpen(false)}
+                onSignupSuccess={() => window.location.reload()}
+                onSwitchToLogin={() => {
+                  setSignupOpen(false);
+                  setLoginOpen(true);
+                }}
+              />
+              <LoginModal
+                isOpen={loginOpen}
+                onClose={() => setLoginOpen(false)}
+                onLoginSuccess={() => window.location.reload()}
+                onSwitchToSignup={() => {
+                  setLoginOpen(false);
+                  setSignupOpen(true);
+                }}
+              />
             </div>
           </motion.div>
         </div>

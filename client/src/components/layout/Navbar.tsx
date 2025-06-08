@@ -36,7 +36,7 @@ const Navbar: React.FC = () => {
       <div className="container mx-auto px-4 flex items-center justify-between">
         <Link to="/" className="flex items-center space-x-2 text-2xl font-bold text-teal-700">
           <img src={logo} alt="Eyeconic Logo" className="h-8 w-8 object-contain" />
-          <span>Eyeconic</span>
+          <span>EyeConic</span>
         </Link>
         <div className="hidden md:flex items-center space-x-8">
           <ul className="flex space-x-8">
@@ -80,7 +80,14 @@ const Navbar: React.FC = () => {
               </button>
             )
           )}
-          <a href="/#contact" className="btn btn-primary">Book a Call</a>
+          <a
+            href="https://forms.gle/CAa6xLNsjsdhJt5M7"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-primary"
+          >
+            Book a Call
+          </a>
         </div>
         <button
           className="md:hidden text-gray-700"
@@ -134,7 +141,14 @@ const Navbar: React.FC = () => {
                   </button>
                 )
               )}
-              <a href="#contact" className="btn btn-primary w-full text-center">Book a Call</a>
+              <a
+                href="https://forms.gle/CAa6xLNsjsdhJt5M7"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-primary w-full text-center"
+              >
+                Book a Call
+              </a>
             </div>
           </div>
         </div>
