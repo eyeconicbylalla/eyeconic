@@ -3,8 +3,11 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const nodemailer = require('nodemailer');
 
 const router = express.Router();
+
+const emailOtps = {}; // In-memory store: { email: { otp, expires } }
 
 // Signup
 router.post('/signup', async (req, res) => {
@@ -144,6 +147,55 @@ router.delete('/admin/student/:id', async (req, res) => {
   } catch (err) {
     res.status(500).send('Server error');
   }
+});
+
+// Send Email OTP
+router.post('/send-email-otp', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ msg: 'Email is required' });
+
+  // Generate 6-digit OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  emailOtps[email] = { otp, expires: Date.now() + 10 * 60 * 1000 }; // 10 min expiry
+
+  // Configure nodemailer
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.GMAIL_USER, // set in .env
+      pass: process.env.GMAIL_PASS  // set in .env
+    }
+  });
+
+  const mailOptions = {
+    from: process.env.GMAIL_USER,
+    to: email,
+    subject: 'Eyeconic Email OTP Verification',
+    text: `Your OTP for Eyeconic signup is: ${otp}`
+  };
+
+  try {
+    await transporter.verify();
+    await transporter.sendMail(mailOptions);
+    res.json({ msg: 'OTP sent to email' });
+  } catch (err) {
+    // Removed console.error for production
+    res.status(500).json({ msg: 'Failed to send OTP', error: err.message });
+  }
+});
+
+// Verify Email OTP
+router.post('/verify-email-otp', (req, res) => {
+  const { email, otp } = req.body;
+  const record = emailOtps[email];
+  if (!record) return res.status(400).json({ msg: 'No OTP sent to this email' });
+  if (Date.now() > record.expires) {
+    delete emailOtps[email];
+    return res.status(400).json({ msg: 'OTP expired' });
+  }
+  if (record.otp !== otp) return res.status(400).json({ msg: 'Invalid OTP' });
+  delete emailOtps[email];
+  res.json({ msg: 'OTP verified' });
 });
 
 module.exports = router;

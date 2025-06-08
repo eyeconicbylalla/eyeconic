@@ -71,14 +71,14 @@ const HeroSection: React.FC = () => {
               {!isLoggedIn && (
                 <div className="bg-white bg-opacity-90 rounded-xl shadow-lg border border-teal-200 p-6 text-center max-w-md mx-auto">
                   <h3 className="text-xl font-bold text-teal-700 mb-2">Unlock Free NEET PG Tools!</h3>
-                  <p className="text-teal-800 mb-4">
+                  <p className="text-teal-800 mb-2">
                     <span className="font-semibold">Sign up to access:</span>
-                    <ul className="list-disc list-inside text-teal-700 mt-2 mb-2 text-left">
-                      <li>Free GT Score Predictor</li>
-                      <li>Exclusive NEET PG Resources</li>
-                      <li>Personalized Dashboard</li>
-                    </ul>
                   </p>
+                  <ul className="list-disc list-inside text-teal-700 mt-2 mb-4 text-left">
+                    <li>Free GT Score Predictor</li>
+                    <li>Exclusive NEET PG Resources</li>
+                    <li>Personalized Dashboard</li>
+                  </ul>
                   <button
                     className="bg-teal-600 hover:bg-teal-700 text-white font-semibold px-6 py-2 rounded-lg shadow transition-colors"
                     type="button"
