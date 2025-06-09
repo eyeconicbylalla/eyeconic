@@ -2,6 +2,10 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import lalla from '../../assets/DR LALLA.png';
 import chandan from '../../assets/Chandan.png';
+import vishwas_arora from '../../assets/vishwas_arora.png';
+import manvika_tiwari from '../../assets/manvika tiwari.png';
+import michelle from '../../assets/michelle.png';
+
 
 const mentors = [
   {
@@ -33,7 +37,43 @@ At Eyeconic, he works directly with Dr. Gourav Lalla and closely mentors our dyn
     ],
     quote: "The right structure unlocks the highest potential. At Eyeconic, we're not just managing operations—we're nurturing future doctors, and that deserves excellence at every level.",
     image: chandan
-  }
+  },
+  {
+  id: 'dr-vishwas-arora',
+  name: 'Dr. Vishwas Arora',
+  title: 'Internal Medicine Resident | Mentor',
+  description: 'Dr. Vishwas Arora is a Internal Medicine resident at KB Bhabha Hospital Mumbai and a gold-medalist Best MBBS graduate with honours across multiple subjects.',
+  longDescription: `Dr. Arora began his medical journey at JNIMS Imphal in 2017, consistently ranking at the top of his class and earning the Best MBBS Graduate Award. He graduated with honours in Pathology, Microbiology, Pharmacology, Community Medicine, and Medicine, along with distinctions in Forensic Medicine & Toxicology and Obstetrics & Gynaecology.
+
+After completing his internship, he commenced NEET-PG preparation in 2023 under the guidance of DAMS and Dr. Gourav Lalla. Their exceptional mentorship, constant motivation, and unwavering support propelled him to secure a rank of 996 in INICET (November) and 6027 in NEET-PG 2024. Today, he channels that same dedication into mentoring the next generation of medical aspirants.`,
+  quote: "Guidance coupled with dedication turns ambition into achievement.",
+  image:vishwas_arora
+},
+{
+  id: 'dr-manvika-tiwari',
+  name: 'Dr. Manvika Tiwari',
+  title: 'DNB Internal Medicine Resident | Mentor',
+  description: 'Dr. Manvika Tiwari is a DNB Internal Medicine resident and NEET PG achiever who brings firsthand insight into overcoming the challenges of competing from a private medical college.',
+  longDescription: `After cracking NEET PG, Dr. Manvika Tiwari embarked on her DNB journey in Internal Medicine. Having graduated MBBS from a private institution herself, she knows the extra hurdles aspirants face when vying for top institutions. Through her own experience with Eyeconic’s strategic academic planning and confidence-building approach, she transformed doubt into determination.
+
+As a mentor, she’s dedicated to sharing her hard-earned knowledge and practical strategies—guiding mentees step-by-step, offering moral support, and tailoring advice to individual strengths. Dr. Tiwari’s empathy, coupled with her proven study frameworks, ensures students not only achieve their target ranks but also grow in resilience and self-belief throughout their preparation.`,
+  quote: "With the right plan and support, every challenge becomes an opportunity.",
+  image:manvika_tiwari
+},
+{
+  id: 'dr-michelle',
+  name: 'Dr. Michelle',
+  title: 'MD Paediatrics Resident | Mentor',
+  description: 'Dr. Michelle is an MD Paediatrics candidate at GMCH Chandigarh whose early fascination with the human body led her to clear NEET-UG in her first attempt and earn her MBBS from GMC Nahan with distinction.',
+  longDescription: `Balancing academics with a vibrant array of extracurriculars, Dr. Michelle’s journey has always been “learning through practice.” In her initial MBBS years, she focused on strategic observation; in the latter half, she honed her clinical skills and mastered core medical texts guided by hands-on experience. Near the end of her final year, she earned her IAP-BLS certification and graduated with distinction in multiple subjects, including Paediatrics.
+
+After MBBS, she served as a non-academic junior resident in the Department of Medicine, where her dedication and patient care were highly appreciated—fueling her decision to pursue postgraduate studies. Outside the hospital, Dr. Michelle is formally trained in Indian classical dance and stays balanced through adventure sports like diving, kayaking, trekking, ziplining, and camping. On quieter days, she channels her creativity into painting.
+
+Starting NEET-PG prep in July 2023, she built a strong foundation in basic sciences and past-year question analysis under mentors like Dr. Zainab Vora and Dr. Gourav Lalla. Her perseverance paid off with a NEET-PG 2024 rank of 4703. Driven by a passion for paediatric care and a desire to empower others, she now dedicates herself to guiding early-career aspirants through the challenges of medical entrance exams.`,
+  quote: "Learning through practice transforms knowledge into healing.",
+  image: michelle
+}
+
 ];
 
 const MentorsSection: React.FC = () => {
