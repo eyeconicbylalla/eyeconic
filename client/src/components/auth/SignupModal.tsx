@@ -16,52 +16,13 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose, onSignupSucc
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [emailOtpSent, setEmailOtpSent] = useState(false);
-  const [emailOtp, setEmailOtp] = useState('');
-  const [emailOtpVerified, setEmailOtpVerified] = useState(false);
-  const [emailOtpError, setEmailOtpError] = useState('');
-
-  // Email OTP
-  const handleSendEmailOtp = async () => {
-    setEmailOtpError('');
-    if (!email) {
-      setEmailOtpError('Enter a valid email');
-      return;
-    }
-    try {
-      await axios.post(`${API_BASE_URL}/auth/send-email-otp`, { email });
-      setEmailOtpSent(true);
-    } catch (err: any) {
-      setEmailOtpError(err.response?.data?.msg || 'Failed to send OTP');
-    }
-  };
-
-  const handleVerifyEmailOtp = async () => {
-    setEmailOtpError('');
-    if (!emailOtp) {
-      setEmailOtpError('Enter the OTP sent to your email');
-      return;
-    }
-    try {
-      await axios.post(`${API_BASE_URL}/auth/verify-email-otp`, { email, otp: emailOtp });
-      setEmailOtpVerified(true);
-    } catch (err: any) {
-      setEmailOtpError(err.response?.data?.msg || 'Invalid OTP');
-    }
-  };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    setEmailOtpError('');
     if (!name || !email || !phone || !password) {
       setError('All fields are required');
-      setLoading(false);
-      return;
-    }
-    if (!emailOtpVerified) {
-      setEmailOtpError('Please verify your email');
       setLoading(false);
       return;
     }
@@ -95,48 +56,15 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose, onSignupSucc
             required
             autoComplete="off"
           />
-          <div className="flex gap-2">
-            <input
-              type="email"
-              className="w-full border border-teal-200 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500 bg-transparent text-black"
-              placeholder="Email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              autoComplete="off"
-              disabled={emailOtpVerified}
-            />
-            <button
-              type="button"
-              className="bg-teal-500 text-white px-3 py-2 rounded-lg font-semibold hover:bg-teal-600 transition-colors"
-              onClick={handleSendEmailOtp}
-              disabled={emailOtpSent || emailOtpVerified}
-            >
-              {emailOtpVerified ? 'Verified' : emailOtpSent ? 'OTP Sent' : 'Send OTP'}
-            </button>
-          </div>
-          {emailOtpSent && !emailOtpVerified && (
-            <div className="flex gap-2">
-              <input
-                type="text"
-                className="w-full border border-teal-200 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500 bg-transparent text-black"
-                placeholder="Enter Email OTP"
-                value={emailOtp}
-                onChange={e => setEmailOtp(e.target.value)}
-                required
-                autoComplete="off"
-                maxLength={6}
-              />
-              <button
-                type="button"
-                className="bg-teal-500 text-white px-3 py-2 rounded-lg font-semibold hover:bg-teal-600 transition-colors"
-                onClick={handleVerifyEmailOtp}
-              >
-                Verify
-              </button>
-            </div>
-          )}
-          {emailOtpError && <div className="text-red-600 text-sm text-center">{emailOtpError}</div>}
+          <input
+            type="email"
+            className="w-full border border-teal-200 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500 bg-transparent text-black"
+            placeholder="Email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+            autoComplete="off"
+          />
           <input
             type="text"
             className="w-full border border-teal-200 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500 bg-transparent text-black"
