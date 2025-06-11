@@ -27,7 +27,7 @@ His approach combines meticulous strategy, empathetic mentorship, and motivation
     description: 'With over four decades of leadership experience as the Senior Vice President at UTI Mutual Fund, Mr. Chandan brings a legacy of discipline, foresight, and operational excellence to Eyeconic.',
     longDescription: `Having led high-stakes financial operations at one of India's premier institutions, Mr. Chandan is no stranger to performance under pressure. His experience in managing teams, streamlining workflows, and ensuring consistent output is now being channelled into building one of the most efficient and student-centered academic ops teams in the country.
 
-At Eyeconic, he works directly with Dr. Gourav Lalla and closely mentors our dynamic Operations Head, Kritika, bringing structure, guidance, and the calm confidence of a seasoned veteran to every decision made.`,
+At Eyeconic, he works directly with Dr. Gourav Lalla bringing structure, guidance, and the calm confidence of a seasoned veteran to every decision made.`,
     specialties: [
       'Decades of top-tier operational leadership',
       'A mentor\'s mindset with a strategist\'s clarity',
