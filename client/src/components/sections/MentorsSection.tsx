@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import lalla from '../../assets/DR LALLA.png';
 import chandan from '../../assets/Chandan.png';
 import vishwas_arora from '../../assets/vishwas_arora.png';
-import manvika_tiwari from '../../assets/manvika tiwari.png';
+// import manvika_tiwari from '../../assets/manvika tiwari.png';
 import michelle from '../../assets/michelle.png';
 import jwalant_chag from '../../assets/Jwalant.png'; // Add the image to your assets folder
 
@@ -50,17 +50,17 @@ After completing his internship, he commenced NEET-PG preparation in 2023 under 
   quote: "Guidance coupled with dedication turns ambition into achievement.",
   image:vishwas_arora
 },
-{
-  id: 'dr-manvika-tiwari',
-  name: 'Dr. Manvika Tiwari',
-  title: 'DNB Internal Medicine Resident | Mentor',
-  description: 'Dr. Manvika Tiwari is a DNB Internal Medicine resident and NEET PG achiever who brings firsthand insight into overcoming the challenges of competing from a private medical college.',
-  longDescription: `After cracking NEET PG, Dr. Manvika Tiwari embarked on her DNB journey in Internal Medicine. Having graduated MBBS from a private institution herself, she knows the extra hurdles aspirants face when vying for top institutions. Through her own experience with Eyeconic’s strategic academic planning and confidence-building approach, she transformed doubt into determination.
+// {
+//   id: 'dr-manvika-tiwari',
+//   name: 'Dr. Manvika Tiwari',
+//   title: 'DNB Internal Medicine Resident | Mentor',
+//   description: 'Dr. Manvika Tiwari is a DNB Internal Medicine resident and NEET PG achiever who brings firsthand insight into overcoming the challenges of competing from a private medical college.',
+//   longDescription: `After cracking NEET PG, Dr. Manvika Tiwari embarked on her DNB journey in Internal Medicine. Having graduated MBBS from a private institution herself, she knows the extra hurdles aspirants face when vying for top institutions. Through her own experience with Eyeconic’s strategic academic planning and confidence-building approach, she transformed doubt into determination.
 
-As a mentor, she’s dedicated to sharing her hard-earned knowledge and practical strategies—guiding mentees step-by-step, offering moral support, and tailoring advice to individual strengths. Dr. Tiwari’s empathy, coupled with her proven study frameworks, ensures students not only achieve their target ranks but also grow in resilience and self-belief throughout their preparation.`,
-  quote: "With the right plan and support, every challenge becomes an opportunity.",
-  image:manvika_tiwari
-},
+// As a mentor, she’s dedicated to sharing her hard-earned knowledge and practical strategies—guiding mentees step-by-step, offering moral support, and tailoring advice to individual strengths. Dr. Tiwari’s empathy, coupled with her proven study frameworks, ensures students not only achieve their target ranks but also grow in resilience and self-belief throughout their preparation.`,
+//   quote: "With the right plan and support, every challenge becomes an opportunity.",
+//   image:manvika_tiwari
+// },
 {
   id: 'dr-michelle',
   name: 'Dr. Michelle',
