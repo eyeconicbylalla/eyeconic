@@ -20,6 +20,21 @@ His approach combines meticulous strategy, empathetic mentorship, and motivation
     quote: "Your potential is limitless when matched with the right guidance. Let's unleash it together.",
     image: lalla
   },
+  {
+    id: 'dr-jwalant-chag',
+    name: 'Dr. Jwalant Chag',
+    title: 'MD Psychiatry | Mental Health Lead | Eyeconic by Dr. Lalla',
+    description: `When the mind wavers, the syllabus won’t wait — and that’s where Dr. Jwalant Chag steps in.`,
+    longDescription: `A qualified psychiatrist with an MD in Psychiatry, Dr. Jwalant isn’t just a doctor — he’s the mental backbone of Eyeconic. As our Mental Health & Wellness Lead, he works at the very intersection where academic pressure meets emotional burnout. With years of clinical experience in understanding the human mind, he now applies that insight to guide NEET PG aspirants through the chaos of competitive prep.
+
+Be it crippling anxiety before a Grand Test, guilt from taking a break, exam-day panic attacks, or even long-term issues like chronic stress, poor sleep, or imposter syndrome — Dr. Jwalant handles it all. From curated wellness check-ins and mental conditioning sessions, to helping aspirants build emotional resilience, he ensures that students don’t just study hard, but also live well while doing it.
+
+His motto is simple: “A stable mind is your most underrated prep strategy.”
+
+At Eyeconic, he’s not just treating minds — he’s building warriors, one calm brain at a time.`,
+    quote: "A stable mind is your most underrated prep strategy.",
+    image: jwalant_chag
+  },
 
   {
     id: 'mr-chandan',
@@ -74,21 +89,7 @@ Starting NEET-PG prep in July 2023, she built a strong foundation in basic scien
   quote: "Learning through practice transforms knowledge into healing.",
   image: michelle
 },
-{
-    id: 'dr-jwalant-chag',
-    name: 'Dr. Jwalant Chag',
-    title: 'MD Psychiatry | Mental Health Lead | Eyeconic by Dr. Lalla',
-    description: `When the mind wavers, the syllabus won’t wait — and that’s where Dr. Jwalant Chag steps in.`,
-    longDescription: `A qualified psychiatrist with an MD in Psychiatry, Dr. Jwalant isn’t just a doctor — he’s the mental backbone of Eyeconic. As our Mental Health & Wellness Lead, he works at the very intersection where academic pressure meets emotional burnout. With years of clinical experience in understanding the human mind, he now applies that insight to guide NEET PG aspirants through the chaos of competitive prep.
 
-Be it crippling anxiety before a Grand Test, guilt from taking a break, exam-day panic attacks, or even long-term issues like chronic stress, poor sleep, or imposter syndrome — Dr. Jwalant handles it all. From curated wellness check-ins and mental conditioning sessions, to helping aspirants build emotional resilience, he ensures that students don’t just study hard, but also live well while doing it.
-
-His motto is simple: “A stable mind is your most underrated prep strategy.”
-
-At Eyeconic, he’s not just treating minds — he’s building warriors, one calm brain at a time.`,
-    quote: "A stable mind is your most underrated prep strategy.",
-    image: jwalant_chag
-  }
 ];
 
 const MentorsSection: React.FC = () => {
