@@ -9,6 +9,10 @@ const router = express.Router();
 
 const emailOtps = {}; // In-memory store: { email: { otp, expires } }
 
+router.get('/cronn', async (req, res) => {
+  return res.status(200).json({msg: "success cron job"})
+})
+
 // Signup
 router.post('/signup', async (req, res) => {
   const { name, email, phone, password } = req.body;
