@@ -2,6 +2,11 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import lalla from '../../assets/DR LALLA.png';
 import chandan from '../../assets/Chandan.png';
+import vishwas_arora from '../../assets/vishwas_arora.png';
+// import manvika_tiwari from '../../assets/manvika tiwari.png';
+import michelle from '../../assets/michelle.png';
+import jwalant_chag from '../../assets/Jwalant.png'; // Add the image to your assets folder
+
 
 const mentors = [
   {
@@ -15,6 +20,21 @@ His approach combines meticulous strategy, empathetic mentorship, and motivation
     quote: "Your potential is limitless when matched with the right guidance. Let's unleash it together.",
     image: lalla
   },
+  {
+    id: 'dr-jwalant-chag',
+    name: 'Dr. Jwalant Chag',
+    title: 'MD Psychiatry | Mental Health Lead | Eyeconic by Dr. Lalla',
+    description: `When the mind wavers, the syllabus won’t wait — and that’s where Dr. Jwalant Chag steps in.`,
+    longDescription: `A qualified psychiatrist with an MD in Psychiatry, Dr. Jwalant isn’t just a doctor — he’s the mental backbone of Eyeconic. As our Mental Health & Wellness Lead, he works at the very intersection where academic pressure meets emotional burnout. With years of clinical experience in understanding the human mind, he now applies that insight to guide NEET PG aspirants through the chaos of competitive prep.
+
+Be it crippling anxiety before a Grand Test, guilt from taking a break, exam-day panic attacks, or even long-term issues like chronic stress, poor sleep, or imposter syndrome — Dr. Jwalant handles it all. From curated wellness check-ins and mental conditioning sessions, to helping aspirants build emotional resilience, he ensures that students don’t just study hard, but also live well while doing it.
+
+His motto is simple: “A stable mind is your most underrated prep strategy.”
+
+At Eyeconic, he’s not just treating minds — he’s building warriors, one calm brain at a time.`,
+    quote: "A stable mind is your most underrated prep strategy.",
+    image: jwalant_chag
+  },
 
   {
     id: 'mr-chandan',
@@ -23,7 +43,7 @@ His approach combines meticulous strategy, empathetic mentorship, and motivation
     description: 'With over four decades of leadership experience as the Senior Vice President at UTI Mutual Fund, Mr. Chandan brings a legacy of discipline, foresight, and operational excellence to Eyeconic.',
     longDescription: `Having led high-stakes financial operations at one of India's premier institutions, Mr. Chandan is no stranger to performance under pressure. His experience in managing teams, streamlining workflows, and ensuring consistent output is now being channelled into building one of the most efficient and student-centered academic ops teams in the country.
 
-At Eyeconic, he works directly with Dr. Gourav Lalla and closely mentors our dynamic Operations Head, Kritika, bringing structure, guidance, and the calm confidence of a seasoned veteran to every decision made.`,
+At Eyeconic, he works directly with Dr. Gourav Lalla bringing structure, guidance, and the calm confidence of a seasoned veteran to every decision made.`,
     specialties: [
       'Decades of top-tier operational leadership',
       'A mentor\'s mindset with a strategist\'s clarity',
@@ -33,7 +53,43 @@ At Eyeconic, he works directly with Dr. Gourav Lalla and closely mentors our dyn
     ],
     quote: "The right structure unlocks the highest potential. At Eyeconic, we're not just managing operations—we're nurturing future doctors, and that deserves excellence at every level.",
     image: chandan
-  }
+  },
+  {
+  id: 'dr-vishwas-arora',
+  name: 'Dr. Vishwas Arora',
+  title: 'Internal Medicine Resident | Mentor',
+  description: 'Dr. Vishwas Arora is a Internal Medicine resident at KB Bhabha Hospital Mumbai and a gold-medalist Best MBBS graduate with honours across multiple subjects.',
+  longDescription: `Dr. Arora began his medical journey at JNIMS Imphal in 2017, consistently ranking at the top of his class and earning the Best MBBS Graduate Award. He graduated with honours in Pathology, Microbiology, Pharmacology, Community Medicine, and Medicine, along with distinctions in Forensic Medicine & Toxicology and Obstetrics & Gynaecology.
+
+After completing his internship, he commenced NEET-PG preparation in 2023 under the guidance of DAMS and Dr. Gourav Lalla. Their exceptional mentorship, constant motivation, and unwavering support propelled him to secure a rank of 996 in INICET (November) and 6027 in NEET-PG 2024. Today, he channels that same dedication into mentoring the next generation of medical aspirants.`,
+  quote: "Guidance coupled with dedication turns ambition into achievement.",
+  image:vishwas_arora
+},
+// {
+//   id: 'dr-manvika-tiwari',
+//   name: 'Dr. Manvika Tiwari',
+//   title: 'DNB Internal Medicine Resident | Mentor',
+//   description: 'Dr. Manvika Tiwari is a DNB Internal Medicine resident and NEET PG achiever who brings firsthand insight into overcoming the challenges of competing from a private medical college.',
+//   longDescription: `After cracking NEET PG, Dr. Manvika Tiwari embarked on her DNB journey in Internal Medicine. Having graduated MBBS from a private institution herself, she knows the extra hurdles aspirants face when vying for top institutions. Through her own experience with Eyeconic’s strategic academic planning and confidence-building approach, she transformed doubt into determination.
+
+// As a mentor, she’s dedicated to sharing her hard-earned knowledge and practical strategies—guiding mentees step-by-step, offering moral support, and tailoring advice to individual strengths. Dr. Tiwari’s empathy, coupled with her proven study frameworks, ensures students not only achieve their target ranks but also grow in resilience and self-belief throughout their preparation.`,
+//   quote: "With the right plan and support, every challenge becomes an opportunity.",
+//   image:manvika_tiwari
+// },
+{
+  id: 'dr-michelle',
+  name: 'Dr. Michelle',
+  title: 'MD Paediatrics Resident | Mentor',
+  description: 'Dr. Michelle is an MD Paediatrics candidate at GMCH Chandigarh whose early fascination with the human body led her to clear NEET-UG in her first attempt and earn her MBBS from GMC Nahan with distinction.',
+  longDescription: `Balancing academics with a vibrant array of extracurriculars, Dr. Michelle’s journey has always been “learning through practice.” In her initial MBBS years, she focused on strategic observation; in the latter half, she honed her clinical skills and mastered core medical texts guided by hands-on experience. Near the end of her final year, she earned her IAP-BLS certification and graduated with distinction in multiple subjects, including Paediatrics.
+
+After MBBS, she served as a non-academic junior resident in the Department of Medicine, where her dedication and patient care were highly appreciated—fueling her decision to pursue postgraduate studies. Outside the hospital, Dr. Michelle is formally trained in Indian classical dance and stays balanced through adventure sports like diving, kayaking, trekking, ziplining, and camping. On quieter days, she channels her creativity into painting.
+
+Starting NEET-PG prep in July 2023, she built a strong foundation in basic sciences and past-year question analysis under mentors like Dr. Zainab Vora and Dr. Gourav Lalla. Her perseverance paid off with a NEET-PG 2024 rank of 4703. Driven by a passion for paediatric care and a desire to empower others, she now dedicates herself to guiding early-career aspirants through the challenges of medical entrance exams.`,
+  quote: "Learning through practice transforms knowledge into healing.",
+  image: michelle
+},
+
 ];
 
 const MentorsSection: React.FC = () => {
