@@ -55,10 +55,10 @@ const Footer: React.FC = () => {
           <div>
             <h4 className="text-white font-bold text-lg mb-6">Contact Us</h4>
             <ul className="space-y-4">
-              <li className="flex items-start">
+              {/* <li className="flex items-start">
                 <MapPin size={20} className="mr-2 mt-1 flex-shrink-0" />
                 <span>Jaipur, India</span>
-              </li>
+              </li> */}
               <li className="flex items-center">
                 <Mail size={20} className="mr-2 flex-shrink-0" />
                 <span>eyeconiclalla@gmail.com</span>
