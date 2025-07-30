@@ -53,7 +53,7 @@ const TimelineSection: React.FC = () => {
 				</div>
 				<div className="relative flex flex-col items-center mt-16">
 					{/* Timeline Line */}
-					<div className="absolute left-1/2 top-0 bottom-0 w-1 bg-teal-200 -translate-x-1/2 z-0"></div>
+					<div className="absolute left-1/2 top-0 bottom-0 w-1 bg-teal-200 -translate-x-1/2 z-0 md:block hidden"></div>
 					{/* Timeline Items */}
 					{timelineItems.map((item, index) => (
 						<div
@@ -77,9 +77,11 @@ const TimelineSection: React.FC = () => {
 									</>
 								)}
 							</div>
-							{/* Year Circle */}
-							<div className="flex flex-col items-center md:w-0 w-full mb-4 md:mb-0">
-								<div className="flex items-center justify-center w-16 h-12 bg-blue-800 text-white rounded-full font-bold text-lg border-4 border-white shadow-md">
+							{/* Year Circle and vertical line for mobile */}
+							<div className="flex flex-col items-center md:w-0 w-full mb-4 md:mb-0 relative">
+								{/* Vertical line for mobile */}
+								<div className="absolute left-1/2 top-0 bottom-0 w-1 bg-teal-200 -translate-x-1/2 z-0 md:hidden" style={{height: '100%'}}></div>
+								<div className="flex items-center justify-center w-16 h-12 bg-blue-800 text-white rounded-full font-bold text-lg border-4 border-white shadow-md z-10">
 									{item.year}
 								</div>
 							</div>
@@ -101,8 +103,8 @@ const TimelineSection: React.FC = () => {
 								)}
 							</div>
 							{/* Mobile: always show content below year */}
-							<div className="w-full md:hidden text-center mt-4">
-								<h3 className="text-base md:text-lg font-bold text-blue-900 mb-2">
+							<div className="w-full md:hidden text-center mt-4 px-2">
+								<h3 className="text-base font-bold text-blue-900 mb-2">
 									{item.title}
 								</h3>
 								<p className="text-sm text-gray-700 font-semibold">
@@ -146,17 +148,15 @@ const TimelineSection: React.FC = () => {
 						mentorship, focused preparation, and unparalleled support.
 					</motion.p>
 					<div className="grid md:grid-cols-2 gap-8 items-start max-w-4xl mx-auto">
-						<div>
-							<h3 className="text-xl font-semibold  mb-4">
-								Our Mission
-							</h3>
-							<p className="text-teal-900 mb-6">
+						<div className="mt-5">
+							<h3 className="text-xl font-semibold mb-4 md:text-center">Our Mission</h3>
+							<p className="text-teal-900 mb-6 md:text-center">
 								To empower medical students to not just crack NEET PG, but to
 								excel beyond their own expectations. We believe every medical
 								student deserves guidance that's structured, strategic, and
 								personalized.
 							</p>
-							<h3 className="text-xl font-semibold  mb-4">
+							<h3 className="text-xl font-semibold mb-4 md:text-center">
 								What Makes Eyeconic Truly ICONIC?
 							</h3>
 							<ul className="list-disc pl-5 space-y-2 ">
@@ -182,11 +182,11 @@ const TimelineSection: React.FC = () => {
 								</li>
 							</ul>
 						</div>
-						<div className="bg-white rounded-xl shadow-md p-6 border border-teal-100">
-							<h3 className="text-xl font-semibold  mb-2">
+						<div className="bg-white rounded-xl shadow-md p-6 border border-teal-100 flex flex-col h-full">
+							<h3 className="text-xl font-semibold mb-2 md:text-center">
 								Meet Our Founder: Dr. Gourav Lalla
 							</h3>
-							<p className="text-teal-900 mb-4">
+							<p className="text-teal-900 mb-4 md:text-center">
 								Dr. Gourav Lalla is not only an accomplished ophthalmology resident
 								but also a highly sought-after mentor known for his energetic,
 								strategic, and relatable teaching style. His deep understanding of
@@ -194,19 +194,19 @@ const TimelineSection: React.FC = () => {
 								mentoring, has transformed the lives of hundreds of medical
 								students across India.
 							</p>
-							<p className=" mb-6">
+							<p className="mb-6 md:text-center">
 								With a thriving community of aspiring doctors on platforms like
 								YouTube and Instagram, Dr. Lalla continues to inspire students
 								daily, helping them navigate their medical journeys with confidence
 								and clarity.
 							</p>
-							<p className=" font-semibold mb-6">
+							<p className="font-semibold mb-6 md:text-center">
 								At Eyeconic, your dreams are our mission—and together, success
 								isn’t just probable; it's inevitable.
 							</p>
 							<a
 								href="#mentors"
-								className="inline-block mt-2 px-6 py-2 bg-teal-600 text-white rounded-lg font-semibold shadow hover:bg-teal-700 transition-colors"
+								className="inline-block mt-2 px-6 py-2 bg-teal-600 text-white rounded-lg font-semibold shadow hover:bg-teal-700 transition-colors md:self-center"
 							>
 								More About Dr. Lalla
 							</a>

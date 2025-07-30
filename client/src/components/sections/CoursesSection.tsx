@@ -148,17 +148,17 @@ const CoursesSection: React.FC = () => {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
           {courses.map((course, index) => (
             <motion.div
               key={course.id}
-              className="bg-white rounded-xl shadow-lg overflow-hidden border border-teal-100"
+              className="bg-white rounded-xl shadow-lg overflow-hidden border border-teal-100 h-full flex flex-col"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: index * 0.2 }}
             >
-              <div className="p-6">
+              <div className="p-6 flex flex-col h-full">
                 <h3 className="text-2xl font-bold text-blue-900 mb-2">
                   {course.title}
                 </h3>
@@ -202,6 +202,7 @@ const CoursesSection: React.FC = () => {
                     ))}
                   </ul>
                 </div>
+                <div className="flex-grow"></div>
                 <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 mt-6">
                   <a 
                     href="https://docs.google.com/forms/d/e/1FAIpQLSccHeq1gUBguz8MYr4JGFzYFlsZeHCOsEq2BQ6g1chlvmkIuQ/viewform"

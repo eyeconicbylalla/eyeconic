@@ -11,8 +11,8 @@ import sarthak_rathi from '../../assets/sarthak_rathi.jpg';
 const coreMentors = [
   {
     id: 'dr-lalla',
-    name: 'Dr. Gourav Lalla',
-    title: 'Founder | Mentor | Ophthalmology Resident',
+    name: 'Gourav Sir',
+    title: 'Founder | Chief Mentor | Ophthalmology Resident',
     description: `Dr. Gourav Lalla is more than just a mentor—he's the motivating force behind Eyeconic. Currently pursuing his residency in Ophthalmology, Dr. Lalla has cracked the NEET PG with distinction himself, giving him firsthand insight into the intricacies of this high-stakes exam.`,
     longDescription: `Renowned for his energetic, friendly, and exceptionally effective teaching style, Dr. Lalla breaks down complex medical concepts into easily digestible bites, making even the toughest subjects feel manageable. With thousands of followers benefiting daily from his dynamic videos and live sessions, Dr. Lalla has become a trusted figure for medical aspirants nationwide.
 
@@ -22,7 +22,7 @@ His approach combines meticulous strategy, empathetic mentorship, and motivation
   },
   {
     id: 'dr-jwalant-chag',
-    name: 'Dr. Jwalant Chag',
+    name: 'Jwalant Sir',
     title: 'MD Psychiatry | Mental Health Lead | Eyeconic by Dr. Lalla',
     description: `When the mind wavers, the syllabus won’t wait — and that’s where Dr. Jwalant Chag steps in.`,
     longDescription: `A qualified psychiatrist with an MD in Psychiatry, Dr. Jwalant isn’t just a doctor — he’s the mental backbone of Eyeconic. As our Mental Health & Wellness Lead, he works at the very intersection where academic pressure meets emotional burnout. With years of clinical experience in understanding the human mind, he now applies that insight to guide NEET PG aspirants through the chaos of competitive prep.
@@ -57,7 +57,7 @@ With a structured mind and a mentor’s heart, he transforms raw data into actio
 const otherMentors = [
   {
     id: 'dr-vishwas-arora',
-    name: 'Dr. Vishwas Arora',
+    name: 'Vishwas Sir',
     title: 'Internal Medicine Resident | Mentor',
     description: 'Dr. Vishwas Arora is a Internal Medicine resident at KB Bhabha Hospital Mumbai and a gold-medalist Best MBBS graduate with honours across multiple subjects.',
     longDescription: `Dr. Arora began his medical journey at JNIMS Imphal in 2017, consistently ranking at the top of his class and earning the Best MBBS Graduate Award. He graduated with honours in Pathology, Microbiology, Pharmacology, Community Medicine, and Medicine, along with distinctions in Forensic Medicine & Toxicology and Obstetrics & Gynaecology.
@@ -68,7 +68,7 @@ After completing his internship, he commenced NEET-PG preparation in 2023 under 
   },
   {
     id: 'dr-michelle',
-    name: 'Dr. Michelle',
+    name: 'Michelle Ma\'am',
     title: 'MD Paediatrics Resident | Mentor',
     description: 'Dr. Michelle is an MD Paediatrics candidate at GMCH Chandigarh whose early fascination with the human body led her to clear NEET-UG in her first attempt and earn her MBBS from GMC Nahan with distinction.',
     longDescription: `Balancing academics with a vibrant array of extracurriculars, Dr. Michelle’s journey has always been “learning through practice.” In her initial MBBS years, she focused on strategic observation; in the latter half, she honed her clinical skills and mastered core medical texts guided by hands-on experience. Near the end of her final year, she earned her IAP-BLS certification and graduated with distinction in multiple subjects, including Paediatrics.
@@ -81,11 +81,11 @@ Starting NEET-PG prep in July 2023, she built a strong foundation in basic scien
   },
   {
     id: 'dr-sarthak-rathi',
-    name: 'Dr. Sarthak Rathi',
+    name: 'Sarthak Sir',
     title: 'Radiodiagnosis Resident | Mentor',
     description: `Dr. Sarthak Rathi is a Radiodiagnosis resident at Seth GSMC & KEM Hospital, Mumbai, where he also completed his MBBS. A consistent high-ranker, he secured AIR 67 in NEET PG 2024, following his stellar NEET UG journey with AIR 259 (NEET UG 2018), AIR 227 (AIIMS 2018), and AIR 116 (JIPMER 2018). Known for his precision, calm mindset, and strategic prep, he now mentors NEET PG aspirants with the same sharp focus that earned him success across India’s toughest medical entrance exams.`,
     longDescription: '',
-    quote: '',
+    quote: 'True understanding begins when action turns knowledge into experience.',
     image: sarthak_rathi
   }
 ];

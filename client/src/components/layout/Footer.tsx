@@ -6,7 +6,7 @@ const Footer: React.FC = () => {
   return (
     <footer className="bg-teal-900 text-white pt-16 pb-8">
       <div className="container mx-auto px-4 max-w-full overflow-x-hidden">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-8 md:gap-12">
           <div>
             <div className="mb-6 flex items-center">
               <img src={logo} alt="Footer Logo" className="h-12 w-auto" />
@@ -28,7 +28,6 @@ const Footer: React.FC = () => {
               </a>
             </div>
           </div>
-          
           <div>
             <h4 className="text-white font-bold text-lg mb-6">Quick Links</h4>
             <ul className="space-y-4">
@@ -40,7 +39,6 @@ const Footer: React.FC = () => {
               <li><a href="#contact" className="hover:underline">Contact Us</a></li>
             </ul>
           </div>
-          
           <div>
             <h4 className="text-white font-bold text-lg mb-6">Our Programs</h4>
             <ul className="space-y-4">
@@ -51,14 +49,9 @@ const Footer: React.FC = () => {
               <li><a href="#" className="hover:underline">Study Resources</a></li>
             </ul>
           </div>
-          
           <div>
             <h4 className="text-white font-bold text-lg mb-6">Contact Us</h4>
             <ul className="space-y-4">
-              {/* <li className="flex items-start">
-                <MapPin size={20} className="mr-2 mt-1 flex-shrink-0" />
-                <span>Jaipur, India</span>
-              </li> */}
               <li className="flex items-center">
                 <Mail size={20} className="mr-2 flex-shrink-0" />
                 <span>eyeconiclalla@gmail.com</span>
@@ -66,6 +59,17 @@ const Footer: React.FC = () => {
               <li className="flex items-center">
                 <Phone size={20} className="mr-2 flex-shrink-0" />
                 <span>+91 91163 24253</span>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="text-white font-bold text-lg mb-6">Legal</h4>
+            <ul className="space-y-4">
+              <li>
+                <a href="/terms-of-service" className="hover:underline">Terms of Service</a>
+              </li>
+              <li>
+                <a href="/privacy-policy" className="hover:underline">Legal Use</a>
               </li>
             </ul>
           </div>
