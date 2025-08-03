@@ -30,7 +30,7 @@ const courses = [
   },
   {
     id: 'mission-inicet',
-    title: 'INICET – INI Superspecialty Batch',
+    title: 'INICET – INI Focussed Batch',
     subtitle: 'Validity: Until Nov INICET',
     image: inicet,
     description: 'For serious INICET aspirants targeting AIIMS/INI Superspecialty seats.',
@@ -157,6 +157,7 @@ const CoursesSection: React.FC = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: index * 0.2 }}
+              style={{ minHeight: '880px', display: 'flex', flexDirection: 'column' }}  // added
             >
               <div className="p-6 flex flex-col h-full">
                 <h3 className="text-2xl font-bold text-blue-900 mb-2">
@@ -167,7 +168,7 @@ const CoursesSection: React.FC = () => {
                 </p>
                 {/* Add course image here */}
                 <div className="w-full flex justify-center mb-6">
-                  <div className="w-full" style={{ maxWidth: 340, height: 140, background: '#FFFFFF', borderRadius: '0.5rem', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div className="w-full" style={{ maxWidth: 340, height: 190, background: '#FFFFFF', borderRadius: '0.5rem', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>  {/*changed height from 140 to 190*/}
                     <img
                       src={course.image}
                       alt={course.title + ' image'}
