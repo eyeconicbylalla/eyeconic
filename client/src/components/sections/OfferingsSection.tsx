@@ -169,6 +169,7 @@ const OfferingsSection: React.FC = () => {
         </div>
       </div>
     </section>
+    // OfferingsSection
   );
 };
 
