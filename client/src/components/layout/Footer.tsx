@@ -1,5 +1,6 @@
 import React from 'react';
-import { Facebook, Instagram, Linkedin, Twitter, MapPin, Phone, Mail } from 'lucide-react';
+import { Facebook, Instagram, Linkedin, Twitter, Phone, Mail } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import logo from '../../assets/Logo.png'
 
 const Footer: React.FC = () => {
@@ -31,12 +32,12 @@ const Footer: React.FC = () => {
           <div>
             <h4 className="text-white font-bold text-lg mb-6">Quick Links</h4>
             <ul className="space-y-4">
-              <li><a href="#home" className="hover:underline">Home</a></li>
-              <li><a href="#about" className="hover:underline">About Dr. Gourav</a></li>
-              <li><a href="#programs" className="hover:underline">Programs</a></li>
-              <li><a href="#results" className="hover:underline">Student Results</a></li>
-              <li><a href="#testimonials" className="hover:underline">Testimonials</a></li>
-              <li><a href="#contact" className="hover:underline">Contact Us</a></li>
+              <li><Link to="/" className="text-gray-300 hover:text-teal-400 transition">Home</Link></li>
+              <li><Link to="/about" className="hover:underline">About Dr. Gourav</Link></li>
+              <li><Link to="/programs" className="hover:underline">Programs</Link></li>
+              <li><Link to="/results" className="hover:underline">Student Results</Link></li>
+              <li><Link to="/testimonials" className="hover:underline">Testimonials</Link></li>
+              <li><Link to="/contact" className="hover:underline">Contact Us</Link></li>
             </ul>
           </div>
           <div>
@@ -66,10 +67,16 @@ const Footer: React.FC = () => {
             <h4 className="text-white font-bold text-lg mb-6">Legal</h4>
             <ul className="space-y-4">
               <li>
-                <a href="/terms-of-service" className="hover:underline">Terms of Service</a>
+                <Link to="/terms-and-conditions" className="hover:underline">Terms & Conditions</Link>
               </li>
               <li>
-                <a href="/privacy-policy" className="hover:underline">Legal Use</a>
+                <Link to="/privacy-policy" className="hover:underline">Privacy Policy</Link>
+              </li>
+              <li>
+                <Link to="/refund-policy" className="hover:underline">Refund Policy</Link>
+              </li>
+              <li>
+                <Link to="/disclaimer" className="hover:underline">Disclaimer</Link>
               </li>
             </ul>
           </div>

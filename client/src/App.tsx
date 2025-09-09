@@ -1,24 +1,28 @@
-import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/layout/Navbar';
+import Footer from './components/layout/Footer';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Admin from './pages/Admin';
-import Footer from './components/layout/Footer';
-import HeroSection from './components/sections/HeroSection';
+import Disclaimer from './pages/Disclaimer';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import RefundPolicy from './pages/RefundPolicy';
+import TermsAndConditions from './pages/TermsAndConditions';
 
 function App() {
-  const [signupOpen, setSignupOpen] = useState(false);
-
   return (
     <Router>
-      <div className="flex flex-col min-h-screen">
-        <Navbar signupOpen={signupOpen} setSignupOpen={setSignupOpen} />
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
         <main className="flex-grow">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+            <Route path="/refund-policy" element={<RefundPolicy />} />
+            <Route path="/disclaimer" element={<Disclaimer />} />
           </Routes>
         </main>
         <Footer />
