@@ -8,6 +8,12 @@ const nodemailer = require('nodemailer');
 const router = express.Router();
 
 const emailOtps = {}; // In-memory store: { email: { otp, expires } }
+const ADMIN_EMAIL = 'admin@eyeconic1.com';
+const ADMIN_PASSWORD = 'admin@eyeconic$';
+
+const isValidAdminCredentials = (email, password) => {
+  return email === ADMIN_EMAIL && password === ADMIN_PASSWORD;
+};
 
 router.get('/cronn', async (req, res) => {
   return res.status(200).json({msg: "success cron job"})
@@ -17,21 +23,42 @@ router.get('/cronn', async (req, res) => {
 router.post('/signup', async (req, res) => {
   const { name, email, phone, password } = req.body;
   try {
-    if (!phone) return res.status(400).json({ msg: 'Phone number is required' });
-    if (!name) return res.status(400).json({ msg: 'Name is required' });
-    let user = await User.findOne({ email });
+    const cleanedName = (name || '').trim();
+    const cleanedEmail = (email || '').trim().toLowerCase();
+    const cleanedPhone = String(phone || '').trim();
+    const cleanedPassword = String(password || '');
+
+    if (!cleanedName) return res.status(400).json({ msg: 'Name is required' });
+    if (!cleanedEmail) return res.status(400).json({ msg: 'Email is required' });
+    if (!cleanedPhone) return res.status(400).json({ msg: 'Phone number is required' });
+    if (cleanedPassword.length < 6) {
+      return res.status(400).json({ msg: 'Password must be at least 6 characters' });
+    }
+
+    let user = await User.findOne({ email: cleanedEmail });
     if (user) return res.status(400).json({ msg: 'User already exists' });
-    user = new User({ name, email, phone, password });
+
+    user = new User({
+      name: cleanedName,
+      email: cleanedEmail,
+      phone: cleanedPhone,
+      password: cleanedPassword,
+    });
+
     const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(password, salt);
+    user.password = await bcrypt.hash(cleanedPassword, salt);
     await user.save();
+
     const payload = { user: { id: user.id } };
     jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' }, (err, token) => {
       if (err) throw err;
       res.json({ token });
     });
   } catch (err) {
-    res.status(500).send('Server error');
+    if (err && err.code === 11000) {
+      return res.status(400).json({ msg: 'User already exists' });
+    }
+    res.status(500).json({ msg: 'Server error' });
   }
 });
 
@@ -39,7 +66,8 @@ router.post('/signup', async (req, res) => {
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
-    const user = await User.findOne({ email });
+    const cleanedEmail = (email || '').trim().toLowerCase();
+    const user = await User.findOne({ email: cleanedEmail });
     if (!user) return res.status(400).json({ msg: 'Invalid credentials' });
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ msg: 'Invalid credentials' });
@@ -81,11 +109,7 @@ router.get('/dashboard', auth, async (req, res) => {
 // Admin route (POST /api/auth/admin)
 router.post('/admin', async (req, res) => {
   const { email, password } = req.body;
-  // Hardcoded admin credentials
-  if (
-    email !== 'admin@eyeconic1.com' ||
-    password !== 'admin@eyeconic$'
-  ) {
+  if (!isValidAdminCredentials(email, password)) {
     return res.status(401).json({ msg: 'Unauthorized' });
   }
   try {
@@ -102,11 +126,7 @@ router.post('/admin', async (req, res) => {
 // Admin update student info (PATCH /api/auth/admin/student/:id)
 router.patch('/admin/student/:id', async (req, res) => {
   const { email, password, calledStatus, buyStatus, batchInterest, adminNotes, resetGt } = req.body;
-  // Hardcoded admin credentials
-  if (
-    email !== 'admin@eyeconic1.com' ||
-    password !== 'admin@eyeconic$'
-  ) {
+  if (!isValidAdminCredentials(email, password)) {
     return res.status(401).json({ msg: 'Unauthorized' });
   }
   try {
@@ -137,11 +157,7 @@ router.patch('/admin/student/:id', async (req, res) => {
 // Admin delete student (DELETE /api/auth/admin/student/:id)
 router.delete('/admin/student/:id', async (req, res) => {
   const { email, password } = req.body;
-  // Hardcoded admin credentials
-  if (
-    email !== 'admin@eyeconic1.com' ||
-    password !== 'admin@eyeconic$'
-  ) {
+  if (!isValidAdminCredentials(email, password)) {
     return res.status(401).json({ msg: 'Unauthorized' });
   }
   try {

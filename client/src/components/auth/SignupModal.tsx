@@ -33,7 +33,11 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose, onSignupSucc
       onClose();
       window.location.href = '/dashboard'; // Redirect to dashboard
     } catch (err) {
-      setError('Signup failed');
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.msg || 'Signup failed');
+      } else {
+        setError('Signup failed');
+      }
     } finally {
       setLoading(false);
     }

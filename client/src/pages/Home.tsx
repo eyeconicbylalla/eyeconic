@@ -10,6 +10,7 @@ import CountdownTimer from '../components/sections/CountdownTimer';
 import CoursesSection from '../components/sections/CoursesSection';
 import MentorsSection from '../components/sections/MentorsSection';
 import FAQSection from '../components/sections/FAQSection';
+import BlogsSection from '../components/sections/BlogsSection';
 
 const Home: React.FC = () => {
   return (
@@ -23,6 +24,7 @@ const Home: React.FC = () => {
       <CoursesSection />
       <MentorsSection />
       <OfferingsSection />
+      <BlogsSection />
       <FAQSection />
       <CTASection />
     </>
