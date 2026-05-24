@@ -56,7 +56,7 @@ const Navbar: React.FC = () => {
                 <li><a href="#about" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">About</a></li>
                 <li><a href="#mentors" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Mentors</a></li>
                 <li><a href="#testimonials" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Testimonials</a></li>
-                <li><a href="#blogs" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Blogs</a></li>
+                <li><Link to="/blogs" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Blogs</Link></li>
                 <li><a href="#contact" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Contact</a></li>
               </>
             )}
@@ -117,7 +117,7 @@ const Navbar: React.FC = () => {
                   <li><a href="#about" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">About</a></li>
                   <li><a href="#mentors" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Mentors</a></li>
                   <li><a href="#testimonials" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Testimonials</a></li>
-                  <li><a href="#blogs" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Blogs</a></li>
+                  <li><Link to="/blogs" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Blogs</Link></li>
                   <li><a href="#contact" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Contact</a>
                   </li>
                 </>

@@ -9,6 +9,8 @@ import CTASection from '../components/sections/CTASection';
 import CountdownTimer from '../components/sections/CountdownTimer';
 import CoursesSection from '../components/sections/CoursesSection';
 import MentorsSection from '../components/sections/MentorsSection';
+import ResultsCarouselSection from '../components/sections/ResultsCarouselSection';
+import VideosSection from '../components/sections/VideosSection';
 import FAQSection from '../components/sections/FAQSection';
 import BlogsSection from '../components/sections/BlogsSection';
 
@@ -18,6 +20,8 @@ const Home: React.FC = () => {
       <HeroSection />
       <FeatureSection />
       <TestimonialSection />
+      <ResultsCarouselSection />
+      <VideosSection />
       <CountdownTimer />
       <TimelineSection />
       <WhyItMattersSection />
