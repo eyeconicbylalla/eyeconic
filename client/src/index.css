@@ -246,7 +246,7 @@
     }
 
     .mentor-carousel__track {
-      @apply min-h-[26rem] w-full gap-0 px-12;
+      @apply min-h-[22rem] w-full gap-0 px-12;
     }
 
     .mentor-carousel__card:not([data-active='true']) {
@@ -267,6 +267,11 @@
       min-width: 0;
       max-width: 100%;
       width: 100%;
+    }
+
+    .mentor-carousel__card[data-active='true'] img {
+      object-fit: cover;
+      object-position: center;
     }
 
     .mentor-carousel__nav {
@@ -399,6 +404,31 @@
     }
   }
 
+  .video-marquee {
+    @apply relative w-full overflow-hidden;
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 4%,
+      black 96%,
+      transparent
+    );
+  }
+
+  .video-marquee .video-scroll__viewport {
+    overflow-x: hidden;
+    scroll-snap-type: none;
+  }
+
+  .video-marquee .video-scroll__track {
+    animation: video-marquee-scroll 45s linear infinite;
+    will-change: transform;
+  }
+
+  .video-marquee:hover .video-scroll__track {
+    animation-play-state: paused;
+  }
+
   .results-carousel-section {
     @apply overflow-hidden bg-gradient-to-b from-teal-50/80 via-white to-white;
   }
@@ -487,10 +517,29 @@
     .results-marquee__card {
       scroll-snap-align: center;
     }
+
+    .video-marquee .video-scroll__viewport {
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .video-scroll__card {
+      scroll-snap-align: center;
+    }
   }
 }
 
 @keyframes results-marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes video-marquee-scroll {
   from {
     transform: translateX(0);
   }
