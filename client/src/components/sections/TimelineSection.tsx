@@ -87,6 +87,15 @@ const TimelineSection: React.FC = () => {
 					},
 				});
 			});
+
+			gsap.utils.toArray<HTMLElement>('.story-timeline-item').forEach((item) => {
+				ScrollTrigger.create({
+					trigger: item,
+					start: 'top center',
+					end: 'bottom center',
+					toggleClass: { targets: item, className: 'is-active' },
+				});
+			});
 		}, section);
 
 		return () => ctx.revert();
@@ -133,19 +142,19 @@ const TimelineSection: React.FC = () => {
 										className="story-timeline-card rounded-lg border border-teal-100 bg-white p-6 text-right shadow-sm"
 										data-side="left"
 									>
-										<p className="mb-3 text-sm font-bold uppercase tracking-wide text-teal-600">
+										<p className="story-timeline-card__year mb-3 text-sm font-bold uppercase tracking-wide">
 											{item.year}
 										</p>
-										<h3 className="mb-3 text-xl font-bold text-blue-900">
+										<h3 className="story-timeline-card__title mb-3 text-xl font-bold">
 											{item.title}
 										</h3>
-										<p className="text-sm font-semibold leading-7 text-gray-700">
+										<p className="story-timeline-card__description text-sm font-semibold leading-7">
 											{item.description}
 										</p>
 									</article>
 								) : null}
 							</div>
-							<div className="story-timeline-marker absolute left-0 top-1 flex h-12 w-12 items-center justify-center rounded-full border-4 border-white bg-blue-800 text-sm font-bold text-white shadow-md md:static md:h-16 md:w-20 md:text-lg">
+							<div className="story-timeline-marker absolute left-0 top-1 flex h-12 w-12 items-center justify-center rounded-full border-4 border-white text-sm font-bold shadow-md md:static md:h-16 md:w-20 md:text-lg">
 								<span>
 									{item.year}
 								</span>
@@ -156,13 +165,13 @@ const TimelineSection: React.FC = () => {
 										className="story-timeline-card rounded-lg border border-teal-100 bg-white p-6 text-left shadow-sm"
 										data-side="right"
 									>
-										<p className="mb-3 text-sm font-bold uppercase tracking-wide text-teal-600">
+										<p className="story-timeline-card__year mb-3 text-sm font-bold uppercase tracking-wide">
 											{item.year}
 										</p>
-										<h3 className="mb-3 text-xl font-bold text-blue-900">
+										<h3 className="story-timeline-card__title mb-3 text-xl font-bold">
 											{item.title}
 										</h3>
-										<p className="text-sm font-semibold leading-7 text-gray-700">
+										<p className="story-timeline-card__description text-sm font-semibold leading-7">
 											{item.description}
 										</p>
 									</article>
@@ -171,13 +180,13 @@ const TimelineSection: React.FC = () => {
 										className="story-timeline-card rounded-lg border border-teal-100 bg-white p-6 text-left shadow-sm md:hidden"
 										data-side="right"
 									>
-										<p className="mb-3 text-sm font-bold uppercase tracking-wide text-teal-600">
+										<p className="story-timeline-card__year mb-3 text-sm font-bold uppercase tracking-wide">
 											{item.year}
 										</p>
-										<h3 className="mb-3 text-xl font-bold text-blue-900">
+										<h3 className="story-timeline-card__title mb-3 text-xl font-bold">
 											{item.title}
 										</h3>
-										<p className="text-sm font-semibold leading-7 text-gray-700">
+										<p className="story-timeline-card__description text-sm font-semibold leading-7">
 											{item.description}
 										</p>
 									</article>
