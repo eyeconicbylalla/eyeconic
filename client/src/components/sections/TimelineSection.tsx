@@ -1,5 +1,9 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
 
 const timelineItems = [
 	{
@@ -29,8 +33,67 @@ const timelineItems = [
 ];
 
 const TimelineSection: React.FC = () => {
+	const sectionRef = useRef<HTMLElement | null>(null);
+
+	useEffect(() => {
+		const section = sectionRef.current;
+		if (!section) return;
+
+		const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		if (reduceMotion) return;
+
+		const ctx = gsap.context(() => {
+			gsap.utils.toArray<HTMLElement>('.story-timeline-card').forEach((card) => {
+				const side = card.dataset.side === 'left' ? -1 : 1;
+
+				gsap.from(card, {
+					x: side * 80,
+					opacity: 0,
+					duration: 0.9,
+					ease: 'power2.out',
+					scrollTrigger: {
+						trigger: card,
+						start: 'top 82%',
+						toggleActions: 'play none none reverse',
+					},
+				});
+			});
+
+			gsap.fromTo(
+				'.story-timeline-line-fill',
+				{ scaleY: 0 },
+				{
+					scaleY: 1,
+					ease: 'none',
+					scrollTrigger: {
+						trigger: '.story-timeline',
+						start: 'top 68%',
+						end: 'bottom 48%',
+						scrub: true,
+					},
+				}
+			);
+
+			gsap.utils.toArray<HTMLElement>('.story-timeline-marker').forEach((marker) => {
+				gsap.from(marker, {
+					scale: 0.75,
+					opacity: 0,
+					duration: 0.55,
+					ease: 'back.out(1.8)',
+					scrollTrigger: {
+						trigger: marker,
+						start: 'top 82%',
+						toggleActions: 'play none none reverse',
+					},
+				});
+			});
+		}, section);
+
+		return () => ctx.revert();
+	}, []);
+
 	return (
-		<section id="about" className="py-20 bg-white">
+		<section id="about" ref={sectionRef} className="py-20 bg-white">
 			<div className="container mx-auto px-4">
 				<div className="section-title">
 					<motion.h2
@@ -51,65 +114,74 @@ const TimelineSection: React.FC = () => {
 						every topper's journey is unique — and so is every student's struggle.
 					</motion.p>
 				</div>
-				<div className="relative flex flex-col items-center mt-16">
-					{/* Timeline Line */}
-					<div className="absolute left-1/2 top-0 bottom-0 w-1 bg-teal-200 -translate-x-1/2 z-0 md:block hidden"></div>
-					{/* Timeline Items */}
+				<div className="story-timeline relative mx-auto mt-16 max-w-5xl">
+					<div
+						className="absolute left-6 top-0 h-full w-1 rounded-full bg-teal-100 shadow-[0_0_18px_rgba(20,184,166,0.35)] md:left-1/2 md:w-px"
+						aria-hidden="true"
+					>
+						<div className="story-timeline-line-fill absolute inset-x-0 top-0 h-full origin-top rounded-full bg-gradient-to-b from-teal-300 via-cyan-300 to-blue-700 shadow-[0_0_28px_rgba(34,211,238,0.65)] md:from-teal-400 md:via-blue-700 md:to-teal-500 md:shadow-[0_0_24px_rgba(20,184,166,0.35)]" />
+					</div>
+
 					{timelineItems.map((item, index) => (
 						<div
 							key={index}
-							className="w-full flex flex-col md:flex-row items-center mb-16 relative z-10"
+							className="story-timeline-item relative z-10 grid gap-6 pb-14 pl-16 md:grid-cols-[1fr_5rem_1fr] md:items-center md:gap-8 md:pl-0"
 						>
-							{/* Left side (even index) */}
-							<div
-								className={`md:w-1/2 ${
-									index % 2 === 0 ? 'md:pr-12 md:text-right' : ''
-								} hidden md:block`}
-							>
-								{index % 2 === 0 && (
-									<>
-										<h3 className="text-base md:text-lg font-bold text-blue-900 mb-2">
+							<div className="hidden md:block">
+								{index % 2 === 0 ? (
+									<article
+										className="story-timeline-card rounded-lg border border-teal-100 bg-white p-6 text-right shadow-sm"
+										data-side="left"
+									>
+										<p className="mb-3 text-sm font-bold uppercase tracking-wide text-teal-600">
+											{item.year}
+										</p>
+										<h3 className="mb-3 text-xl font-bold text-blue-900">
 											{item.title}
 										</h3>
-										<p className="text-sm text-gray-700 font-semibold">
+										<p className="text-sm font-semibold leading-7 text-gray-700">
 											{item.description}
 										</p>
-									</>
-								)}
+									</article>
+								) : null}
 							</div>
-							{/* Year Circle and vertical line for mobile */}
-							<div className="flex flex-col items-center md:w-0 w-full mb-4 md:mb-0 relative">
-								{/* Vertical line for mobile */}
-								<div className="absolute left-1/2 top-0 bottom-0 w-1 bg-teal-200 -translate-x-1/2 z-0 md:hidden" style={{height: '100%'}}></div>
-								<div className="flex items-center justify-center w-16 h-12 bg-blue-800 text-white rounded-full font-bold text-lg border-4 border-white shadow-md z-10">
+							<div className="story-timeline-marker absolute left-0 top-1 flex h-12 w-12 items-center justify-center rounded-full border-4 border-white bg-blue-800 text-sm font-bold text-white shadow-md md:static md:h-16 md:w-20 md:text-lg">
+								<span>
 									{item.year}
-								</div>
+								</span>
 							</div>
-							{/* Right side (odd index) */}
-							<div
-								className={`md:w-1/2 ${
-									index % 2 !== 0 ? 'md:pl-12 md:text-left' : ''
-								} hidden md:block`}
-							>
-								{index % 2 !== 0 && (
-									<>
-										<h3 className="text-base md:text-lg font-bold text-blue-900 mb-2">
+							<div>
+								{index % 2 !== 0 ? (
+									<article
+										className="story-timeline-card rounded-lg border border-teal-100 bg-white p-6 text-left shadow-sm"
+										data-side="right"
+									>
+										<p className="mb-3 text-sm font-bold uppercase tracking-wide text-teal-600">
+											{item.year}
+										</p>
+										<h3 className="mb-3 text-xl font-bold text-blue-900">
 											{item.title}
 										</h3>
-										<p className="text-sm text-gray-700 font-semibold">
+										<p className="text-sm font-semibold leading-7 text-gray-700">
 											{item.description}
 										</p>
-									</>
+									</article>
+								) : (
+									<article
+										className="story-timeline-card rounded-lg border border-teal-100 bg-white p-6 text-left shadow-sm md:hidden"
+										data-side="right"
+									>
+										<p className="mb-3 text-sm font-bold uppercase tracking-wide text-teal-600">
+											{item.year}
+										</p>
+										<h3 className="mb-3 text-xl font-bold text-blue-900">
+											{item.title}
+										</h3>
+										<p className="text-sm font-semibold leading-7 text-gray-700">
+											{item.description}
+										</p>
+									</article>
 								)}
-							</div>
-							{/* Mobile: always show content below year */}
-							<div className="w-full md:hidden text-center mt-4 px-2">
-								<h3 className="text-base font-bold text-blue-900 mb-2">
-									{item.title}
-								</h3>
-								<p className="text-sm text-gray-700 font-semibold">
-									{item.description}
-								</p>
 							</div>
 						</div>
 					))}
