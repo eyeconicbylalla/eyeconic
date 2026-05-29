@@ -367,13 +367,11 @@
   .story-timeline-item .story-timeline-card {
     border-color: rgb(226 232 240);
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
-    filter: grayscale(1);
-    opacity: 0.72;
+    filter: none;
+    opacity: 1;
     transition:
       border-color 280ms ease,
       box-shadow 280ms ease,
-      filter 280ms ease,
-      opacity 280ms ease,
       transform 280ms ease;
   }
 
@@ -395,13 +393,11 @@
   .story-timeline-item .story-timeline-marker {
     background: rgb(15 23 42);
     color: white;
-    filter: grayscale(1);
-    opacity: 0.8;
+    filter: none;
+    opacity: 1;
     transition:
       background-color 280ms ease,
       color 280ms ease,
-      filter 280ms ease,
-      opacity 280ms ease,
       transform 280ms ease,
       box-shadow 280ms ease;
   }

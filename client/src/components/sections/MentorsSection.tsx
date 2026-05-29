@@ -113,13 +113,6 @@ const MentorsSection: React.FC = () => {
             />
           ))}
         </div>
-
-        <p className="mt-4 text-center text-sm text-gray-500 md:mt-6">
-          <span className="md:hidden">{activeIndex + 1} of {count}</span>
-          <span className="hidden md:inline">
-            {activeIndex + 1} of {count} — use arrows or select a card to explore
-          </span>
-        </p>
       </div>
     </section>
   );
