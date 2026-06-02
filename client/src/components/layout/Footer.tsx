@@ -13,7 +13,7 @@ const Footer: React.FC = () => {
               <img src={logo} alt="Footer Logo" className="h-12 w-auto" />
               <span className="ml-3 text-2xl font-bold text-white">EyeConic</span>
             </div>
-            <p className="mb-6 font-semibold">Transform your academic journey with personalized mentorship from Dr. Gourav Lalla, helping you achieve your educational goals.</p>
+            <p className="mb-6 font-semibold">Transform your academic journey with personalized mentorship from India's #1 Transformation Experts, helping you achieve your educational goals.</p>
             <div className="flex space-x-4">
               <a href="#" aria-label="Facebook" className="text-white hover:text-navy-100 transition-colors">
                 <Facebook size={20} />
@@ -33,11 +33,11 @@ const Footer: React.FC = () => {
             <h4 className="text-white font-bold text-lg mb-6">Quick Links</h4>
             <ul className="space-y-4">
               <li><Link to="/" className="text-gray-300 hover:text-teal-400 transition">Home</Link></li>
-              <li><Link to="/about" className="hover:underline">About Dr. Gourav</Link></li>
-              <li><Link to="/programs" className="hover:underline">Programs</Link></li>
-              <li><Link to="/results" className="hover:underline">Student Results</Link></li>
-              <li><Link to="/testimonials" className="hover:underline">Testimonials</Link></li>
-              <li><Link to="/contact" className="hover:underline">Contact Us</Link></li>
+              <li><Link to="/#about" className="hover:underline">About Dr. Gourav</Link></li>
+              <li><Link to="/#courses" className="hover:underline">Programs</Link></li>
+              <li><Link to="/#results" className="hover:underline">Student Results</Link></li>
+              <li><Link to="/#testimonials" className="hover:underline">Testimonials</Link></li>
+              <li><Link to="/#contact" className="hover:underline">Contact Us</Link></li>
             </ul>
           </div>
           <div>

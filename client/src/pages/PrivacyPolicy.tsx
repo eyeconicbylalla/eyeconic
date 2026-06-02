@@ -22,10 +22,10 @@ const PrivacyPolicy: React.FC = () => {
           className="bg-white p-8 rounded-xl shadow-sm"
         >
           <p className="mb-4">
-            Please read this Privacy Policy carefully. It applies to all users who access or use the services offered on https://eyeconicbylalla.com/ or any equivalent platform or mobile interface operated by Eyeconic by Lalla (“Platform”).
+            Please read this Privacy Policy carefully. It applies to all users who access or use the services offered on https://eyeconicneetpg.com/ or any equivalent platform or mobile interface operated by Eyeconic for NEET PG (“Platform”).
           </p>
           <p className="mb-4">
-            For purposes of this Privacy Policy, the terms "You", "Your" or "User" shall mean any natural or legal person who browses the Platform or registers for mentorship or related services offered through the Platform. The terms "We", "Us", or "Our" refer to Eyeconic by Lalla, its administrators, and authorized representatives.
+            For purposes of this Privacy Policy, the terms "You", "Your" or "User" shall mean any natural or legal person who browses the Platform or registers for mentorship or related services offered through the Platform. The terms "We", "Us", or "Our" refer to Eyeconic for NEET PG, its administrators, and authorized representatives.
           </p>
           <p className="mb-4">
             Please ensure that this Privacy Policy is perused by You before availing any Services from Us. This Privacy Policy shall be updated from time to time and to stay abreast with our methods of using Your information and protecting Your privacy, please keep reviewing this Policy. If we decide to change our Privacy Policy, We will post those changes on this page so that You are always aware of what information We collect, how We use it, and under what circumstances We disclose it. If You do not agree for the foregoing, please do not continue to use or access our Website. In the event You discontinue Your consent for sharing any Information as required herein or retract Your consent at a subsequent date, We reserve the right to, at our sole discretion, discontinue or restrict Your access to the Platform, and in such event We will not be liable for any payment or refund on such account. We may review and change this Policy from time to time to reflect changes in the law, our business practices, processes or structure. This Policy does not suggest any obligation on our part with another party.

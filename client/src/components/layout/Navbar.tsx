@@ -5,6 +5,15 @@ import LoginModal from '../auth/LoginModal';
 import SignupModal from '../auth/SignupModal';
 import logo from '../../assets/Logo.png'; // <-- Add your logo file here
 
+const sectionLinks = [
+  { label: 'Courses', to: '/#courses' },
+  { label: 'About', to: '/#about' },
+  { label: 'Mentors', to: '/#mentors' },
+  { label: 'Testimonials', to: '/#testimonials' },
+  { label: 'Blogs', to: '/blogs' },
+  { label: 'Contact', to: '/#contact' },
+];
+
 const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -41,7 +50,7 @@ const Navbar: React.FC = () => {
         <div className="hidden md:flex items-center space-x-8">
           <ul className="flex space-x-8">
             <li>
-              <a href="/" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Home</a>
+              <Link to="/" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Home</Link>
             </li>
             {/* Show all options on home page, only dashboard/book a call on dashboard */}
             {isDashboard && isLoggedIn ? (
@@ -52,12 +61,11 @@ const Navbar: React.FC = () => {
               </>
             ) : (
               <>
-                <li><a href="#courses" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Courses</a></li>
-                <li><a href="#about" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">About</a></li>
-                <li><a href="#mentors" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Mentors</a></li>
-                <li><a href="#testimonials" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Testimonials</a></li>
-                <li><Link to="/blogs" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Blogs</Link></li>
-                <li><a href="#contact" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Contact</a></li>
+                {sectionLinks.map((item) => (
+                  <li key={item.label}>
+                    <Link to={item.to} className="text-navy-900 hover:text-teal-500 font-medium transition-colors">{item.label}</Link>
+                  </li>
+                ))}
               </>
             )}
           </ul>
@@ -103,7 +111,7 @@ const Navbar: React.FC = () => {
           <div className="container mx-auto px-4 py-4">
             <ul className="space-y-4">
               <li>
-                <a href="/" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Home</a>
+                <Link to="/" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Home</Link>
               </li>
               {isDashboard && isLoggedIn ? (
                 <>
@@ -113,13 +121,11 @@ const Navbar: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <li><a href="#courses" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Courses</a></li>
-                  <li><a href="#about" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">About</a></li>
-                  <li><a href="#mentors" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Mentors</a></li>
-                  <li><a href="#testimonials" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Testimonials</a></li>
-                  <li><Link to="/blogs" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Blogs</Link></li>
-                  <li><a href="#contact" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Contact</a>
-                  </li>
+                  {sectionLinks.map((item) => (
+                    <li key={item.label}>
+                      <Link to={item.to} className="text-navy-900 hover:text-teal-500 font-medium transition-colors">{item.label}</Link>
+                    </li>
+                  ))}
                 </>
               )}
             </ul>

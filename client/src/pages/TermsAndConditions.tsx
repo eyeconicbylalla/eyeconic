@@ -22,7 +22,7 @@ const TermsAndConditions: React.FC = () => {
           className="bg-white p-8 rounded-xl shadow-sm"
         >
           <p className="mb-4">
-            Welcome to Eyeconic by Lalla ("Platform", "we", "us", or "our") – a one-to-one academic mentorship platform designed to help students prepare effectively for NEET and other medical entrance examinations. These Terms and Conditions ("Terms") govern your access to and use of our website, platform, and services.
+            Welcome to Eyeconic for NEET PG ("Platform", "we", "us", or "our") – a one-to-one academic mentorship platform designed to help students prepare effectively for NEET and other medical entrance examinations. These Terms and Conditions ("Terms") govern your access to and use of our website, platform, and services.
           </p>
           <p className="mb-4">
             Please read these Terms carefully before using our services. By accessing or using our Platform, you agree to be bound by these Terms. If you do not agree, please do not access or use our services.
@@ -44,7 +44,7 @@ const TermsAndConditions: React.FC = () => {
           </ol>
           <p className="mb-4">You are solely responsible for all activities that occur under your account.</p>
           <h2 className="text-2xl font-semibold mb-4">4. Services Offered</h2>
-          <p className="mb-4">Eyeconic by Lalla provides personalized mentorship services including but not limited to:</p>
+          <p className="mb-4">Eyeconic for NEET PG provides personalized mentorship services including but not limited to:</p>
           <ol className="list-decimal list-inside mb-4">
             <li>One-on-one mentoring sessions</li>
             <li>Study planning and strategy</li>
@@ -64,7 +64,7 @@ const TermsAndConditions: React.FC = () => {
           <p className="mb-4">Violation of these terms may lead to suspension or permanent termination of your access without refund.</p>
           <h2 className="text-2xl font-semibold mb-4">6. Intellectual Property Rights</h2>
           <p className="mb-4">
-            All content on the Platform, including study materials, mentor strategies, branding, and design, is the intellectual property of Eyeconic by Lalla or its licensors. You are granted a limited, non-exclusive, non-transferable access to use such content for personal educational purposes only.
+            All content on the Platform, including study materials, mentor strategies, branding, and design, is the intellectual property of Eyeconic for NEET PG or its licensors. You are granted a limited, non-exclusive, non-transferable access to use such content for personal educational purposes only.
           </p>
           <p className="mb-4">
             Any reproduction, distribution, or commercial use of content is strictly prohibited and violation of the same may invite legal action.

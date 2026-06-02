@@ -22,11 +22,11 @@ const RefundPolicy: React.FC = () => {
           className="bg-white p-8 rounded-xl shadow-sm"
         >
           <p className="mb-4">
-            At Eyeconic by Lalla, we strive to deliver quality mentorship. However, due to the nature of personalized academic services, refunds are handled with caution and in accordance with this policy.
+            At Eyeconic for NEET PG, we strive to deliver quality mentorship. However, due to the nature of personalized academic services, refunds are handled with caution and in accordance with this policy.
           </p>
           <h2 className="text-2xl font-semibold mb-4">1. General Policy – No Refunds</h2>
           <ol className="list-decimal list-inside mb-4">
-            <li>All fees paid to Eyeconic by Dr. Lalla are strictly non-refundable and non-transferable, under any circumstances, including but not limited to change of mind, dissatisfaction, scheduling conflicts, or personal reasons. This is due to the pre-allocation of limited mentorship resources, personalized attention, and the nature of our educational content.</li>
+            <li>All fees paid to Eyeconic for NEET PG are strictly non-refundable and non-transferable, under any circumstances, including but not limited to change of mind, dissatisfaction, scheduling conflicts, or personal reasons. This is due to the pre-allocation of limited mentorship resources, personalized attention, and the nature of our educational content.</li>
             <li>This policy applies to, but is not limited to:</li>
             <ol className="list-decimal list-inside ml-8 mb-4">
               <li>One-on-one mentorship sessions</li>
@@ -53,7 +53,7 @@ const RefundPolicy: React.FC = () => {
           </ol>
           <h2 className="text-2xl font-semibold mb-4">4. Acknowledgment and Consent</h2>
           <p className="mb-4">
-            By making a payment to Eyeconic by Lalla, you confirm that you have read, understood, and accepted this Refund Policy and agree that you are legally bound by the terms stated herein.
+            By making a payment to Eyeconic for NEET PG, you confirm that you have read, understood, and accepted this Refund Policy and agree that you are legally bound by the terms stated herein.
           </p>
           <p className="mb-4">
             You also confirm that You will not initiate chargebacks, disputes, or public defamation related to refund issues.

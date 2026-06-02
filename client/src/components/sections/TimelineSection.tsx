@@ -10,7 +10,7 @@ const timelineItems = [
 		year: '2018',
 		title: 'The Genesis',
 		description:
-			'Eyeconic by Dr. Lalla was born out of a simple yet powerful insight: every topper\'s journey is unique — and so is every student\'s struggle.',
+			'Eyeconic for NEET PG was born out of a simple yet powerful insight: every topper\'s journey is unique — and so is every student\'s struggle.',
 	},
 	{
 		year: '2020',
@@ -119,7 +119,7 @@ const TimelineSection: React.FC = () => {
 						viewport={{ once: true }}
 						transition={{ duration: 0.6, delay: 0.2 }}
 					>
-						Eyeconic by Dr. Lalla was born out of a simple yet powerful insight:
+						Eyeconic for NEET PG was born out of a simple yet powerful insight:
 						every topper's journey is unique — and so is every student's struggle.
 					</motion.p>
 				</div>
@@ -285,12 +285,12 @@ const TimelineSection: React.FC = () => {
 								At Eyeconic, your dreams are our mission—and together, success
 								isn’t just probable; it's inevitable.
 							</p>
-							<a
+							{/* <a
 								href="#mentors"
 								className="inline-block mt-2 px-6 py-2 bg-teal-600 text-white rounded-lg font-semibold shadow hover:bg-teal-700 transition-colors md:self-center"
 							>
 								More About Dr. Lalla
-							</a>
+							</a> */}
 						</div>
 					</div>
 				</div>

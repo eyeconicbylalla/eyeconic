@@ -160,7 +160,7 @@ const OfferingsSection: React.FC = () => {
         
         <div className="mt-16 bg-gray-100 p-8 rounded-xl">
           <p className="text-center text-lg text-gray-700">
-            Whether you're targeting NEET PG or INiCET, our approach is designed to match your pace, style, and goals. 
+            Whether you're targeting NEET PG or INICET, our approach is designed to match your pace, style, and goals. 
             We don't believe in one-size-fits-all solutions because medical preparation is as individual as the doctors it creates.
           </p>
           <p className="text-center text-xl font-semibold text-teal-600 mt-4 italic">
