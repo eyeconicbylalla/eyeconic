@@ -36,13 +36,13 @@ const FeatureSection: React.FC = () => {
   const [modalAlt, setModalAlt] = useState<string>("");
 
   return (
-    <section id="features" className="py-20 bg-gray-50">
+    <section id="features" className="py-20 bg-[#0A0F14]">
       {/* Modal for enlarged image */}
       {modalImg && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
-          <div className="relative bg-white rounded-lg shadow-lg max-w-2xl w-full flex flex-col items-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className="relative bg-[#18222E] border border-white/[0.08] rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.5)] max-w-2xl w-full flex flex-col items-center p-4">
             <button
-              className="absolute top-2 right-2 bg-red-600 text-white rounded-full px-4 py-2 font-bold text-lg hover:bg-red-700 transition"
+              className="absolute top-6 right-6 bg-[#1E2A38] text-[#CBD5E1] border border-white/[0.06] rounded-xl px-4 py-2 font-semibold text-sm hover:bg-red-950/60 hover:text-red-300 hover:border-red-500/30 transition-all duration-200"
               onClick={() => setModalImg(null)}
             >
               Close
@@ -50,7 +50,7 @@ const FeatureSection: React.FC = () => {
             <img
               src={modalImg}
               alt={modalAlt}
-              className="w-full h-[60vh] object-contain rounded-lg"
+              className="w-full h-[60vh] object-contain rounded-xl mt-12 border border-white/[0.06]"
             />
           </div>
         </div>
@@ -63,6 +63,7 @@ const FeatureSection: React.FC = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
+            className="text-white"
           >
             Why Choose Eyeconic Mentorship?
           </motion.h2>
@@ -71,6 +72,7 @@ const FeatureSection: React.FC = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2 }}
+            className="text-[#94A3B8]"
           >
             Our comprehensive approach addresses all aspects of academic excellence, providing
             you with the tools and guidance needed to succeed.
@@ -92,20 +94,20 @@ const FeatureSection: React.FC = () => {
                   className="flex justify-center items-center mb-4 w-full h-32 cursor-pointer"
                   onClick={() => {
                     setModalImg(feature.img!);
-                    setModalAlt(feature.alt!);
+                    setModalAlt(feature.alt || feature.title);
                   }}
                 >
                   <img
                     src={feature.img}
-                    alt={feature.alt}
-                    className="w-full h-full object-cover rounded-lg shadow"
+                    alt={feature.alt || feature.title}
+                    className="w-full h-full object-cover rounded-xl shadow-card-dark border border-white/[0.06]"
                   />
                 </div>
               ) : (
-                feature.icon
+                (feature as any).icon
               )}
-              <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-              <p className="text-gray-600">{feature.description}</p>
+              <h3 className="text-xl font-bold mb-2 text-white">{feature.title}</h3>
+              <p className="text-[#94A3B8] text-sm leading-relaxed">{feature.description}</p>
             </motion.div>
           ))}
         </div>

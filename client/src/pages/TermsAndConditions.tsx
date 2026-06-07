@@ -3,14 +3,14 @@ import { motion } from 'framer-motion';
 
 const TermsAndConditions: React.FC = () => {
   return (
-    <section className="py-20 bg-gray-50">
+    <section className="py-20 bg-[#0A0F14] text-[#CBD5E1]">
       <div className="container mx-auto px-4 max-w-4xl">
         <motion.h1
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-3xl font-bold text-center mb-8"
+          className="text-3xl font-bold text-center mb-8 text-[#F8FAFC]"
         >
           Terms & Conditions
         </motion.h1>
@@ -19,7 +19,7 @@ const TermsAndConditions: React.FC = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="bg-white p-8 rounded-xl shadow-sm"
+          className="bg-[#18222E] p-8 rounded-xl shadow-card-dark border border-white/[0.06] text-[#CBD5E1]"
         >
           <p className="mb-4">
             Welcome to Eyeconic for NEET PG ("Platform", "we", "us", or "our") – a one-to-one academic mentorship platform designed to help students prepare effectively for NEET and other medical entrance examinations. These Terms and Conditions ("Terms") govern your access to and use of our website, platform, and services.

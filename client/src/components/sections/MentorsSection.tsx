@@ -34,7 +34,7 @@ const MentorsSection: React.FC = () => {
   const goNext = () => goTo(activeIndex + 1);
 
   return (
-    <section id="mentors" className="bg-white py-20">
+    <section id="mentors" className="bg-[#101720] py-20">
       <div className="container mx-auto px-4">
         <motion.div
           className="section-title mb-12 md:mb-14"
@@ -43,10 +43,10 @@ const MentorsSection: React.FC = () => {
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <h2 className="mb-4 text-3xl font-bold text-blue-900 md:text-4xl">
+          <h2 className="mb-4 text-3xl font-bold text-white md:text-4xl">
             Meet the Mentors
           </h2>
-          <p className="mx-auto max-w-3xl text-lg text-gray-700">
+          <p className="mx-auto max-w-3xl text-lg text-[#CBD5E1]">
             Behind every successful NEET PG aspirant is a team of dedicated mentors.
             Meet the experts who will guide you through your journey.
           </p>
@@ -108,7 +108,7 @@ const MentorsSection: React.FC = () => {
               aria-label={mentor.name}
               onClick={() => goTo(index)}
               className={`h-2 rounded-full transition-all duration-300 ${
-                index === activeIndex ? 'w-6 bg-teal-500' : 'w-2 bg-gray-300 hover:bg-teal-300'
+                index === activeIndex ? 'w-6 bg-[#18B6A4]' : 'w-2 bg-[#263445] hover:bg-[#1CC8B5]'
               }`}
             />
           ))}

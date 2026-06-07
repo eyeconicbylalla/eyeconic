@@ -45,7 +45,7 @@ const FAQSection: React.FC = () => {
   };
 
   return (
-    <section id="faqs" className="py-20 bg-white">
+    <section id="faqs" className="py-20 bg-[#101720]">
       <div className="container mx-auto px-4">
         <motion.div 
           className="text-center mb-12"
@@ -54,23 +54,27 @@ const FAQSection: React.FC = () => {
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <h2 className="text-3xl md:text-4xl font-bold text-blue-900 mb-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
             Frequently Asked Questions
           </h2>
         </motion.div>
         <div className="max-w-2xl mx-auto space-y-4">
           {faqs.map((faq, idx) => (
-            <div key={idx} className="border border-teal-100 rounded-lg overflow-hidden bg-teal-50">
+            <div key={idx} className={`border rounded-xl overflow-hidden bg-[#18222E] transition-all duration-300 ${
+              openIndex === idx 
+                ? 'border-[rgba(24,182,164,0.35)] shadow-[0_0_16px_rgba(24,182,164,0.12)]' 
+                : 'border-white/[0.06] hover:border-white/[0.12]'
+            }`}>
               <button
                 className="w-full flex justify-between items-center px-6 py-4 text-left focus:outline-none"
                 onClick={() => toggle(idx)}
                 aria-expanded={openIndex === idx}
               >
-                <span className="font-semibold text-blue-900 text-lg">{faq.question}</span>
+                <span className="font-semibold text-[#CBD5E1] text-lg">{faq.question}</span>
                 {openIndex === idx ? (
-                  <ChevronUp className="text-teal-600" />
+                  <ChevronUp className="text-[#18B6A4]" />
                 ) : (
-                  <ChevronDown className="text-teal-600" />
+                  <ChevronDown className="text-[#18B6A4]" />
                 )}
               </button>
               {openIndex === idx && (
@@ -78,7 +82,7 @@ const FAQSection: React.FC = () => {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="px-6 pb-4 text-base text-black"
+                  className="px-6 pb-5 text-base text-[#94A3B8] leading-relaxed border-t border-white/[0.03] pt-3"
                 >
                   {faq.answer}
                 </motion.div>

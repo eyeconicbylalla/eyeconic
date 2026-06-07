@@ -11,6 +11,7 @@ import Disclaimer from './pages/Disclaimer';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import RefundPolicy from './pages/RefundPolicy';
 import TermsAndConditions from './pages/TermsAndConditions';
+import NotFound from './pages/NotFound';
 
 function ScrollToHash() {
   const location = useLocation();
@@ -38,7 +39,7 @@ function App() {
   return (
     <Router>
       <ScrollToHash />
-      <div className="min-h-screen flex flex-col">
+      <div className="bg-[#0A0F14] min-h-screen text-[#F8FAFC] flex flex-col">
         <Navbar />
         <main className="flex-grow">
           <Routes>
@@ -55,6 +56,7 @@ function App() {
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
             <Route path="/refund-policy" element={<RefundPolicy />} />
             <Route path="/disclaimer" element={<Disclaimer />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
         <Footer />

@@ -68,7 +68,7 @@ const TestimonialSection: React.FC = () => {
   };
 
   return (
-    <section id="testimonials" className="py-20 bg-white">
+    <section id="testimonials" className="py-20 bg-[#101720]">
       <div className="container mx-auto px-4">
         <motion.div className="text-center mb-16">
           <motion.h2
@@ -76,7 +76,7 @@ const TestimonialSection: React.FC = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="text-3xl md:text-4xl font-bold text-blue-900 mb-4"
+            className="text-3xl md:text-4xl font-bold text-white mb-4"
           >
             What Our Students Say
           </motion.h2>
@@ -85,7 +85,7 @@ const TestimonialSection: React.FC = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-lg text-gray-700 max-w-3xl mx-auto"
+            className="text-lg text-[#CBD5E1] max-w-3xl mx-auto"
           >
             Read success stories from students who have transformed their academic journey with
             Eyeconic mentorship.
@@ -93,8 +93,8 @@ const TestimonialSection: React.FC = () => {
         </motion.div>
         
         <div className="mt-12 max-w-4xl mx-auto">
-          <div className={`relative rounded-xl p-8 shadow-sm ${testimonials[activeIndex].color}`}>
-            <Quote className="absolute text-white/50 w-24 h-24 -top-10 -left-10" />
+          <div className="relative rounded-2xl p-8 bg-[#18222E] border border-white/[0.06] shadow-card-dark overflow-hidden min-h-[220px] flex items-center">
+            <Quote className="absolute text-[#18B6A4]/10 w-24 h-24 -top-6 -left-6 pointer-events-none" />
             
             <motion.div
               key={activeIndex}
@@ -102,35 +102,35 @@ const TestimonialSection: React.FC = () => {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.5 }}
-              className="relative z-10"
+              className="relative z-10 w-full"
             >
-              <p className="text-lg text-gray-800 mb-6 italic">"{testimonials[activeIndex].content}"</p>
+              <p className="text-lg text-[#CBD5E1] mb-6 italic leading-relaxed">"{testimonials[activeIndex].content}"</p>
               
               <div className="flex items-center">
                 <div>
-                  <h4 className="font-bold text-blue-900">{testimonials[activeIndex].name}</h4>
-                  <p className="text-gray-700">{testimonials[activeIndex].position}</p>
+                  <h4 className="font-bold text-white">{testimonials[activeIndex].name}</h4>
+                  <p className="text-[#94A3B8] text-sm mt-0.5">{testimonials[activeIndex].position}</p>
                 </div>
               </div>
             </motion.div>
           </div>
           
-          <div className="flex justify-center mt-8 space-x-4">
+          <div className="flex justify-center items-center mt-8 space-x-6">
             <button 
               onClick={prevTestimonial}
-              className="p-2 rounded-full border border-gray-300 hover:bg-blue-50 hover:border-blue-500 transition-colors"
+              className="p-2 rounded-full border border-white/[0.08] bg-[#18222E] text-[#CBD5E1] hover:bg-[#1E2A38] hover:text-[#18B6A4] hover:border-[rgba(24,182,164,0.35)] transition-all duration-200"
               aria-label="Previous testimonial"
             >
               <ChevronLeft size={20} />
             </button>
             
-            <div className="flex space-x-2">
+            <div className="flex space-x-2.5">
               {testimonials.map((_, index) => (
                 <button
                   key={index}
                   onClick={() => setActiveIndex(index)}
-                  className={`w-3 h-3 rounded-full ${
-                    index === activeIndex ? 'bg-blue-500' : 'bg-gray-300'
+                  className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                    index === activeIndex ? 'bg-[#18B6A4] w-5' : 'bg-[#1E2A38]'
                   }`}
                   aria-label={`Go to testimonial ${index + 1}`}
                 />
@@ -139,14 +139,12 @@ const TestimonialSection: React.FC = () => {
             
             <button 
               onClick={nextTestimonial}
-              className="p-2 rounded-full border border-gray-300 hover:bg-blue-50 hover:border-blue-500 transition-colors"
+              className="p-2 rounded-full border border-white/[0.08] bg-[#18222E] text-[#CBD5E1] hover:bg-[#1E2A38] hover:text-[#18B6A4] hover:border-[rgba(24,182,164,0.35)] transition-all duration-200"
               aria-label="Next testimonial"
             >
               <ChevronRight size={20} />
             </button>
           </div>
-
-          
         </div>
       </div>
     </section>

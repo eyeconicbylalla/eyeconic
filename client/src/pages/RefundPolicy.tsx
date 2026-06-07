@@ -3,14 +3,14 @@ import { motion } from 'framer-motion';
 
 const RefundPolicy: React.FC = () => {
   return (
-    <section className="py-20 bg-gray-50">
+    <section className="py-20 bg-[#0A0F14] text-[#CBD5E1]">
       <div className="container mx-auto px-4 max-w-4xl">
         <motion.h1
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-3xl font-bold text-center mb-8"
+          className="text-3xl font-bold text-center mb-8 text-[#F8FAFC]"
         >
           Refund Policy
         </motion.h1>
@@ -19,7 +19,7 @@ const RefundPolicy: React.FC = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="bg-white p-8 rounded-xl shadow-sm"
+          className="bg-[#18222E] p-8 rounded-xl shadow-card-dark border border-white/[0.06] text-[#CBD5E1]"
         >
           <p className="mb-4">
             At Eyeconic for NEET PG, we strive to deliver quality mentorship. However, due to the nature of personalized academic services, refunds are handled with caution and in accordance with this policy.

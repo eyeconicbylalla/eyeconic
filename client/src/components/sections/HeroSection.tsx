@@ -11,8 +11,11 @@ const HeroSection: React.FC = () => {
   const [loginOpen, setLoginOpen] = useState(false);
 
   return (
-    <section id="home" className="pt-28 pb-20 bg-gradient-to-b from-teal-900 to-teal-500 text-white">
-      <div className="container mx-auto px-4">
+    <section id="home" className="pt-28 pb-20 bg-gradient-to-b from-teal-900 to-teal-500 text-white relative overflow-hidden">
+      {/* Subtle radial glow overlay */}
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-teal-400/10 rounded-full blur-[120px] pointer-events-none" />
+      
+      <div className="container mx-auto px-4 relative z-10">
         <div className="flex flex-col md:flex-row items-center">
           <motion.div 
             className="w-full md:w-1/2 mb-10 md:mb-0"
@@ -23,41 +26,41 @@ const HeroSection: React.FC = () => {
             <h1 className="text-white text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
               Transform Your Academic Journey with Expert Mentorship
             </h1>
-            <p className="text-lg md:text-xl mb-8 text-teal-50">
+            <p className="text-lg md:text-xl mb-8 text-teal-50 max-w-lg">
               Our comprehensive approach addresses all aspects of academic excellence, providing
               you with the tools and guidance needed to succeed.
             </p>
             <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-              <a href="#courses" className="btn bg-white text-teal-500 hover:bg-teal-50 transition-colors scroll-smooth">
+              <a href="#courses" className="btn bg-[#0A0F14]/40 backdrop-blur-md border border-white/10 text-white hover:bg-[#0A0F14]/60 hover:border-white/30 transition-all duration-300 scroll-smooth">
                 Join Now
               </a>
-              <a href="#about" className="btn bg-transparent border border-white hover:bg-teal-400 transition-colors flex items-center scroll-smooth">
+              <a href="#about" className="btn bg-transparent border border-white/30 hover:bg-white/10 text-white transition-all duration-300 flex items-center scroll-smooth">
                 Know More <ArrowRight size={16} className="ml-2" />
               </a>
             </div>
-            <div className="mt-4 flex items-center">
-              <div className="bg-white p-4 rounded-lg shadow-lg border border-teal-200 flex items-center">
-                <div className="bg-green-500 h-3 w-3 rounded-full mr-2"></div>
-                <span className="text-teal-600 font-bold">98% Success Rate</span>
+            <div className="mt-6 flex items-center">
+              <div className="bg-[#101720]/80 backdrop-blur-md py-2 px-4 rounded-xl shadow-lg border border-white/10 flex items-center">
+                <div className="bg-[#18B6A4] h-2.5 w-2.5 rounded-full mr-2 accent-glow"></div>
+                <span className="text-[#4DD7C8] font-bold text-sm">98% Success Rate</span>
               </div>
             </div>
             <div className="mt-8 flex items-center">
               <img 
                 src="https://images.pexels.com/photos/3184405/pexels-photo-3184405.jpeg?auto=compress&cs=tinysrgb&h=60" 
                 alt="Students" 
-                className="h-8 w-auto rounded-full border-2 border-white"
+                className="h-8 w-auto rounded-full border-2 border-teal-900"
               />
               <img 
                 src="https://images.pexels.com/photos/3184302/pexels-photo-3184302.jpeg?auto=compress&cs=tinysrgb&h=60" 
                 alt="Students" 
-                className="h-8 w-auto rounded-full border-2 border-white -ml-2"
+                className="h-8 w-auto rounded-full border-2 border-teal-900 -ml-2"
               />
               <img 
                 src="https://images.pexels.com/photos/3184339/pexels-photo-3184339.jpeg?auto=compress&cs=tinysrgb&h=60" 
                 alt="Students" 
-                className="h-8 w-auto rounded-full border-2 border-white -ml-2"
+                className="h-8 w-auto rounded-full border-2 border-teal-900 -ml-2"
               />
-              <span className="ml-2 text-sm">Join <span className="font-bold">2,500+</span> successful students</span>
+              <span className="ml-3 text-sm text-teal-100">Join <span className="font-bold text-white">2,500+</span> successful students</span>
             </div>
           </motion.div>
           
@@ -69,18 +72,27 @@ const HeroSection: React.FC = () => {
           >
             <div className="relative flex flex-col items-center justify-center h-full min-h-[300px]">
               {!isLoggedIn && (
-                <div className="bg-white bg-opacity-90 rounded-xl shadow-lg border border-teal-200 p-6 text-center max-w-md mx-auto">
-                  <h3 className="text-xl font-bold text-teal-700 mb-2">Unlock Free NEET PG Tools!</h3>
-                  <p className="text-teal-800 mb-2">
+                <div className="bg-[#101720]/92 backdrop-blur-xl rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.45)] border border-white/[0.08] p-8 text-center max-w-md mx-auto">
+                  <h3 className="text-2xl font-bold text-teal-200 mb-3">Unlock Free NEET PG Tools!</h3>
+                  <p className="text-[#CBD5E1] mb-4 text-sm">
                     <span className="font-semibold">Sign up to access:</span>
                   </p>
-                  <ul className="list-disc list-inside text-teal-700 mt-2 mb-4 text-left">
-                    <li>Free GT Score Predictor</li>
-                    <li>Exclusive NEET PG Resources</li>
-                    <li>Personalized Dashboard</li>
+                  <ul className="space-y-2.5 text-[#94A3B8] text-sm mt-2 mb-6 text-left">
+                    <li className="flex items-center">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#18B6A4] mr-2"></span>
+                      Free GT Score Predictor
+                    </li>
+                    <li className="flex items-center">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#18B6A4] mr-2"></span>
+                      Exclusive NEET PG Resources
+                    </li>
+                    <li className="flex items-center">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#18B6A4] mr-2"></span>
+                      Personalized Dashboard
+                    </li>
                   </ul>
                   <button
-                    className="bg-teal-600 hover:bg-teal-700 text-white font-semibold px-6 py-2 rounded-lg shadow transition-colors"
+                    className="btn btn-primary w-full text-center font-bold"
                     type="button"
                     onClick={() => setSignupOpen(true)}
                   >

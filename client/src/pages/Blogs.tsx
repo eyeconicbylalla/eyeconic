@@ -63,21 +63,21 @@ const Blogs: React.FC = () => {
           : 'Eyeconic Blogs';
 
   return (
-    <section className="bg-[radial-gradient(circle_at_top,_rgba(20,184,166,0.16),transparent_45%),linear-gradient(180deg,#f8fafc_0%,#ffffff_45%)] pb-20 pt-32">
+    <section className="bg-[radial-gradient(circle_at_top,_rgba(24,182,164,0.08),transparent_45%),linear-gradient(180deg,#0A0F14_0%,#101720_45%)] pb-20 pt-32">
       <div className="container mx-auto space-y-10">
-        <div className="rounded-[2.5rem] border border-white/60 bg-white/90 p-8 shadow-[0_40px_100px_-45px_rgba(15,118,110,0.5)] backdrop-blur">
+        <div className="rounded-[2.5rem] border border-white/[0.06] bg-[#18222E]/80 p-8 shadow-[0_40px_100px_-45px_rgba(0,0,0,0.45)] backdrop-blur-xl">
           <div className="grid gap-8 xl:grid-cols-[1.2fr_0.8fr] xl:items-end">
             <div className="space-y-4">
-              <p className="text-sm font-semibold uppercase tracking-[0.32em] text-teal-700">Editorial hub</p>
-              <h1 className="text-4xl font-bold tracking-tight text-slate-900 md:text-6xl">{title}</h1>
-              <p className="max-w-3xl text-lg leading-8 text-slate-600">Expert strategy, preparation insights, study systems, and high-leverage breakdowns from the Eyeconic mentoring team.</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[#4DD7C8]">Editorial hub</p>
+              <h1 className="text-4xl font-bold tracking-tight text-[#F8FAFC] md:text-6xl">{title}</h1>
+              <p className="max-w-3xl text-lg leading-8 text-[#CBD5E1]">Expert strategy, preparation insights, study systems, and high-leverage breakdowns from the Eyeconic mentoring team.</p>
             </div>
-            <div className="space-y-4 rounded-[2rem] border border-slate-200 bg-slate-50 p-5">
+            <div className="space-y-4 rounded-[2rem] border border-white/[0.06] bg-[#101720]/80 p-5">
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search blogs, topics, or keywords"
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                className="w-full rounded-2xl border border-[#263445] bg-[#151E29] px-4 py-3 text-sm text-white placeholder-[#94A3B8] outline-none transition focus:border-[#18B6A4] focus:ring-2 focus:ring-[rgba(24,182,164,0.15)]"
               />
               <div className="flex gap-3">
                 <button
@@ -90,7 +90,7 @@ const Blogs: React.FC = () => {
                     }
                     setSearchParams(nextParams);
                   }}
-                  className="flex-1 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white"
+                  className="flex-1 rounded-2xl bg-gradient-to-r from-[#18B6A4] to-[#1CC8B5] px-4 py-3 text-sm font-semibold text-[#0A0F14] hover:shadow-[0_0_20px_rgba(24,182,164,0.3)] transition duration-200"
                 >
                   Search
                 </button>
@@ -99,7 +99,7 @@ const Blogs: React.FC = () => {
                     setQuery('');
                     setSearchParams(new URLSearchParams());
                   }}
-                  className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700"
+                  className="rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm font-semibold text-[#CBD5E1] hover:bg-white/[0.08] hover:text-white transition duration-200"
                 >
                   Reset
                 </button>
@@ -109,32 +109,32 @@ const Blogs: React.FC = () => {
         </div>
 
         <div className="grid gap-10 xl:grid-cols-[0.28fr_1fr]">
-          <aside className="space-y-6 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+          <aside className="space-y-6 rounded-[2rem] border border-white/[0.06] bg-[#18222E] p-5 shadow-card-dark">
             <div>
-              <p className="mb-3 text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">Categories</p>
+              <p className="mb-3 text-sm font-semibold uppercase tracking-[0.24em] text-[#94A3B8]">Categories</p>
               <div className="space-y-2">
                 {filters.categories.map((category) => (
-                  <Link key={category.slug} to={`/blogs/category/${category.slug}`} className="block rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50">
+                  <Link key={category.slug} to={`/blogs/category/${category.slug}`} className="block rounded-xl px-3 py-2 text-sm text-[#CBD5E1] transition hover:bg-white/[0.04] hover:text-[#18B6A4]">
                     {category.name}
                   </Link>
                 ))}
               </div>
             </div>
             <div>
-              <p className="mb-3 text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">Tags</p>
+              <p className="mb-3 text-sm font-semibold uppercase tracking-[0.24em] text-[#94A3B8]">Tags</p>
               <div className="flex flex-wrap gap-2">
                 {filters.tags.map((tag) => (
-                  <Link key={tag.slug} to={`/blogs/tag/${tag.slug}`} className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-teal-100 hover:text-teal-800">
+                  <Link key={tag.slug} to={`/blogs/tag/${tag.slug}`} className="rounded-full bg-[#1E2A38] px-3 py-2 text-xs font-semibold text-[#94A3B8] border border-white/[0.04] transition hover:bg-teal-950/60 hover:text-[#4DD7C8] hover:border-[#18B6A4]/30">
                     {tag.name}
                   </Link>
                 ))}
               </div>
             </div>
             <div>
-              <p className="mb-3 text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">Authors</p>
-              <div className="space-y-2 text-sm text-slate-700">
+              <p className="mb-3 text-sm font-semibold uppercase tracking-[0.24em] text-[#94A3B8]">Authors</p>
+              <div className="space-y-2 text-sm text-[#CBD5E1]">
                 {filters.authors.map((author) => (
-                  <Link key={author} to={`/blogs/author/${encodeURIComponent(author)}`} className="block rounded-xl px-3 py-2 transition hover:bg-slate-50">
+                  <Link key={author} to={`/blogs/author/${encodeURIComponent(author)}`} className="block rounded-xl px-3 py-2 transition hover:bg-white/[0.04] hover:text-[#18B6A4]">
                     {author}
                   </Link>
                 ))}
@@ -143,31 +143,31 @@ const Blogs: React.FC = () => {
           </aside>
 
           <div className="space-y-6">
-            {loading ? <div className="rounded-[2rem] border border-slate-200 bg-white px-6 py-16 text-center text-slate-500">Loading editorial feed...</div> : null}
-            {!loading && blogs.length === 0 ? <div className="rounded-[2rem] border border-slate-200 bg-white px-6 py-16 text-center text-slate-500">No blogs matched the current search.</div> : null}
+            {loading ? <div className="rounded-[2rem] border border-white/[0.06] bg-[#18222E] px-6 py-16 text-center text-[#94A3B8]">Loading editorial feed...</div> : null}
+            {!loading && blogs.length === 0 ? <div className="rounded-[2rem] border border-white/[0.06] bg-[#18222E] px-6 py-16 text-center text-[#94A3B8]">No blogs matched the current search.</div> : null}
             <div className="grid gap-6 lg:grid-cols-2">
               {blogs.map((blog) => (
-                <article key={blog._id} className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
-                  <div className="aspect-[16/9] bg-slate-100">
-                    {blog.featuredImage?.url ? <img src={blog.featuredImage.url} alt={blog.featuredImage.altText || blog.title} className="h-full w-full object-cover" loading="lazy" /> : <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-teal-100 to-cyan-50 px-8 text-center text-xl font-semibold text-teal-900">{blog.title}</div>}
+                <article key={blog._id} className="overflow-hidden rounded-[2rem] border border-white/[0.06] bg-[#18222E] shadow-card-dark transition hover:-translate-y-1 hover:shadow-[0_20px_40px_rgba(0,0,0,0.35)] hover:border-[rgba(24,182,164,0.2)]">
+                  <div className="aspect-[16/9] bg-[#101720]">
+                    {blog.featuredImage?.url ? <img src={blog.featuredImage.url} alt={blog.featuredImage.altText || blog.title} className="h-full w-full object-cover" loading="lazy" /> : <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-teal-950 to-cyan-950 px-8 text-center text-xl font-semibold text-[#4DD7C8] border-b border-white/[0.04]">{blog.title}</div>}
                   </div>
                   <div className="space-y-4 p-6">
-                    <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#94A3B8]">
                       <span>{blog.category?.name || 'General'}</span>
                       <span>{blog.readingTimeMinutes} min read</span>
                       <span>{new Date(blog.publishAt || blog.createdAt).toLocaleDateString()}</span>
                     </div>
-                    <h2 className="text-2xl font-bold text-slate-900">{blog.title}</h2>
-                    <p className="text-sm leading-7 text-slate-600">{blog.excerpt}</p>
+                    <h2 className="text-2xl font-bold text-[#F8FAFC]">{blog.title}</h2>
+                    <p className="text-sm leading-7 text-[#CBD5E1]">{blog.excerpt}</p>
                     <div className="flex flex-wrap gap-2">
-                      {blog.tags.slice(0, 4).map((tag) => <span key={tag.slug} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{tag.name}</span>)}
+                      {blog.tags.slice(0, 4).map((tag) => <span key={tag.slug} className="rounded-full bg-[#1E2A38] px-3 py-1 text-xs font-semibold text-[#94A3B8] border border-white/[0.04]">{tag.name}</span>)}
                     </div>
-                    <div className="flex items-center justify-between border-t border-slate-100 pt-4">
+                    <div className="flex items-center justify-between border-t border-white/[0.06] pt-4">
                       <div>
-                        <p className="text-sm font-semibold text-slate-800">{blog.author.name}</p>
-                        <p className="text-xs text-slate-500">SEO {blog.seoScore} · {blog.views} views</p>
+                        <p className="text-sm font-semibold text-[#CBD5E1]">{blog.author.name}</p>
+                        <p className="text-xs text-[#94A3B8]">SEO {blog.seoScore} · {blog.views} views</p>
                       </div>
-                      <Link to={`/blog/${blog.slug}`} className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Read article</Link>
+                      <Link to={`/blog/${blog.slug}`} className="rounded-full bg-gradient-to-r from-[#18B6A4] to-[#1CC8B5] px-4 py-2 text-sm font-semibold text-[#0A0F14] hover:shadow-[0_0_15px_rgba(24,182,164,0.3)] transition duration-200">Read article</Link>
                     </div>
                   </div>
                 </article>

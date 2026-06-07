@@ -46,59 +46,67 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose, onSignupSucc
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-      <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md relative">
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-teal-600">&times;</button>
-        <h2 className="text-2xl font-bold text-teal-700 mb-6 text-center">Sign Up for Eyeconic</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-[#18222E] border border-white/[0.08] shadow-[0_20px_60px_rgba(0,0,0,0.5)] rounded-2xl p-8 w-full max-w-md relative text-white">
+        <button onClick={onClose} className="absolute top-4 right-4 text-[#94A3B8] hover:text-[#18B6A4] transition-colors text-2xl">&times;</button>
+        <h2 className="text-2xl font-bold text-white mb-6 text-center">Sign Up for Eyeconic</h2>
         <form onSubmit={handleSignup} className="space-y-4">
-          <input
-            type="text"
-            className="w-full border border-teal-200 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500 bg-transparent text-black"
-            placeholder="Name"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            required
-            autoComplete="off"
-          />
-          <input
-            type="email"
-            className="w-full border border-teal-200 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500 bg-transparent text-black"
-            placeholder="Email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-            autoComplete="off"
-          />
-          <input
-            type="text"
-            className="w-full border border-teal-200 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500 bg-transparent text-black"
-            placeholder="Phone"
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-            required
-            autoComplete="off"
-          />
-          <input
-            type="password"
-            className="w-full border border-teal-200 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500 bg-transparent text-black"
-            placeholder="Password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-            autoComplete="off"
-          />
-          {error && <div className="text-red-600 text-sm text-center">{error}</div>}
+          <div>
+            <input
+              type="text"
+              className="w-full bg-[#151E29] border border-[#263445] text-[#F8FAFC] placeholder-[#94A3B8] focus:border-[#18B6A4] focus:ring-2 focus:ring-[rgba(24,182,164,0.15)] rounded-xl px-4 py-3 focus:outline-none transition-all duration-200"
+              placeholder="Name"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              required
+              autoComplete="off"
+            />
+          </div>
+          <div>
+            <input
+              type="email"
+              className="w-full bg-[#151E29] border border-[#263445] text-[#F8FAFC] placeholder-[#94A3B8] focus:border-[#18B6A4] focus:ring-2 focus:ring-[rgba(24,182,164,0.15)] rounded-xl px-4 py-3 focus:outline-none transition-all duration-200"
+              placeholder="Email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              autoComplete="off"
+            />
+          </div>
+          <div>
+            <input
+              type="text"
+              className="w-full bg-[#151E29] border border-[#263445] text-[#F8FAFC] placeholder-[#94A3B8] focus:border-[#18B6A4] focus:ring-2 focus:ring-[rgba(24,182,164,0.15)] rounded-xl px-4 py-3 focus:outline-none transition-all duration-200"
+              placeholder="Phone"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              required
+              autoComplete="off"
+            />
+          </div>
+          <div>
+            <input
+              type="password"
+              className="w-full bg-[#151E29] border border-[#263445] text-[#F8FAFC] placeholder-[#94A3B8] focus:border-[#18B6A4] focus:ring-2 focus:ring-[rgba(24,182,164,0.15)] rounded-xl px-4 py-3 focus:outline-none transition-all duration-200"
+              placeholder="Password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              autoComplete="off"
+            />
+          </div>
+          {error && <div className="dark-banner-error text-center text-sm">{error}</div>}
           <button
             type="submit"
-            className="w-full bg-teal-600 text-white font-semibold rounded-lg py-2 hover:bg-teal-700 transition-colors"
+            className="btn btn-primary w-full py-3 font-bold rounded-xl"
             disabled={loading}
           >
             {loading ? 'Signing up...' : 'Sign Up'}
           </button>
         </form>
-        <div className="text-center mt-4 text-sm text-black">
+        <div className="text-center mt-6 text-sm text-[#94A3B8]">
           Already have an account?{' '}
-          <button onClick={onSwitchToLogin} className="text-teal-700 font-semibold hover:underline">Login</button>
+          <button onClick={onSwitchToLogin} className="text-[#18B6A4] font-semibold hover:text-[#1CC8B5] transition-colors">Login</button>
         </div>
       </div>
     </div>

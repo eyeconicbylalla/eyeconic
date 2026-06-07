@@ -97,7 +97,7 @@ const VideosSection: React.FC = () => {
 
   return (
     <>
-      <section id="videos" className="bg-white py-16 md:py-20">
+      <section id="videos" className="bg-[#0A0F14] py-16 md:py-20">
         <div className="container mx-auto px-4">
           <motion.div
             className="section-title mb-10 md:mb-12"
@@ -106,10 +106,10 @@ const VideosSection: React.FC = () => {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <h2 className="mb-4 text-3xl font-bold text-blue-900 md:text-4xl">
+            <h2 className="mb-4 text-3xl font-bold text-white md:text-4xl">
               Preparing for NEET PG or INICET?
             </h2>
-            <p className="mx-auto max-w-3xl text-lg text-gray-700">
+            <p className="mx-auto max-w-3xl text-lg text-[#CBD5E1]">
               Here are some golden videos you absolutely CAN NOT MISS!
             </p>
           </motion.div>
@@ -155,16 +155,11 @@ const VideosSection: React.FC = () => {
           </div>
         </div>
 
-        {/* <div className="container mx-auto px-4">
-          <p className="mt-6 text-center text-sm text-gray-500">
-            Autoscrolling gallery — hover to pause, then tap a card to play.
-          </p>
-        </div> */}
       </section>
 
       {playingId && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/85 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
           role="dialog"
           aria-modal="true"
           aria-label="Video player"
@@ -183,7 +178,7 @@ const VideosSection: React.FC = () => {
               <X className="h-5 w-5" />
             </button>
             <motion.div
-              className="overflow-hidden rounded-xl border border-teal-200 bg-black shadow-2xl"
+              className="overflow-hidden rounded-xl border border-white/[0.08] bg-black shadow-2xl"
               initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.25 }}

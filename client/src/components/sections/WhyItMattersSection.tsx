@@ -24,7 +24,7 @@ const benefits = [
 
 const WhyItMattersSection: React.FC = () => {
   return (
-    <section id="why-it-matters" className="py-20 bg-white">
+    <section id="why-it-matters" className="py-20 bg-[#0A0F14]">
       <div className="container mx-auto px-4">
         <div className="flex flex-col lg:flex-row items-center gap-12">
           <motion.div 
@@ -37,7 +37,7 @@ const WhyItMattersSection: React.FC = () => {
             <img 
               src={student}
               alt="Students studying together" 
-              className="rounded-lg shadow-lg"
+              className="rounded-2xl border border-white/[0.06] shadow-card-dark w-full object-cover"
             />
           </motion.div>
           
@@ -48,8 +48,8 @@ const WhyItMattersSection: React.FC = () => {
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <h2 className="text-3xl font-bold mb-6">Why It Matters</h2>
-            <p className="text-gray-700 mb-8">
+            <h2 className="text-3xl font-bold mb-6 text-white">Why It Matters</h2>
+            <p className="text-[#CBD5E1] mb-8 leading-relaxed">
               Because cracking NEET PG isn't just about hard work — it's about smart strategy, 
               consistent support, and mental clarity. In a field where the difference between selection 
               and waiting another year can come down to a few marks, having the right guidance isn't a 
@@ -70,8 +70,8 @@ const WhyItMattersSection: React.FC = () => {
                     <CheckCircle className="h-6 w-6 text-teal-500" />
                   </div>
                   <div className="ml-4">
-                    <h4 className="font-semibold text-navy-900">{benefit.title}</h4>
-                    <p className="text-gray-600">{benefit.description}</p>
+                    <h4 className="font-semibold text-white">{benefit.title}</h4>
+                    <p className="text-[#94A3B8] text-sm leading-relaxed">{benefit.description}</p>
                   </div>
                 </motion.div>
               ))}

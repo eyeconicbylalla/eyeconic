@@ -25,34 +25,34 @@ const CountdownTimer: React.FC = () => {
   }, []);
 
   return (
-    <section className="py-16 bg-gradient-to-r from-teal-500 to-blue-400">
+    <section className="py-16 bg-[#101720] border-y border-white/[0.06]">
       <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-8">
-        <div className="flex-1 text-white mb-8 md:mb-0">
-          <h2 className="text-2xl md:text-3xl font-bold mb-2">Next Batch Starting Soon</h2>
-          <p className="text-lg mb-4 text-teal-50 max-w-lg">Limited spots available for our upcoming intensive mentorship program. Secure your place today!</p>
-          <a href="#contact" className="inline-block bg-white text-teal-600 font-semibold px-6 py-3 rounded-md shadow hover:bg-teal-50 transition">Join Now</a>
+        <div className="flex-grow text-white mb-8 md:mb-0">
+          <h2 className="text-2xl md:text-3xl font-bold mb-2 text-white">Next Batch Starting Soon</h2>
+          <p className="text-lg mb-6 text-[#94A3B8] max-w-lg">Limited spots available for our upcoming intensive mentorship program. Secure your place today!</p>
+          <a href="#contact" className="btn btn-primary">Join Now</a>
         </div>
-        <div className="flex-1 flex flex-col items-center bg-white/20 rounded-xl p-8 shadow-lg min-w-[320px]">
-          <div className="flex items-center mb-4">
-            <Clock className="text-white mr-2" />
-            <span className="text-white font-semibold text-lg">Enrollment Closes In:</span>
+        <div className="flex-shrink-0 flex flex-col items-center bg-[#18222E] border border-white/[0.06] rounded-2xl p-8 shadow-card-dark min-w-[320px]">
+          <div className="flex items-center mb-5">
+            <Clock className="text-[#18B6A4] mr-2" size={20} />
+            <span className="text-[#CBD5E1] font-semibold text-lg">Enrollment Closes In:</span>
           </div>
           <div className="flex space-x-4">
             <div className="flex flex-col items-center">
-              <span className="bg-white text-teal-600 font-bold text-3xl px-4 py-2 rounded-md min-w-[60px] text-center">{String(timeLeft.days).padStart(2, '0')}</span>
-              <span className="text-white mt-2 text-xs font-medium tracking-wide">DAYS</span>
+              <span className="bg-[#0A0F14] border border-white/[0.04] text-[#4DD7C8] font-bold text-3xl md:text-4xl px-4 py-3 rounded-xl min-w-[65px] text-center shadow-inner tabular-nums">{String(timeLeft.days).padStart(2, '0')}</span>
+              <span className="text-[#94A3B8] mt-2.5 text-xs font-semibold tracking-widest">DAYS</span>
             </div>
             <div className="flex flex-col items-center">
-              <span className="bg-white text-teal-600 font-bold text-3xl px-4 py-2 rounded-md min-w-[60px] text-center">{String(timeLeft.hours).padStart(2, '0')}</span>
-              <span className="text-white mt-2 text-xs font-medium tracking-wide">HOURS</span>
+              <span className="bg-[#0A0F14] border border-white/[0.04] text-[#4DD7C8] font-bold text-3xl md:text-4xl px-4 py-3 rounded-xl min-w-[65px] text-center shadow-inner tabular-nums">{String(timeLeft.hours).padStart(2, '0')}</span>
+              <span className="text-[#94A3B8] mt-2.5 text-xs font-semibold tracking-widest">HOURS</span>
             </div>
             <div className="flex flex-col items-center">
-              <span className="bg-white text-teal-600 font-bold text-3xl px-4 py-2 rounded-md min-w-[60px] text-center">{String(timeLeft.minutes).padStart(2, '0')}</span>
-              <span className="text-white mt-2 text-xs font-medium tracking-wide">MINUTES</span>
+              <span className="bg-[#0A0F14] border border-white/[0.04] text-[#4DD7C8] font-bold text-3xl md:text-4xl px-4 py-3 rounded-xl min-w-[65px] text-center shadow-inner tabular-nums">{String(timeLeft.minutes).padStart(2, '0')}</span>
+              <span className="text-[#94A3B8] mt-2.5 text-xs font-semibold tracking-widest">MINS</span>
             </div>
             <div className="flex flex-col items-center">
-              <span className="bg-white text-teal-600 font-bold text-3xl px-4 py-2 rounded-md min-w-[60px] text-center">{String(timeLeft.seconds).padStart(2, '0')}</span>
-              <span className="text-white mt-2 text-xs font-medium tracking-wide">SECONDS</span>
+              <span className="bg-[#0A0F14] border border-white/[0.04] text-[#4DD7C8] font-bold text-3xl md:text-4xl px-4 py-3 rounded-xl min-w-[65px] text-center shadow-inner tabular-nums">{String(timeLeft.seconds).padStart(2, '0')}</span>
+              <span className="text-[#94A3B8] mt-2.5 text-xs font-semibold tracking-widest">SECS</span>
             </div>
           </div>
         </div>

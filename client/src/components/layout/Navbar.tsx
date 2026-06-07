@@ -40,30 +40,63 @@ const Navbar: React.FC = () => {
     window.location.href = '/';
   };
 
+  const isActive = (to: string) => {
+    if (to === '/') return location.pathname === '/' && !location.hash;
+    if (to.startsWith('/#')) {
+      return location.pathname === '/' && location.hash === to.slice(1);
+    }
+    return location.pathname.startsWith(to);
+  };
+
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white shadow-md py-2 transition-all duration-300">
+    <nav className={`fixed top-0 left-0 right-0 z-50 py-3 transition-all duration-300 ${
+      isScrolled
+        ? 'bg-[#0A0F14]/90 backdrop-blur-xl border-b border-white/[0.06] shadow-[0_8px_30px_rgba(0,0,0,0.3)]'
+        : 'bg-[#0A0F14]/70 backdrop-blur-md border-b border-transparent'
+    }`}>
       <div className="container mx-auto px-4 flex items-center justify-between">
-        <Link to="/" className="flex items-center space-x-2 text-2xl font-bold text-teal-700">
+        <Link to="/" className="flex items-center space-x-2 text-2xl font-bold text-[#18B6A4] hover:text-[#1CC8B5] transition-colors">
           <img src={logo} alt="Eyeconic Logo" className="h-8 w-8 object-contain" />
           <span>EyeConic</span>
         </Link>
         <div className="hidden md:flex items-center space-x-8">
           <ul className="flex space-x-8">
             <li>
-              <Link to="/" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Home</Link>
+              <Link
+                to="/"
+                className={`font-medium transition-colors ${
+                  isActive('/') ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
+                }`}
+              >
+                Home
+              </Link>
             </li>
             {/* Show all options on home page, only dashboard/book a call on dashboard */}
             {isDashboard && isLoggedIn ? (
               <>
                 <li>
-                  <Link to="/dashboard" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Dashboard</Link>
+                  <Link
+                    to="/dashboard"
+                    className={`font-medium transition-colors ${
+                      isActive('/dashboard') ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
+                    }`}
+                  >
+                    Dashboard
+                  </Link>
                 </li>
               </>
             ) : (
               <>
                 {sectionLinks.map((item) => (
                   <li key={item.label}>
-                    <Link to={item.to} className="text-navy-900 hover:text-teal-500 font-medium transition-colors">{item.label}</Link>
+                    <Link
+                      to={item.to}
+                      className={`font-medium transition-colors ${
+                        isActive(item.to) ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
                   </li>
                 ))}
               </>
@@ -99,7 +132,7 @@ const Navbar: React.FC = () => {
           </a>
         </div>
         <button
-          className="md:hidden text-gray-700"
+          className="md:hidden text-[#CBD5E1] hover:text-white transition-colors"
           onClick={() => setIsMenuOpen(!isMenuOpen)}
         >
           {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -107,42 +140,78 @@ const Navbar: React.FC = () => {
       </div>
 
       {isMenuOpen && (
-        <div className="md:hidden bg-white">
-          <div className="container mx-auto px-4 py-4">
+        <div className="md:hidden bg-[#0A0F14]/98 backdrop-blur-2xl border-t border-white/[0.06] w-full z-50">
+          <div className="container mx-auto px-4 py-6">
             <ul className="space-y-4">
               <li>
-                <Link to="/" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Home</Link>
+                <Link
+                  to="/"
+                  onClick={() => setIsMenuOpen(false)}
+                  className={`font-medium transition-colors block ${
+                    isActive('/') ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
+                  }`}
+                >
+                  Home
+                </Link>
               </li>
               {isDashboard && isLoggedIn ? (
                 <>
                   <li>
-                    <Link to="/dashboard" className="text-navy-900 hover:text-teal-500 font-medium transition-colors">Dashboard</Link>
+                    <Link
+                      to="/dashboard"
+                      onClick={() => setIsMenuOpen(false)}
+                      className={`font-medium transition-colors block ${
+                        isActive('/dashboard') ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
+                      }`}
+                    >
+                      Dashboard
+                    </Link>
                   </li>
                 </>
               ) : (
                 <>
                   {sectionLinks.map((item) => (
                     <li key={item.label}>
-                      <Link to={item.to} className="text-navy-900 hover:text-teal-500 font-medium transition-colors">{item.label}</Link>
+                      <Link
+                        to={item.to}
+                        onClick={() => setIsMenuOpen(false)}
+                        className={`font-medium transition-colors block ${
+                          isActive(item.to) ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
+                        }`}
+                      >
+                        {item.label}
+                      </Link>
                     </li>
                   ))}
                 </>
               )}
             </ul>
-            <div className="mt-6 space-y-4">
+            <div className="mt-6 space-y-4 flex flex-col">
               {isDashboard && isLoggedIn ? (
                 <button
-                  onClick={handleLogout}
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    handleLogout();
+                  }}
                   className="btn btn-outline w-full text-center"
                 >
                   Logout
                 </button>
               ) : (
                 isLoggedIn ? (
-                  <Link to="/dashboard" className="btn btn-outline w-full text-center">Dashboard</Link>
+                  <Link
+                    to="/dashboard"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="btn btn-outline w-full text-center"
+                  >
+                    Dashboard
+                  </Link>
                 ) : (
                   <button
-                    onClick={() => setLoginOpen(true)}
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      setLoginOpen(true);
+                    }}
                     className="btn btn-outline w-full"
                   >
                     Login
@@ -153,6 +222,7 @@ const Navbar: React.FC = () => {
                 href="https://forms.gle/CAa6xLNsjsdhJt5M7"
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => setIsMenuOpen(false)}
                 className="btn btn-primary w-full text-center"
               >
                 Book a Call

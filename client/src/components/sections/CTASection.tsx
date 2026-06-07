@@ -42,8 +42,8 @@ const CTASection: React.FC = () => {
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <div className="bg-white p-8 rounded-lg shadow-lg text-gray-800">
-              <h3 className="text-2xl font-bold mb-6 text-center text-navy-900">Book Your Free Session</h3>
+            <div className="bg-[#101720]/92 backdrop-blur-xl p-8 rounded-2xl border border-white/[0.08] shadow-[0_20px_60px_rgba(0,0,0,0.45)] text-white">
+              <h3 className="text-2xl font-bold mb-6 text-center text-white">Book Your Free Session</h3>
               
               <a
                 href="https://forms.gle/CAa6xLNsjsdhJt5M7"
@@ -51,13 +51,13 @@ const CTASection: React.FC = () => {
                 rel="noopener noreferrer"
                 className="w-full block"
               >
-                <button className="w-full bg-teal-500 hover:bg-teal-600 text-white py-4 rounded-lg mb-6 flex items-center justify-center transition-colors">
-                  <Calendar className="mr-2" />
+                <button className="btn btn-primary w-full py-4 text-base font-bold rounded-xl flex items-center justify-center">
+                  <Calendar className="mr-2" size={18} />
                   Book a Call
                 </button>
               </a>
               
-              <p className="text-sm text-gray-500 text-center">
+              <p className="text-sm text-[#94A3B8] text-center mt-6">
                 No obligation, just a friendly conversation to help you succeed.
               </p>
             </div>

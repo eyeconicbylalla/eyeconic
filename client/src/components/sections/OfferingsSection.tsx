@@ -69,13 +69,13 @@ const OfferingsSection: React.FC = () => {
   const [modalAlt, setModalAlt] = useState<string>("");
 
   return (
-    <section id="programs" className="py-20 bg-gray-50">
+    <section id="programs" className="py-20 bg-[#0A0F14]">
       {/* Modal for enlarged image */}
       {modalImg && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
-          <div className="relative bg-white rounded-lg shadow-lg max-w-2xl w-full flex flex-col items-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className="relative bg-[#18222E] border border-white/[0.08] rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.5)] max-w-2xl w-full flex flex-col items-center p-4">
             <button
-              className="absolute top-2 right-2 bg-red-600 text-white rounded-full px-4 py-2 font-bold text-lg hover:bg-red-700 transition"
+              className="absolute top-6 right-6 bg-[#1E2A38] text-[#CBD5E1] border border-white/[0.06] rounded-xl px-4 py-2 font-semibold text-sm hover:bg-red-950/60 hover:text-red-300 hover:border-red-500/30 transition-all duration-200"
               onClick={() => setModalImg(null)}
             >
               Close
@@ -83,7 +83,7 @@ const OfferingsSection: React.FC = () => {
             <img
               src={modalImg}
               alt={modalAlt}
-              className="w-full h-[60vh] object-contain rounded-lg"
+              className="w-full h-[60vh] object-contain rounded-xl mt-12 border border-white/[0.06]"
             />
           </div>
         </div>
@@ -95,6 +95,7 @@ const OfferingsSection: React.FC = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
+            className="text-white"
           >
             What We Offer
           </motion.h2>
@@ -103,6 +104,7 @@ const OfferingsSection: React.FC = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2 }}
+            className="text-[#94A3B8]"
           >
             Comprehensive support designed for medical aspirants who aim for excellence.
           </motion.p>
@@ -115,14 +117,14 @@ const OfferingsSection: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center px-6 py-3 mx-2 my-2 rounded-lg transition-all ${
+                className={`flex items-center px-6 py-3 mx-2 my-2 rounded-xl transition-all border ${
                   activeTab === tab.id
-                    ? 'bg-white text-teal-600 shadow-md'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? 'bg-[#18222E] text-[#18B6A4] border-[rgba(24,182,164,0.35)] shadow-[0_0_16px_rgba(24,182,164,0.12)]'
+                    : 'bg-[#18222E] text-[#94A3B8] border-white/[0.06] hover:bg-[#1E2A38] hover:text-[#CBD5E1]'
                 }`}
               >
                 <span className="mr-2">{tab.icon}</span>
-                <span>{tab.title}</span>
+                <span className="font-medium">{tab.title}</span>
               </button>
             ))}
           </div>
@@ -133,43 +135,40 @@ const OfferingsSection: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="bg-white p-8 rounded-xl shadow-sm"
+            className="bg-[#18222E] border border-white/[0.06] p-8 rounded-2xl shadow-card-dark"
           >
             <div className="flex flex-col lg:flex-row items-center gap-8">
               <div className="w-full lg:w-1/3">
                 <img 
-                  src={tabContent[activeTab].image} 
-                  alt={tabContent[activeTab].title} 
-                  className="rounded-lg shadow-md w-full h-72 object-cover cursor-pointer"
+                  src={tabContent[activeTab as keyof typeof tabContent].image} 
+                  alt={tabContent[activeTab as keyof typeof tabContent].title} 
+                  className="rounded-xl border border-white/[0.06] shadow-card-dark w-full h-72 object-cover cursor-pointer"
                   onClick={() => {
-                    setModalImg(tabContent[activeTab].image);
-                    setModalAlt(tabContent[activeTab].title);
+                    setModalImg(tabContent[activeTab as keyof typeof tabContent].image);
+                    setModalAlt(tabContent[activeTab as keyof typeof tabContent].title);
                   }}
                 />
               </div>
               
               <div className="w-full lg:w-2/3">
-                <h3 className="text-2xl font-bold mb-4">{tabContent[activeTab].title}</h3>
-                <p className="text-gray-700">{tabContent[activeTab].description}</p>
-                
-               
+                <h3 className="text-2xl font-bold mb-4 text-white">{tabContent[activeTab as keyof typeof tabContent].title}</h3>
+                <p className="text-[#94A3B8] leading-relaxed">{tabContent[activeTab as keyof typeof tabContent].description}</p>
               </div>
             </div>
           </motion.div>
         </div>
         
-        <div className="mt-16 bg-gray-100 p-8 rounded-xl">
-          <p className="text-center text-lg text-gray-700">
+        <div className="mt-16 bg-[#18222E] border border-white/[0.06] p-8 rounded-2xl shadow-card-dark">
+          <p className="text-center text-lg text-[#CBD5E1] leading-relaxed">
             Whether you're targeting NEET PG or INICET, our approach is designed to match your pace, style, and goals. 
             We don't believe in one-size-fits-all solutions because medical preparation is as individual as the doctors it creates.
           </p>
-          <p className="text-center text-xl font-semibold text-teal-600 mt-4 italic">
+          <p className="text-center text-xl font-semibold text-[#4DD7C8] mt-4 italic">
             "Because we believe your preparation journey deserves to be as iconic as your dream."
           </p>
         </div>
       </div>
     </section>
-    // OfferingsSections
   );
 };
 

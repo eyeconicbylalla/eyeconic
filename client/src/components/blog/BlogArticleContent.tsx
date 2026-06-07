@@ -20,12 +20,12 @@ const BlogArticleContent: React.FC<BlogArticleContentProps> = ({
     <article className="space-y-8">
       <header className="space-y-4">
         <div className="space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight text-slate-900 md:text-5xl">{title}</h1>
-          {subtitle ? <p className="max-w-3xl text-lg leading-8 text-slate-600">{subtitle}</p> : null}
+          <h1 className="text-4xl font-bold tracking-tight text-white md:text-5xl">{title}</h1>
+          {subtitle ? <p className="max-w-3xl text-lg leading-8 text-[#CBD5E1]">{subtitle}</p> : null}
         </div>
 
         {featuredImage?.url ? (
-          <figure className="overflow-hidden rounded-[2rem] border border-teal-100 bg-white shadow-sm">
+          <figure className="overflow-hidden rounded-[2rem] border border-white/[0.06] bg-[#0F172A] shadow-card-dark">
             <img
               src={featuredImage.url}
               alt={featuredImage.altText || title}
@@ -33,7 +33,7 @@ const BlogArticleContent: React.FC<BlogArticleContentProps> = ({
               loading="lazy"
             />
             {featuredImage.caption ? (
-              <figcaption className="border-t border-slate-100 px-5 py-3 text-sm text-slate-500">
+              <figcaption className="border-t border-white/[0.04] px-5 py-3 text-sm text-[#94A3B8]">
                 {featuredImage.caption}
               </figcaption>
             ) : null}
@@ -41,14 +41,14 @@ const BlogArticleContent: React.FC<BlogArticleContentProps> = ({
         ) : null}
 
         {outline && outline.length > 0 ? (
-          <div className="rounded-3xl border border-slate-200 bg-slate-50/80 p-5 lg:hidden">
-            <p className="mb-3 text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">On this page</p>
+          <div className="rounded-3xl border border-white/[0.06] bg-[#18222E] p-5 lg:hidden">
+            <p className="mb-3 text-sm font-semibold uppercase tracking-[0.24em] text-[#64748B]">On this page</p>
             <div className="space-y-2">
               {outline.map((item) => (
                 <a
                   key={item.id}
                   href={`#${item.id}`}
-                  className="block text-sm text-slate-700 transition hover:text-teal-700"
+                  className="block text-sm text-[#CBD5E1] transition hover:text-[#18B6A4]"
                   style={{ paddingLeft: `${(item.level - 1) * 10}px` }}
                 >
                   {item.text}

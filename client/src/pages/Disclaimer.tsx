@@ -3,14 +3,14 @@ import { motion } from 'framer-motion';
 
 const Disclaimer: React.FC = () => {
   return (
-    <section className="py-20 bg-gray-50">
+    <section className="py-20 bg-[#0A0F14] text-[#CBD5E1]">
       <div className="container mx-auto px-4 max-w-4xl">
         <motion.h1
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-3xl font-bold text-center mb-8"
+          className="text-3xl font-bold text-center mb-8 text-[#F8FAFC]"
         >
           Disclaimer
         </motion.h1>
@@ -19,7 +19,7 @@ const Disclaimer: React.FC = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="bg-white p-8 rounded-xl shadow-sm"
+          className="bg-[#18222E] p-8 rounded-xl shadow-card-dark border border-white/[0.06] text-[#CBD5E1]"
         >
           <p className="mb-4">
             The information provided on this website is for general informational purposes only. While every effort is made by Eyeconic for NEET PG to ensure the accuracy, reliability, and completeness of the content available on the platform, we make no representations or warranties of any kind, express or implied, regarding the accuracy, adequacy, validity, availability, or completeness of any information on the website.

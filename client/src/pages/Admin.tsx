@@ -160,14 +160,14 @@ const Admin: React.FC = () => {
   };
 
   return (
-    <section className="py-10 md:py-20 min-h-screen bg-gray-50">
+    <section className="py-10 md:py-20 min-h-screen bg-[#0A0F14]">
       <div className="container mx-auto px-2 sm:px-4">
-        <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-center mb-6 md:mb-8 text-teal-700">Admin Panel</h2>
+        <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-center mb-6 md:mb-8 text-[#F8FAFC]">Admin Panel</h2>
         {!authenticated ? (
-          <form onSubmit={handleLogin} className="max-w-sm mx-auto bg-white p-6 md:p-8 rounded-xl shadow space-y-4">
+          <form onSubmit={handleLogin} className="max-w-sm mx-auto bg-[#18222E] p-6 md:p-8 rounded-xl shadow-card-dark border border-white/[0.06] space-y-4">
             <input
               type="email"
-              className="w-full border border-teal-200 rounded-lg px-4 py-2"
+              className="w-full border border-[#263445] bg-[#151E29] rounded-lg px-4 py-2 text-white placeholder-[#94A3B8] focus:border-[#18B6A4] focus:ring-1 focus:ring-[#18B6A4] outline-none transition"
               placeholder="Admin Email"
               value={email}
               onChange={e => setEmail(e.target.value)}
@@ -175,29 +175,29 @@ const Admin: React.FC = () => {
             />
             <input
               type="password"
-              className="w-full border border-teal-200 rounded-lg px-4 py-2"
+              className="w-full border border-[#263445] bg-[#151E29] rounded-lg px-4 py-2 text-white placeholder-[#94A3B8] focus:border-[#18B6A4] focus:ring-1 focus:ring-[#18B6A4] outline-none transition"
               placeholder="Admin Password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
             />
-            {error && <div className="text-red-600 text-center">{error}</div>}
+            {error && <div className="dark-banner-error text-center text-sm">{error}</div>}
             <button
               type="submit"
-              className="w-full bg-teal-600 text-white font-semibold rounded-lg py-2 hover:bg-teal-700 transition-colors"
+              className="w-full bg-gradient-to-r from-[#18B6A4] to-[#1CC8B5] text-[#0A0F14] font-semibold rounded-lg py-2 hover:shadow-[0_0_15px_rgba(24,182,164,0.3)] transition duration-200"
               disabled={loading}
             >
               {loading ? 'Logging in...' : 'Login as Admin'}
             </button>
           </form>
         ) : (
-          <div className="bg-white p-4 md:p-8 rounded-xl shadow">
+          <div className="bg-[#18222E] p-4 md:p-8 rounded-xl shadow-card-dark border border-white/[0.06]">
             <div className="mb-6 flex flex-wrap gap-3">
               <button
                 className={`rounded-lg px-4 py-2 font-semibold transition-colors ${
                   activeTab === 'students'
-                    ? 'bg-teal-600 text-white'
-                    : 'bg-teal-50 text-teal-700 hover:bg-teal-100'
+                    ? 'bg-[#18B6A4] text-[#0A0F14]'
+                    : 'bg-[#1E2A38] text-[#94A3B8] hover:bg-[#263445] hover:text-white'
                 }`}
                 onClick={() => setActiveTab('students')}
               >
@@ -206,8 +206,8 @@ const Admin: React.FC = () => {
               <button
                 className={`rounded-lg px-4 py-2 font-semibold transition-colors ${
                   activeTab === 'blogs'
-                    ? 'bg-teal-600 text-white'
-                    : 'bg-teal-50 text-teal-700 hover:bg-teal-100'
+                    ? 'bg-[#18B6A4] text-[#0A0F14]'
+                    : 'bg-[#1E2A38] text-[#94A3B8] hover:bg-[#263445] hover:text-white'
                 }`}
                 onClick={() => setActiveTab('blogs')}
               >
@@ -218,41 +218,41 @@ const Admin: React.FC = () => {
             {activeTab === 'students' ? (
               <>
                 <div className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between">
-                  <h3 className="mb-2 text-xl font-bold text-teal-700 md:mb-0 md:text-2xl">
+                  <h3 className="mb-2 text-xl font-bold text-[#F8FAFC] md:mb-0 md:text-2xl">
                     Total Students: {total}
                   </h3>
                   <button
-                    className="rounded-lg bg-green-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-green-700"
+                    className="rounded-lg bg-emerald-700 px-4 py-2 font-semibold text-white transition-colors hover:bg-emerald-600 shadow"
                     onClick={handleExportExcel}
                   >
                     Export to Excel
                   </button>
                 </div>
                 <div className="w-full overflow-x-auto">
-                  <table className="min-w-[900px] w-full border border-teal-100 text-xs md:text-sm">
+                  <table className="min-w-[900px] w-full border border-white/[0.06] text-xs md:text-sm">
                     <thead>
-                      <tr className="bg-teal-100">
-                        <th className="px-4 py-2 border">Name</th>
-                        <th className="px-4 py-2 border">Email</th>
-                        <th className="px-4 py-2 border">Phone</th>
-                        <th className="px-4 py-2 border">Called</th>
-                        <th className="px-4 py-2 border">Buy/Pay</th>
-                        <th className="px-4 py-2 border">Batch Interested</th>
-                        <th className="px-4 py-2 border">Notes</th>
-                        <th className="px-4 py-2 border">GT Predictor</th>
-                        <th className="px-4 py-2 border"></th>
-                        <th className="px-4 py-2 border"></th>
+                      <tr className="bg-[#0A0F14] text-[#CBD5E1]">
+                        <th className="px-4 py-2 border border-white/[0.06]">Name</th>
+                        <th className="px-4 py-2 border border-white/[0.06]">Email</th>
+                        <th className="px-4 py-2 border border-white/[0.06]">Phone</th>
+                        <th className="px-4 py-2 border border-white/[0.06]">Called</th>
+                        <th className="px-4 py-2 border border-white/[0.06]">Buy/Pay</th>
+                        <th className="px-4 py-2 border border-white/[0.06]">Batch Interested</th>
+                        <th className="px-4 py-2 border border-white/[0.06]">Notes</th>
+                        <th className="px-4 py-2 border border-white/[0.06]">GT Predictor</th>
+                        <th className="px-4 py-2 border border-white/[0.06]"></th>
+                        <th className="px-4 py-2 border border-white/[0.06]"></th>
                       </tr>
                     </thead>
                     <tbody>
                       {students.map((s) => (
-                        <tr key={s._id} className="hover:bg-teal-50">
-                          <td className="px-4 py-2 border">{s.name}</td>
-                          <td className="px-4 py-2 border">{s.email}</td>
-                          <td className="px-4 py-2 border">{s.phone}</td>
-                          <td className="px-4 py-2 border">
+                        <tr key={s._id} className="hover:bg-[#1E2A38]/50 text-[#CBD5E1]">
+                          <td className="px-4 py-2 border border-white/[0.06]">{s.name}</td>
+                          <td className="px-4 py-2 border border-white/[0.06]">{s.email}</td>
+                          <td className="px-4 py-2 border border-white/[0.06]">{s.phone}</td>
+                          <td className="px-4 py-2 border border-white/[0.06]">
                             <select
-                              className="border rounded px-2 py-1"
+                              className="border border-[#263445] bg-[#151E29] rounded px-2 py-1 text-white focus:border-[#18B6A4] focus:outline-none"
                               value={s.calledStatus || 'Not Called'}
                               onChange={e => handleFieldChange(s._id, 'calledStatus', e.target.value)}
                             >
@@ -261,9 +261,9 @@ const Admin: React.FC = () => {
                               ))}
                             </select>
                           </td>
-                          <td className="px-4 py-2 border">
+                          <td className="px-4 py-2 border border-white/[0.06]">
                             <select
-                              className="border rounded px-2 py-1"
+                              className="border border-[#263445] bg-[#151E29] rounded px-2 py-1 text-white focus:border-[#18B6A4] focus:outline-none"
                               value={s.buyStatus || 'Have to Pay'}
                               onChange={e => handleFieldChange(s._id, 'buyStatus', e.target.value)}
                             >
@@ -272,9 +272,9 @@ const Admin: React.FC = () => {
                               ))}
                             </select>
                           </td>
-                          <td className="px-4 py-2 border">
+                          <td className="px-4 py-2 border border-white/[0.06]">
                             <select
-                              className="border rounded px-2 py-1"
+                              className="border border-[#263445] bg-[#151E29] rounded px-2 py-1 text-white focus:border-[#18B6A4] focus:outline-none"
                               value={s.batchInterest || ''}
                               onChange={e => handleFieldChange(s._id, 'batchInterest', e.target.value)}
                             >
@@ -284,45 +284,47 @@ const Admin: React.FC = () => {
                               ))}
                             </select>
                           </td>
-                          <td className="px-4 py-2 border">
+                          <td className="px-4 py-2 border border-white/[0.06]">
                             <input
                               type="text"
-                              className="w-40 border rounded px-2 py-1"
+                              className="w-40 border border-[#263445] bg-[#151E29] rounded px-2 py-1 text-white focus:border-[#18B6A4] focus:outline-none"
                               value={s.adminNotes || ''}
                               onChange={e => handleFieldChange(s._id, 'adminNotes', e.target.value)}
                             />
                           </td>
-                          <td className="px-4 py-2 border text-xs">
+                          <td className="px-4 py-2 border border-white/[0.06] text-xs text-[#94A3B8]">
                             {s.gtScore?.current !== undefined ? (
-                              <div>
+                              <div className="space-y-0.5">
                                 <div><b>Current:</b> {s.gtScore.current}</div>
                                 <div><b>Predicted:</b> {s.gtScore.predicted}</div>
                                 <div><b>Time:</b> {s.gtScore.time}</div>
                               </div>
                             ) : (
-                              <span className="text-gray-400">-</span>
+                              <span className="text-[#64748B]">-</span>
                             )}
                           </td>
-                          <td className="px-2 py-2 border md:px-4">
-                            <button
-                              className="btn btn-primary px-2 py-1 md:px-3"
-                              onClick={() => handleSave(s)}
-                              disabled={savingId === s._id}
-                            >
-                              {savingId === s._id ? 'Saving...' : 'Save'}
-                            </button>
-                            <button
-                              className="btn btn-outline ml-2 px-2 py-1 md:px-3"
-                              onClick={() => handleResetGt(s._id)}
-                              disabled={savingId === s._id}
-                              title="Reset GT Predictor"
-                            >
-                              Reset GT
-                            </button>
+                          <td className="px-2 py-2 border border-white/[0.06] md:px-4">
+                            <div className="flex gap-2">
+                              <button
+                                className="btn btn-primary px-3 py-1 rounded-lg text-xs font-semibold"
+                                onClick={() => handleSave(s)}
+                                disabled={savingId === s._id}
+                              >
+                                {savingId === s._id ? 'Saving...' : 'Save'}
+                              </button>
+                              <button
+                                className="btn btn-outline px-3 py-1 rounded-lg text-xs font-semibold"
+                                onClick={() => handleResetGt(s._id)}
+                                disabled={savingId === s._id}
+                                title="Reset GT Predictor"
+                              >
+                                Reset GT
+                              </button>
+                            </div>
                           </td>
-                          <td className="px-2 py-2 border md:px-4">
+                          <td className="px-2 py-2 border border-white/[0.06] md:px-4">
                             <button
-                              className="btn btn-danger px-2 py-1 md:px-3"
+                              className="bg-red-950/60 text-red-300 border border-red-500/30 px-3 py-1 rounded-lg text-xs font-semibold hover:bg-red-900/40 hover:text-red-200 transition-colors"
                               onClick={() => handleDelete(s._id)}
                               disabled={deletingId === s._id}
                               title="Delete Account"

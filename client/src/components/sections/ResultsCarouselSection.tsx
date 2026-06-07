@@ -45,10 +45,10 @@ const ResultsCarouselSection: React.FC = () => {
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <h2 className="mb-4 text-3xl font-bold text-blue-900 md:text-4xl">
+          <h2 className="mb-4 text-3xl font-bold text-white md:text-4xl">
             Our NEET PG 2025 Transformations
           </h2>
-          <p className="text-base text-slate-600 md:text-lg">
+          <p className="text-base text-[#CBD5E1] md:text-lg">
             They came at their lowest... they went out victorious! 🔥
           </p>
         </motion.div>
