@@ -73,11 +73,11 @@ const HeroSection: React.FC = () => {
             <div className="relative flex flex-col items-center justify-center h-full min-h-[300px]">
               {!isLoggedIn && (
                 <div className="bg-[#101720]/92 backdrop-blur-xl rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.45)] border border-white/[0.08] p-8 text-center max-w-md mx-auto">
-                  <h3 className="text-2xl font-bold text-teal-200 mb-3">Unlock Free NEET PG Tools!</h3>
-                  <p className="text-[#CBD5E1] mb-4 text-sm">
+                    <h3 className="text-2xl font-bold text-white mb-3">Unlock Free NEET PG Tools!</h3>
+                    <p className="text-white mb-4 text-sm">
                     <span className="font-semibold">Sign up to access:</span>
                   </p>
-                  <ul className="space-y-2.5 text-[#94A3B8] text-sm mt-2 mb-6 text-left">
+                    <ul className="space-y-2.5 text-white text-sm mt-2 mb-6 text-left">
                     <li className="flex items-center">
                       <span className="h-1.5 w-1.5 rounded-full bg-[#18B6A4] mr-2"></span>
                       Free GT Score Predictor
