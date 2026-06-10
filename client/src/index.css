@@ -834,6 +834,41 @@
   }
 }
 
+/* ── Framer-style Features Gallery Grid ─────────────────────────────────── */
+/* Mobile (< 640px): 2 columns, compact rows */
+@media (max-width: 639px) {
+  .features-framer-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    grid-auto-rows: 56px !important;
+    gap: 4px !important;
+  }
+  /* On mobile, all wide cards (col-span 2) collapse to 1 */
+  .features-framer-grid > * {
+    grid-column: span 1 !important;
+  }
+}
+
+/* Tablet (640–1023px): 3 columns */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .features-framer-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    grid-auto-rows: 64px !important;
+  }
+  /* Constrain col-span 2 to max 2 on tablets */
+  .features-framer-grid > [style*="span 2"] {
+    grid-column: span 2 !important;
+  }
+}
+
+/* Desktop (≥ 1024px): full 4-column experience */
+@media (min-width: 1024px) {
+  .features-framer-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+    grid-auto-rows: 72px !important;
+    gap: 5px !important;
+  }
+}
+
 /* Print Stylesheet Overrides */
 @media print {
   body {
