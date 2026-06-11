@@ -22,15 +22,16 @@
   html {
     font-family: 'Inter', system-ui, sans-serif;
     scroll-behavior: smooth;
-    overflow-x: hidden;
     background-color: var(--bg-primary);
     color: var(--text-primary);
+    overflow-x: clip;
   }
 
   body {
     background-color: var(--bg-primary);
     color: var(--text-primary);
-    @apply overflow-x-hidden antialiased;
+    overflow-x: clip;
+    @apply antialiased;
   }
 
   h1, h2, h3, h4, h5, h6 {
