@@ -132,7 +132,10 @@ const features: Feature[] = [
 
 const FeaturesShowcaseSection: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [activeProgress, setActiveProgress] = useState(0);
+  const [translationY, setTranslationY] = useState(0);
   const [scrollHeight, setScrollHeight] = useState('1100vh');
+  
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Compute responsive scroll height based on screen width
@@ -146,7 +149,7 @@ const FeaturesShowcaseSection: React.FC = () => {
     return () => window.removeEventListener('resize', updateHeight);
   }, []);
 
-  // Handle scroll logic to pin container and switch features (works on both mobile and desktop)
+  // Handle scroll logic to switch features and active states
   useEffect(() => {
     const handleScroll = () => {
       const element = containerRef.current;
@@ -166,7 +169,15 @@ const FeaturesShowcaseSection: React.FC = () => {
       const clampedProgress = Math.max(0, Math.min(0.999, progress));
 
       const index = Math.floor(clampedProgress * features.length);
+      const subProgress = (clampedProgress * features.length) - index;
+      
+      const progressMultiplier = clampedProgress * features.length;
+      const cappedMultiplier = Math.min(features.length - 1, progressMultiplier);
+      const translationPercent = -cappedMultiplier * 100;
+
       setActiveIndex(index);
+      setActiveProgress(subProgress);
+      setTranslationY(translationPercent);
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -268,10 +279,10 @@ const FeaturesShowcaseSection: React.FC = () => {
       {/* Sticky Scroll Layout for both mobile and desktop */}
       <div ref={containerRef} className="relative" style={{ height: scrollHeight }}>
         <div className="sticky top-0 h-screen w-full flex items-center justify-center overflow-hidden">
-          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 lg:gap-8 xl:gap-16 items-center">
+          <div className="w-full max-w-[94vw] xl:max-w-[1440px] mx-auto pl-4 sm:pl-6 lg:pl-16 pr-4 sm:pr-6 lg:pr-0">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-16 w-full">
               {/* Left side: descriptions & indicators */}
-              <div className="w-full lg:col-span-5 flex flex-col justify-center text-center lg:text-left items-center lg:items-start">
+              <div className="w-full lg:w-[35%] flex flex-col justify-center text-center lg:text-left items-center lg:items-start">
                 {/* Eyebrow */}
                 <p
                   className="text-[10px] lg:text-[11px] font-semibold uppercase tracking-[0.14em] mb-2 lg:mb-3"
@@ -281,7 +292,7 @@ const FeaturesShowcaseSection: React.FC = () => {
                 </p>
 
                 {/* Static headline */}
-                <h2 className="text-[1.5rem] md:text-[1.8rem] lg:text-[2.3rem] font-bold leading-[1.1] tracking-tight text-white mb-4 lg:mb-8">
+                <h2 className="text-[1.5rem] md:text-[1.8rem] lg:text-[2.2rem] font-bold leading-[1.1] tracking-tight text-white mb-6 lg:mb-8">
                   Built for one goal.
                   <br />
                   <span
@@ -296,127 +307,162 @@ const FeaturesShowcaseSection: React.FC = () => {
                   </span>
                 </h2>
 
-                {/* Crossfading Feature Specifics */}
-                <div className="min-h-[140px] lg:min-h-[170px] relative w-full flex flex-col items-center lg:items-start">
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={features[activeIndex].key}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      transition={{ duration: 0.25, ease: 'easeInOut' }}
-                      className="flex flex-col items-center lg:items-start text-center lg:text-left"
-                    >
-                      <span
-                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] lg:text-xs font-semibold tracking-widest uppercase mb-3"
-                        style={{
-                          background: 'rgba(24,182,164,0.10)',
-                          border: '1px solid rgba(24,182,164,0.22)',
-                          color: '#18B6A4',
-                          letterSpacing: '0.12em',
-                        }}
+                {/* Desktop features scroll-spy list */}
+                <div className="hidden lg:flex flex-col gap-4 w-full mt-2">
+                  {features.map((feature, i) => {
+                    const isActive = i === activeIndex;
+                    return (
+                      <div
+                        key={feature.key}
+                        className="flex gap-4 cursor-pointer group select-none text-left animate-fade-in"
+                        onClick={() => scrollToFeature(i)}
                       >
-                        {features[activeIndex].tag}
-                      </span>
+                        {/* Progress line indicator */}
+                        <div className="relative w-[3px] bg-white/5 rounded-full overflow-hidden self-stretch min-h-[36px] flex-shrink-0">
+                          <div
+                            className="absolute top-0 left-0 w-full bg-[#18B6A4] rounded-full transition-all duration-75"
+                            style={{
+                              height: isActive
+                                ? `${activeProgress * 100}%`
+                                : i < activeIndex
+                                ? '100%'
+                                : '0%',
+                            }}
+                          />
+                        </div>
 
-                      <h3 className="text-lg lg:text-2xl font-bold text-white mb-2 lg:mb-3">
-                        {features[activeIndex].title}
-                      </h3>
-
-                      <p className="text-[13px] lg:text-[15px] leading-relaxed text-[#7A8FA6] max-w-sm lg:max-w-md">
-                        {features[activeIndex].description}
-                      </p>
-                    </motion.div>
-                  </AnimatePresence>
-                </div>
-
-                {/* Progress Indicator bar */}
-                <div className="flex items-center gap-3 mt-4 lg:mt-8 w-full max-w-[240px] lg:max-w-xs">
-                  <span className="text-[10px] lg:text-xs font-semibold tabular-nums text-[#18B6A4]">
-                    {String(activeIndex + 1).padStart(2, '0')}
-                  </span>
-                  <div className="flex-1 h-px bg-white/10">
-                    <div
-                      className="h-full transition-all duration-300"
-                      style={{
-                        width: `${((activeIndex + 1) / features.length) * 100}%`,
-                        background: 'linear-gradient(90deg, #18B6A4, #4DD7C8)',
-                      }}
-                    />
-                  </div>
-                  <span className="text-[10px] lg:text-xs font-semibold tabular-nums text-[#3A4A5A]">
-                    {String(features.length).padStart(2, '0')}
-                  </span>
-                </div>
-
-                {/* Horizontal Dot Navigation */}
-                <div className="flex flex-wrap gap-1.5 lg:gap-2 mt-4 lg:mt-6 w-full max-w-xs lg:max-w-md justify-center lg:justify-start">
-                  {features.map((f, i) => (
-                    <button
-                      key={f.key}
-                      aria-label={`Jump to ${f.title}`}
-                      onClick={() => scrollToFeature(i)}
-                      style={{
-                        width: i === activeIndex ? '16px' : '6px',
-                        height: '6px',
-                        borderRadius: '999px',
-                        background:
-                          i === activeIndex
-                            ? 'linear-gradient(90deg,#18B6A4,#4DD7C8)'
-                            : 'rgba(255,255,255,0.12)',
-                        border: 'none',
-                        cursor: 'pointer',
-                        transition: 'width 0.35s cubic-bezier(0.22,1,0.36,1), background 0.35s ease',
-                        padding: 0,
-                      }}
-                      className="hover:bg-white/30"
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Right side: Laptop browser mock with active screenshot */}
-              <div className="w-full lg:col-span-7 flex justify-center items-center">
-                <div
-                  className="w-full max-w-lg lg:max-w-none relative shadow-[0_16px_40px_rgba(0,0,0,0.5)] lg:shadow-[0_24px_70px_rgba(0,0,0,0.6)] border border-[#18222E] rounded-xl lg:rounded-2xl bg-[#0B1118] overflow-hidden flex flex-col"
-                  style={{ aspectRatio: '16/10' }}
-                >
-                  {/* Header bar of browser mockup */}
-                  <div
-                    className="flex items-center justify-between px-4 lg:px-5 py-2.5 lg:py-3.5 border-b border-white/5 bg-[#0B1118] select-none"
-                  >
-                    <div className="flex items-center gap-1.5 lg:gap-2.5">
-                      <div className="flex gap-1 lg:gap-1.5">
-                        <div className="w-2 lg:w-2.5 h-2 lg:h-2.5 rounded-full bg-[#ff5f57]" />
-                        <div className="w-2 lg:w-2.5 h-2 lg:h-2.5 rounded-full bg-[#febc2e]" />
-                        <div className="w-2 lg:w-2.5 h-2 lg:h-2.5 rounded-full bg-[#28c840]" />
+                        {/* Text details */}
+                        <div className="flex flex-col flex-1 py-0.5">
+                          <h3
+                            className={`text-[15px] xl:text-[17px] font-bold tracking-tight transition-colors duration-300 ${
+                              isActive ? 'text-white font-extrabold' : 'text-[#4E5D70] group-hover:text-slate-300'
+                            }`}
+                          >
+                            {feature.title}
+                          </h3>
+                          
+                          <AnimatePresence initial={false}>
+                            {isActive && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                                animate={{ height: 'auto', opacity: 1, marginTop: 6 }}
+                                exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                                className="overflow-hidden"
+                              >
+                                <p className="text-[13px] xl:text-[14px] leading-relaxed text-[#7A8FA6] max-w-md">
+                                  {feature.description}
+                                </p>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       </div>
-                      <span className="text-[10px] lg:text-xs font-medium text-[#3A4A5A] ml-1 lg:ml-2">
-                        {features[activeIndex].label}
-                      </span>
+                    );
+                  })}
+                </div>
+
+                {/* Mobile / Tablet active feature view */}
+                <div className="flex lg:hidden flex-col items-center text-center w-full">
+                  {/* Tag */}
+                  <span
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-widest uppercase mb-3"
+                    style={{
+                      background: 'rgba(24,182,164,0.10)',
+                      border: '1px solid rgba(24,182,164,0.22)',
+                      color: '#18B6A4',
+                      letterSpacing: '0.12em',
+                    }}
+                  >
+                    {features[activeIndex].tag}
+                  </span>
+
+                  <h3 className="text-xl font-bold text-white mb-2">
+                    {features[activeIndex].title}
+                  </h3>
+
+                  <p className="text-[13px] leading-relaxed text-[#7A8FA6] max-w-sm">
+                    {features[activeIndex].description}
+                  </p>
+
+                  {/* Progress bar and dot navigation for mobile */}
+                  <div className="flex items-center gap-3 mt-5 w-full max-w-[200px]">
+                    <span className="text-[10px] font-semibold tabular-nums text-[#18B6A4]">
+                      {String(activeIndex + 1).padStart(2, '0')}
+                    </span>
+                    <div className="flex-1 h-px bg-white/10">
+                      <div
+                        className="h-full transition-all duration-300"
+                        style={{
+                          width: `${((activeIndex + 1) / features.length) * 100}%`,
+                          background: 'linear-gradient(90deg, #18B6A4, #4DD7C8)',
+                        }}
+                      />
                     </div>
-                    <span
-                      className="text-[9px] lg:text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 lg:py-1 rounded-full bg-white/5 text-[#3A4A5A]"
-                    >
-                      {features[activeIndex].tag}
+                    <span className="text-[10px] font-semibold tabular-nums text-[#3A4A5A]">
+                      {String(features.length).padStart(2, '0')}
                     </span>
                   </div>
 
-                  {/* Screenshot image container */}
-                  <div className="relative w-full flex-1 overflow-hidden">
-                    <AnimatePresence initial={false}>
-                      <motion.img
-                        key={features[activeIndex].key}
-                        src={imageByName[features[activeIndex].key]}
-                        alt={features[activeIndex].title}
-                        initial={{ opacity: 0, scale: 1.015 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.985 }}
-                        transition={{ duration: 0.35, ease: 'easeInOut' }}
-                        className="absolute inset-0 w-full h-full object-cover object-top"
+                  <div className="flex flex-wrap gap-1 mt-4 justify-center">
+                    {features.map((f, i) => (
+                      <button
+                        key={f.key}
+                        aria-label={`Jump to ${f.title}`}
+                        onClick={() => scrollToFeature(i)}
+                        style={{
+                          width: i === activeIndex ? '12px' : '4px',
+                          height: '4px',
+                          borderRadius: '999px',
+                          background:
+                            i === activeIndex
+                              ? 'linear-gradient(90deg,#18B6A4,#4DD7C8)'
+                              : 'rgba(255,255,255,0.12)',
+                          border: 'none',
+                          cursor: 'pointer',
+                          transition: 'width 0.35s cubic-bezier(0.22,1,0.36,1), background 0.35s ease',
+                          padding: 0,
+                        }}
+                        className="hover:bg-white/30"
                       />
-                    </AnimatePresence>
+                    ))}
                   </div>
+                </div>
+              </div>
+
+              {/* Right side: Large Framer-style screenshot showcase */}
+              <div className="w-full lg:w-[61%] flex justify-end items-center relative group/image">
+                {/* Background ambient glow behind the container */}
+                <div
+                  className="absolute -inset-4 rounded-l-3xl opacity-35 blur-3xl pointer-events-none transition-all duration-700"
+                  style={{
+                    background: `radial-gradient(circle, rgba(24,182,164,0.14) 0%, transparent 70%)`,
+                  }}
+                />
+                
+                {/* Clean image showcase wrapper - no browser buttons, large size, bleeding to edge */}
+                <div 
+                  className="w-full aspect-[16/10] overflow-hidden rounded-2xl lg:rounded-l-[24px] lg:rounded-r-none shadow-[0_24px_80px_rgba(0,0,0,0.85)] border-y border-l border-white/[0.05] bg-[#080C11] relative"
+                >
+                  <motion.div
+                    className="w-full h-full flex flex-col"
+                    animate={{ y: `${translationY}%` }}
+                    transition={{ type: "spring", stiffness: 100, damping: 25, mass: 0.2 }}
+                  >
+                    {features.map((f) => (
+                      <div 
+                        key={f.key} 
+                        className="w-full h-full flex-shrink-0 relative overflow-hidden bg-[#0A0F14]"
+                      >
+                        <img
+                          src={imageByName[f.key]}
+                          alt={f.title}
+                          className="w-full h-full object-cover object-top select-none"
+                          loading="lazy"
+                        />
+                      </div>
+                    ))}
+                  </motion.div>
                 </div>
               </div>
             </div>
