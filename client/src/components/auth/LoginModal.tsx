@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { API_BASE_URL } from '../../config/api';
 
@@ -38,7 +39,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-[#18222E] border border-white/[0.08] shadow-[0_20px_60px_rgba(0,0,0,0.5)] rounded-2xl p-8 w-full max-w-md relative text-white">
         <button onClick={onClose} className="absolute top-4 right-4 text-[#94A3B8] hover:text-[#18B6A4] transition-colors text-2xl">&times;</button>
@@ -78,7 +79,8 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
           <button onClick={onSwitchToSignup} className="text-[#18B6A4] font-semibold hover:text-[#1CC8B5] transition-colors">Sign up</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
