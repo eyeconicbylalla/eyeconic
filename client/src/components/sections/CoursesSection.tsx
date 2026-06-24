@@ -5,7 +5,11 @@ import nurture from '../../assets/Nurture.png';
 import fateh from '../../assets/Fateh.png';
 import udaan from '../../assets/Udaan.png';
 import inicet from '../../assets/inicet.png';
+import img36 from '../../assets/36.png';
+import img37 from '../../assets/37.png';
+import img38 from '../../assets/38.png';
 
+/*
 const courses = [
   {
     id: 'nurture',
@@ -92,41 +96,26 @@ const courses = [
       'Daily accountability and peer motivation',
       'Expert mentorship and custom study plans'
     ]
+  }
+];
+*/
+
+const newCourses = [
+  {
+    id: 'batch-36',
+    title: 'Mentorship Program - 36',
+    image: img36
   },
-  // {
-  //   id: 'arjuna',
-  //   title: 'Arjun',
-  //   subtitle: 'The Final Push for NEET PG Victory',
-  //   description: 'Designed specifically for those who are in their final stage of NEET PG preparation, ready to sprint towards their dreams with precision and confidence.',
-  //   highlights: [
-  //     'Strategic Revision Plans tailored precisely for the final months and weeks',
-  //     'Rapid Concept Boosters and high-yield question banks for maximum retention',
-  //     'Focused Grand Tests (GTs) and detailed analytics for insightful performance tracking',
-  //     'Personalized Doubt-Clearing Sessions to ensure zero gaps in preparation'
-  //   ],
-  //   benefits: [
-  //     'Increase your accuracy and speed with targeted practice',
-  //     'Identify and eliminate your weak points through personalized feedback',
-  //     'Boost your confidence through consistent mock-test performance analysis'
-  //   ]
-  // },
-  // {
-  //   id: 'foundation',
-  //   title: 'Foundation ',
-  //   subtitle: 'Early Advantage for Future NEET PG Stars',
-  //   description: 'Specially crafted for early-stage aspirants (2nd and 3rd-year MBBS students) who aim for an early, structured start in their NEET PG preparation journey.',
-  //   highlights: [
-  //     'Conceptual Clarity Sessions ensuring deep understanding right from the start',
-  //     'Early Exposure to High-Yield Topics to give you a substantial competitive advantage',
-  //     'Personalized Study Schedule to perfectly align preparation with MBBS curriculum',
-  //     'Interactive Community of Peers and Mentors keeping motivation high and learning enjoyable'
-  //   ],
-  //   benefits: [
-  //     'Get ahead by starting your preparation strategically and early',
-  //     'Enjoy stress-free learning aligned with your college curriculum',
-  //     'Develop efficient study habits and examination skills early in your career'
-  //   ]
-  // }
+  {
+    id: 'batch-37',
+    title: 'Mentorship Program - 37',
+    image: img37
+  },
+  {
+    id: 'batch-38',
+    title: 'Mentorship Program - 38',
+    image: img38
+  }
 ];
 
 const CoursesSection: React.FC = () => {
@@ -148,72 +137,32 @@ const CoursesSection: React.FC = () => {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
-          {courses.map((course, index) => (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          {newCourses.map((course, index) => (
             <motion.div
               key={course.id}
-              className="bg-[#18222E] rounded-2xl shadow-card-dark overflow-hidden border border-white/[0.06] hover:border-[rgba(24,182,164,0.35)] hover:shadow-large-dark transition-all duration-300 h-full flex flex-col"
+              className="bg-[#18222E] rounded-2xl shadow-card-dark overflow-hidden border border-white/[0.06] hover:border-[rgba(24,182,164,0.35)] hover:shadow-large-dark transition-all duration-300 flex flex-col justify-between"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: index * 0.2 }}
-              style={{ minHeight: '880px', display: 'flex', flexDirection: 'column' }}  // added
             >
-              <div className="p-6 flex flex-col h-full">
-                <h3 className="text-2xl font-bold text-white mb-2">
-                  {course.title}
-                </h3>
-                <p className="text-base font-semibold text-[#4DD7C8] mb-4">
-                  {course.subtitle}
-                </p>
-                {/* Add course image here */}
-                <div className="w-full flex justify-center mb-6">
-                  <div className="w-full" style={{ maxWidth: 340, height: 190, background: '#0F172A', borderRadius: '0.75rem', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
-                    <img
-                      src={course.image}
-                      alt={course.title + ' image'}
-                      className="w-full h-full"
-                      style={{ objectFit: 'contain', background: '#0F172A' }}
-                    />
-                  </div>
+              <div className="p-5 flex flex-col h-full justify-between">
+                <div className="w-full rounded-xl overflow-hidden mb-6 border border-white/[0.04] bg-[#0F172A] flex items-center justify-center">
+                  <img
+                    src={course.image}
+                    alt={course.title}
+                    className="w-full h-auto object-contain"
+                  />
                 </div>
-                <div className="mb-6 text-sm">
-                  <h4 className="font-semibold text-white mb-2">Who's it for?</h4>
-                  <p className="text-[#94A3B8] leading-relaxed">{course.description}</p>
-                </div>
-                <div className="mb-6 text-sm">
-                  <h4 className="font-semibold text-[#4DD7C8] mb-2">Course Highlights:</h4>
-                  <ul className="space-y-2">
-                    {course.highlights.map((highlight, i) => (
-                      <li key={i} className="flex items-start text-[#CBD5E1]">
-                        <span className="h-1.5 w-1.5 bg-[#18B6A4] rounded-full mt-2 mr-2 shrink-0"></span>
-                        <span className="leading-relaxed">{highlight}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="mb-6 text-sm">
-                  <h4 className="font-semibold text-[#4DD7C8] mb-2">Benefits You'll Love:</h4>
-                  <ul className="space-y-2">
-                    {course.benefits.map((benefit, i) => (
-                      <li key={i} className="flex items-start text-[#CBD5E1]">
-                        <span className="h-1.5 w-1.5 bg-[#18B6A4] rounded-full mt-2 mr-2 shrink-0"></span>
-                        <span className="leading-relaxed">{benefit}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="flex-grow"></div>
-                <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 mt-6">
-                  <a 
-                    href="https://docs.google.com/forms/d/e/1FAIpQLSccHeq1gUBguz8MYr4JGFzYFlsZeHCOsEq2BQ6g1chlvmkIuQ/viewform"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-primary w-full text-center"
-                  >
-                    Enroll Now <ArrowRight size={16} className="ml-2" />
-                  </a>
-                </div>
+                <a 
+                  href="https://docs.google.com/forms/d/e/1FAIpQLSccHeq1gUBguz8MYr4JGFzYFlsZeHCOsEq2BQ6g1chlvmkIuQ/viewform"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-primary w-full text-center py-3 font-semibold text-white bg-[#18B6A4] hover:bg-[#149d8c] rounded-xl flex items-center justify-center transition-all duration-300 mt-auto"
+                >
+                  Join Now <ArrowRight size={16} className="ml-2" />
+                </a>
               </div>
             </motion.div>
           ))}

@@ -292,7 +292,9 @@
   }
 
   .mentor-carousel__card {
-    flex: 1;
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0%;
     min-width: 4.5rem;
     opacity: 0.4;
     overflow: hidden;
@@ -301,12 +303,12 @@
     cursor: pointer;
     filter: grayscale(100%) brightness(0.5);
     transition:
-      flex 400ms ease-in-out,
-      min-width 400ms ease-in-out,
-      opacity 400ms ease-in-out,
-      filter 400ms ease-in-out,
-      border-color 400ms ease-in-out,
-      box-shadow 400ms ease-in-out;
+      flex-grow 400ms cubic-bezier(0.4, 0, 0.2, 1),
+      min-width 400ms cubic-bezier(0.4, 0, 0.2, 1),
+      opacity 400ms cubic-bezier(0.4, 0, 0.2, 1),
+      filter 400ms cubic-bezier(0.4, 0, 0.2, 1),
+      border-color 400ms cubic-bezier(0.4, 0, 0.2, 1),
+      box-shadow 400ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .mentor-carousel__card:hover:not([data-active='true']) {
@@ -315,7 +317,7 @@
   }
 
   .mentor-carousel__card[data-active='true'] {
-    flex: 5;
+    flex-grow: 5;
     min-width: min(55%, 28rem);
     opacity: 1;
     cursor: default;
@@ -327,12 +329,12 @@
   .mentor-carousel__card img {
     @apply block h-full w-full;
     object-fit: cover;
-    object-position: top center;
-    transition: object-fit 400ms ease-in-out, object-position 400ms ease-in-out;
+    object-position: center top;
+    transition: transform 400ms ease-in-out;
   }
 
   .mentor-carousel__card[data-active='true'] img {
-    object-fit: contain;
+    object-fit: cover;
     object-position: center top;
   }
 
@@ -367,8 +369,19 @@
       @apply min-h-[22rem] w-full gap-0 px-12;
     }
 
+    .mentor-carousel__card {
+      transition:
+        flex-grow 400ms cubic-bezier(0.4, 0, 0.2, 1),
+        flex-basis 400ms cubic-bezier(0.4, 0, 0.2, 1),
+        max-width 400ms cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 400ms cubic-bezier(0.4, 0, 0.2, 1),
+        visibility 400ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
     .mentor-carousel__card:not([data-active='true']) {
-      flex: 0 0 0;
+      flex-grow: 0;
+      flex-shrink: 0;
+      flex-basis: 0%;
       min-width: 0;
       max-width: 0;
       margin: 0;
@@ -377,19 +390,24 @@
       border-width: 0;
       pointer-events: none;
       filter: none;
-      transition: opacity 300ms ease-in-out, max-width 300ms ease-in-out;
+      visibility: hidden;
     }
 
     .mentor-carousel__card[data-active='true'] {
-      flex: 1 1 100%;
+      flex-grow: 1;
+      flex-shrink: 1;
+      flex-basis: 100%;
       min-width: 0;
       max-width: 100%;
       width: 100%;
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
     }
 
     .mentor-carousel__card[data-active='true'] img {
       object-fit: cover;
-      object-position: center;
+      object-position: center top;
     }
 
     .mentor-carousel__nav {

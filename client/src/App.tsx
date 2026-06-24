@@ -12,6 +12,7 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import RefundPolicy from './pages/RefundPolicy';
 import TermsAndConditions from './pages/TermsAndConditions';
 import NotFound from './pages/NotFound';
+import waIcon from './assets/WA Icon.png';
 
 function ScrollToHash() {
   const location = useLocation();
@@ -39,7 +40,7 @@ function App() {
   return (
     <Router>
       <ScrollToHash />
-      <div className="bg-[#0A0F14] min-h-screen text-[#F8FAFC] flex flex-col">
+      <div className="bg-[#0A0F14] min-h-screen text-[#F8FAFC] flex flex-col relative">
         <Navbar />
         <main className="flex-grow">
           <Routes>
@@ -60,6 +61,14 @@ function App() {
           </Routes>
         </main>
         <Footer />
+        <a 
+          href="https://wa.me/918233454535?text=Hey!%20I%20would%20like%20to%20know%20more%20about%20the%20mentorship%20program!"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fixed bottom-6 right-6 z-50 transition-transform duration-300 hover:scale-110 block w-14 h-14"
+        >
+          <img src={waIcon} alt="WhatsApp" className="w-full h-full object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.35)]" />
+        </a>
       </div>
     </Router>
   );

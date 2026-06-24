@@ -15,7 +15,7 @@ const CTASection: React.FC = () => {
             transition={{ duration: 0.6 }}
           >
             <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">Ready for a Transformation?</h2>
-            <p className="text-xl text-teal-50 mb-6">
+            <p className="text-xl text-white mb-6">
               Take the first step towards achieving your dream medical seat. <br/>
               Book a free consultation with our mentors to discuss your preparation journey.
             </p>
@@ -57,7 +57,7 @@ const CTASection: React.FC = () => {
                 </button>
               </a>
               
-              <p className="text-sm text-[#94A3B8] text-center mt-6">
+              <p className="text-sm text-white text-center mt-6">
                 No obligation, just a friendly conversation to help you succeed.
               </p>
             </div>
