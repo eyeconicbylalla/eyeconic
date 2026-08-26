@@ -62,6 +62,43 @@ const BlogPost: React.FC = () => {
     };
   }, [slug]);
 
+  useEffect(() => {
+    if (!payload?.blog) return;
+    const blog = payload.blog;
+    const title = blog.seo?.metaTitle || blog.seo?.seoTitle || blog.title;
+    const description = blog.seo?.metaDescription || blog.excerpt || '';
+    document.title = `${title} | EyeConic NEET PG`;
+
+    const upsertMeta = (selector: string, attr: string, value: string) => {
+      if (!value) return;
+      let el = document.querySelector(selector) as HTMLMetaElement | null;
+      if (!el) {
+        el = document.createElement('meta');
+        if (selector.includes('property=')) {
+          el.setAttribute('property', selector.match(/property="([^"]+)"/)?.[1] || '');
+        } else {
+          el.setAttribute('name', selector.match(/name="([^"]+)"/)?.[1] || '');
+        }
+        document.head.appendChild(el);
+      }
+      el.setAttribute(attr, value);
+    };
+
+    upsertMeta('meta[name="description"]', 'content', description);
+    upsertMeta('meta[property="og:title"]', 'content', title);
+    upsertMeta('meta[property="og:description"]', 'content', description);
+    if (blog.seo?.openGraph?.image || blog.featuredImage?.url) {
+      upsertMeta('meta[property="og:image"]', 'content', blog.seo?.openGraph?.image || blog.featuredImage?.url || '');
+    }
+    if (blog.seo?.robotsIndex === false) {
+      upsertMeta('meta[name="robots"]', 'content', 'noindex,follow');
+    }
+
+    return () => {
+      document.title = 'EyeConic NEET PG';
+    };
+  }, [payload]);
+
   const approvedComments = useMemo(
     () => (payload?.blog.comments || []).filter((item: BlogComment) => item.status === 'approved'),
     [payload]
@@ -103,8 +140,21 @@ const BlogPost: React.FC = () => {
               <span>{payload.blog.category?.name || 'General'}</span>
               <span>{payload.blog.readingTimeMinutes} min read</span>
               <span>{payload.blog.views} views</span>
-              <span>SEO {payload.blog.seo.score || payload.blog.seoScore}</span>
+              {payload.blog.isFeatured ? <span className="text-[#4DD7C8]">Featured</span> : null}
             </div>
+            {(payload.blog.tags || []).length > 0 ? (
+              <div className="mb-6 flex flex-wrap gap-2">
+                {payload.blog.tags.map((tag) => (
+                  <Link
+                    key={tag.slug}
+                    to={`/blogs/tag/${tag.slug}`}
+                    className="rounded-full border border-[#18B6A4]/30 bg-[#18B6A4]/10 px-3 py-1 text-xs font-medium normal-case tracking-normal text-[#4DD7C8] hover:bg-[#18B6A4]/20"
+                  >
+                    #{tag.name}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
             <BlogArticleContent
               title={payload.blog.title}
               subtitle={payload.blog.subtitle}

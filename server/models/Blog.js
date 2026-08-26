@@ -121,12 +121,22 @@ const VersionSchema = new mongoose.Schema(
     title: { type: String, default: '', trim: true },
     excerpt: { type: String, default: '', trim: true },
     contentHtml: { type: String, default: '' },
+    contentBlocks: { type: mongoose.Schema.Types.Mixed, default: null },
     status: { type: String, default: 'draft', trim: true },
     savedAt: { type: Date, default: Date.now },
     savedBy: { type: String, default: 'admin@eyeconic1.com', trim: true },
     summary: { type: String, default: '', trim: true },
   },
   { _id: true }
+);
+
+const DraftBagSchema = new mongoose.Schema(
+  {
+    title: { type: String, default: '', trim: true },
+    contentBlocks: { type: mongoose.Schema.Types.Mixed, default: null },
+    savedAt: { type: Date, default: null },
+  },
+  { _id: false }
 );
 
 const AuditSchema = new mongoose.Schema(
@@ -147,7 +157,7 @@ const BlogSchema = new mongoose.Schema(
     slug: { type: String, required: true, trim: true, unique: true, index: true },
     contentHtml: { type: String, default: '' },
     contentText: { type: String, default: '' },
-    contentBlocks: [{ type: mongoose.Schema.Types.Mixed }],
+    contentBlocks: { type: mongoose.Schema.Types.Mixed, default: null },
     customHtmlBlocks: [{ type: String }],
     outline: [{ type: mongoose.Schema.Types.Mixed }],
     author: { type: AuthorSchema, default: () => ({}) },
@@ -155,6 +165,7 @@ const BlogSchema = new mongoose.Schema(
     category: { type: TaxonomySchema, default: () => ({}) },
     tags: [TaxonomySchema],
     featuredImage: { type: MediaSchema, default: () => ({}) },
+    youtubeUrl: { type: String, default: '', trim: true },
     gallery: [MediaSchema],
     embeds: [{ type: mongoose.Schema.Types.Mixed }],
     status: {
@@ -173,7 +184,9 @@ const BlogSchema = new mongoose.Schema(
     allowComments: { type: Boolean, default: true },
     publishAt: { type: Date, default: null },
     scheduledFor: { type: Date, default: null },
+    expiresAt: { type: Date, default: null },
     archivedAt: { type: Date, default: null },
+    draft: { type: DraftBagSchema, default: () => ({}) },
     readingTimeMinutes: { type: Number, default: 1 },
     wordCount: { type: Number, default: 0 },
     seo: { type: SeoSchema, default: () => ({}) },

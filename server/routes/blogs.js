@@ -4,11 +4,21 @@ const Blog = require('../models/Blog');
 const Category = require('../models/Category');
 const Tag = require('../models/Tag');
 const MediaAsset = require('../models/MediaAsset');
+const { renderAndSanitize, assertRenderable, emptyDoc, stripText } = require('../content/renderer');
+const { sanitizeLinkUrl } = require('../content/linkUtils');
+const { handleUpload } = require('../middleware/upload');
+const {
+  createMediaFromRequest,
+  deleteMediaAsset,
+  getUploadConfig,
+} = require('../services/mediaService');
 
 const router = express.Router();
 
 const ADMIN_EMAIL = 'admin@eyeconic1.com';
 const ADMIN_PASSWORD = 'admin@eyeconic$';
+const MAX_REVISIONS = 50;
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const DEFAULT_AUTHOR = {
   name: 'Eyeconic Editorial Team',
   email: ADMIN_EMAIL,
@@ -35,13 +45,15 @@ const ensureAdmin = (req, res) => {
 const slugify = (value = '') =>
   value
     .toString()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9\s_-]/g, '')
+    .replace(/[\s_]+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
-    .slice(0, 100);
+    .slice(0, 80);
 
 const stripHtml = (value = '') =>
   value
@@ -55,69 +67,149 @@ const stripHtml = (value = '') =>
 const sanitizeEditorHtml = (value = '') =>
   sanitizeHtml(value || '', {
     allowedTags: [
-      'p',
-      'div',
-      'span',
-      'strong',
-      'em',
-      'u',
-      's',
-      'blockquote',
-      'code',
-      'pre',
-      'hr',
-      'br',
-      'ul',
-      'ol',
-      'li',
-      'h1',
-      'h2',
-      'h3',
-      'h4',
-      'h5',
-      'h6',
-      'a',
-      'img',
-      'figure',
-      'figcaption',
-      'iframe',
-      'table',
-      'thead',
-      'tbody',
-      'tr',
-      'th',
-      'td',
-      'button',
-      'section',
-      'article',
-      'aside',
-      'details',
-      'summary',
-      'mark',
-      'sup',
-      'sub',
+      'p', 'div', 'span', 'strong', 'em', 'u', 's', 'blockquote', 'code', 'pre', 'hr', 'br',
+      'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'img', 'figure', 'figcaption',
+      'iframe', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'aside', 'mark', 'sup', 'sub', 'label', 'input',
     ],
     allowedAttributes: {
-      '*': ['class', 'style', 'id', 'data-type', 'data-variant'],
+      '*': ['class', 'style', 'id', 'data-type', 'data-variant', 'data-layout', 'data-align', 'data-checked', 'data-font'],
       a: ['href', 'name', 'target', 'rel'],
-      img: ['src', 'alt', 'title', 'width', 'height'],
-      iframe: ['src', 'allow', 'allowfullscreen', 'frameborder', 'title'],
-      button: ['type'],
+      img: ['src', 'alt', 'title', 'width', 'height', 'loading'],
+      iframe: ['src', 'allow', 'allowfullscreen', 'frameborder', 'title', 'loading'],
+      input: ['type', 'disabled', 'checked'],
       td: ['colspan', 'rowspan'],
       th: ['colspan', 'rowspan'],
     },
-    allowedSchemes: ['http', 'https', 'data', 'mailto'],
+    allowedSchemes: ['http', 'https', 'mailto', 'tel'],
     transformTags: {
       iframe: (tagName, attribs) => {
         const src = attribs.src || '';
         if (!src.includes('youtube.com') && !src.includes('youtu.be')) {
           return { tagName: 'div', text: 'Unsupported embed removed' };
         }
-
         return { tagName, attribs };
+      },
+      a: (tagName, attribs) => {
+        const result = sanitizeLinkUrl(attribs.href || '');
+        if (!result.ok) return { tagName: 'span', text: '' };
+        return {
+          tagName,
+          attribs: {
+            ...attribs,
+            href: result.href,
+            ...(result.href.startsWith('http') ? { target: '_blank', rel: 'noopener noreferrer nofollow' } : {}),
+          },
+        };
       },
     },
   });
+
+const buildUniqueSlug = async (desired, excludeId = null) => {
+  let base = slugify(desired || 'post') || `post-${Date.now()}`;
+  if (!SLUG_PATTERN.test(base)) {
+    base = slugify(base.replace(/[^a-z0-9-]/g, '')) || `post-${Date.now()}`;
+  }
+
+  let candidate = base;
+  let n = 2;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const query = { slug: candidate };
+    if (excludeId) query._id = { $ne: excludeId };
+    const exists = await Blog.exists(query);
+    if (!exists) return candidate;
+    candidate = `${base}-${n}`;
+    n += 1;
+  }
+};
+
+const resolveContent = (payload = {}, existingBlog = null) => {
+  const hasBlocks =
+    payload.contentBlocks &&
+    typeof payload.contentBlocks === 'object' &&
+    !Array.isArray(payload.contentBlocks) &&
+    payload.contentBlocks.type === 'doc';
+
+  if (hasBlocks) {
+    assertRenderable(payload.contentBlocks);
+    const contentHtml = renderAndSanitize(payload.contentBlocks);
+    return {
+      contentBlocks: payload.contentBlocks,
+      contentHtml,
+      contentText: stripHtml(contentHtml) || stripText(payload.contentBlocks),
+    };
+  }
+
+  // Legacy array contentBlocks or HTML-only payloads
+  if (Array.isArray(payload.contentBlocks) && payload.contentBlocks.length) {
+    const legacyHtml = sanitizeEditorHtml(payload.contentHtml || '');
+    return {
+      contentBlocks: existingBlog?.contentBlocks || emptyDoc(),
+      contentHtml: legacyHtml,
+      contentText: stripHtml(legacyHtml),
+    };
+  }
+
+  if (payload.contentHtml || payload.description) {
+    const contentHtml = sanitizeEditorHtml(payload.contentHtml || payload.description || '');
+    return {
+      contentBlocks: existingBlog?.contentBlocks || null,
+      contentHtml,
+      contentText: stripHtml(contentHtml),
+    };
+  }
+
+  if (existingBlog) {
+    return {
+      contentBlocks: existingBlog.contentBlocks || null,
+      contentHtml: existingBlog.contentHtml || '',
+      contentText: existingBlog.contentText || stripHtml(existingBlog.contentHtml || ''),
+    };
+  }
+
+  return {
+    contentBlocks: emptyDoc(),
+    contentHtml: '',
+    contentText: '',
+  };
+};
+
+const pruneVersions = (versions = []) => {
+  if (!Array.isArray(versions)) return [];
+  return versions.slice(0, MAX_REVISIONS);
+};
+
+const enforceSingleFeatured = async (blogId) => {
+  await Blog.updateMany({ _id: { $ne: blogId }, isFeatured: true }, { $set: { isFeatured: false } });
+};
+
+const isPubliclyVisible = (blog, now = new Date()) => {
+  if (!blog || blog.visibility === 'private') return false;
+  if (blog.expiresAt && new Date(blog.expiresAt) <= now) return false;
+
+  if (blog.status === 'published') return true;
+  if (blog.status === 'scheduled' && blog.scheduledFor && new Date(blog.scheduledFor) <= now) return true;
+  return false;
+};
+
+const publicVisibilityFilter = (now = new Date()) => ({
+  visibility: { $ne: 'private' },
+  $and: [
+    {
+      $or: [
+        { expiresAt: null },
+        { expiresAt: { $exists: false } },
+        { expiresAt: { $gt: now } },
+      ],
+    },
+    {
+      $or: [
+        { status: 'published' },
+        { status: 'scheduled', scheduledFor: { $lte: now } },
+      ],
+    },
+  ],
+});
 
 const getWordCount = (value = '') => {
   const text = stripHtml(value);
@@ -127,8 +219,17 @@ const getWordCount = (value = '') => {
 const estimateReadingTimeMinutes = (wordCount) => Math.max(1, Math.ceil(wordCount / 220));
 
 const buildOutline = (html = '') => {
-  const matches = [...html.matchAll(/<(h[1-6])[^>]*>([\s\S]*?)<\/\1>/gi)];
-  return matches.map((match, index) => ({
+  const matches = [...html.matchAll(/<(h[1-6])[^>]*\sid=["']([^"']+)["'][^>]*>([\s\S]*?)<\/\1>/gi)];
+  if (matches.length) {
+    return matches.map((match) => ({
+      id: match[2],
+      level: Number(match[1].replace('h', '')),
+      text: stripHtml(match[3]),
+    }));
+  }
+
+  const fallback = [...html.matchAll(/<(h[1-6])[^>]*>([\s\S]*?)<\/\1>/gi)];
+  return fallback.map((match, index) => ({
     id: `${match[1]}-${index + 1}`,
     level: Number(match[1].replace('h', '')),
     text: stripHtml(match[2]),
@@ -330,47 +431,96 @@ const normalizeTaxonomy = (input = {}, fallbackName = '') => {
 
 const normalizeBlogPayload = async (payload = {}, existingBlog = null) => {
   const title = (payload.title || '').trim();
-  const subtitle = (payload.subtitle || '').trim();
-  const cleanedContentHtml = sanitizeEditorHtml(payload.contentHtml || payload.description || '');
-  const contentText = stripHtml(cleanedContentHtml);
-  const wordCount = getWordCount(cleanedContentHtml);
-  const excerpt = (payload.excerpt || contentText.slice(0, 220)).trim();
-  const slugBase = payload.seo?.customSlug || payload.slug || title;
-  let slug = slugify(slugBase || existingBlog?.slug || 'post');
-  if (!slug) slug = `post-${Date.now()}`;
+  if (!title) {
+    const err = new Error('Blog title is required');
+    err.status = 400;
+    throw err;
+  }
 
-  const category = normalizeTaxonomy(payload.category || {}, payload.category?.name || 'General');
+  const subtitle = (payload.subtitle || '').trim();
+  let resolved;
+  try {
+    resolved = resolveContent(payload, existingBlog);
+  } catch (error) {
+    error.status = 400;
+    throw error;
+  }
+
+  const { contentBlocks, contentHtml, contentText } = resolved;
+  const wordCount = getWordCount(contentHtml) || (contentText ? contentText.split(/\s+/).filter(Boolean).length : 0);
+  const excerpt = (payload.excerpt || contentText.slice(0, 220)).trim();
+
+  const requestedSlug = (payload.seo?.customSlug || payload.slug || '').trim();
+  if (requestedSlug && !SLUG_PATTERN.test(slugify(requestedSlug))) {
+    const err = new Error('Slug may only contain lowercase letters, numbers, and hyphens.');
+    err.status = 400;
+    throw err;
+  }
+
+  const slug = await buildUniqueSlug(requestedSlug || title || existingBlog?.slug || 'post', existingBlog?._id);
+
+  const status = payload.status || existingBlog?.status || 'draft';
+  if (!['draft', 'review', 'published', 'scheduled', 'archived'].includes(status)) {
+    const err = new Error('Invalid status');
+    err.status = 400;
+    throw err;
+  }
+
+  if (status === 'scheduled') {
+    const scheduledFor = payload.scheduledFor || existingBlog?.scheduledFor;
+    if (!scheduledFor) {
+      const err = new Error('Scheduled posts require a publish date/time.');
+      err.status = 400;
+      throw err;
+    }
+  }
+
+  const category = normalizeTaxonomy(payload.category || {}, payload.category?.name || existingBlog?.category?.name || 'General');
   const tags = (Array.isArray(payload.tags) ? payload.tags : [])
     .map((tag) => normalizeTaxonomy(typeof tag === 'string' ? { name: tag } : tag))
     .filter((tag) => tag.name);
 
-  const outline = buildOutline(cleanedContentHtml);
-  const author = payload.author?.name ? { ...DEFAULT_AUTHOR, ...payload.author } : existingBlog?.author || DEFAULT_AUTHOR;
+  const outline = buildOutline(contentHtml);
+  const author = payload.author?.name
+    ? { ...DEFAULT_AUTHOR, ...(typeof payload.author === 'string' ? { name: payload.author } : payload.author) }
+    : typeof payload.author === 'string' && payload.author.trim()
+      ? { ...DEFAULT_AUTHOR, name: payload.author.trim() }
+      : existingBlog?.author || DEFAULT_AUTHOR;
+
+  const featuredImageInput =
+    payload.featuredImage ||
+    (payload.thumbnailUrl ? { url: payload.thumbnailUrl } : null) ||
+    existingBlog?.featuredImage ||
+    {};
+
+  const seoMetaDescription = (payload.seo?.metaDescription || excerpt).trim().slice(0, 160);
   const seo = {
-    seoTitle: (payload.seo?.seoTitle || title).trim(),
-    metaTitle: (payload.seo?.metaTitle || title).trim(),
-    metaDescription: (payload.seo?.metaDescription || excerpt).trim(),
+    seoTitle: (payload.seo?.seoTitle || title).trim().slice(0, 70),
+    metaTitle: (payload.seo?.metaTitle || payload.seo?.seoTitle || title).trim().slice(0, 70),
+    metaDescription: seoMetaDescription,
     focusKeyword: (payload.seo?.focusKeyword || '').trim(),
     keywords: Array.isArray(payload.seo?.keywords)
       ? payload.seo.keywords.map((item) => `${item}`.trim()).filter(Boolean)
       : [],
     canonicalUrl: (payload.seo?.canonicalUrl || '').trim(),
     customSlug: slug,
-    robotsIndex: payload.seo?.robotsIndex !== false,
+    robotsIndex: payload.seo?.robotsIndex !== false && payload.seo?.noIndex !== true,
     robotsFollow: payload.seo?.robotsFollow !== false,
     openGraph: {
-      title: (payload.seo?.openGraph?.title || title).trim(),
-      description: (payload.seo?.openGraph?.description || excerpt).trim(),
-      image: payload.seo?.openGraph?.image || payload.featuredImage?.url || '',
+      title: (payload.seo?.openGraph?.title || payload.seo?.metaTitle || title).trim(),
+      description: (payload.seo?.openGraph?.description || seoMetaDescription).trim(),
+      image: payload.seo?.openGraph?.image || payload.seo?.ogImageUrl || featuredImageInput?.url || '',
       type: payload.seo?.openGraph?.type || 'article',
     },
     twitterCard: {
-      title: (payload.seo?.twitterCard?.title || title).trim(),
-      description: (payload.seo?.twitterCard?.description || excerpt).trim(),
-      image: payload.seo?.twitterCard?.image || payload.featuredImage?.url || '',
+      title: (payload.seo?.twitterCard?.title || payload.seo?.metaTitle || title).trim(),
+      description: (payload.seo?.twitterCard?.description || seoMetaDescription).trim(),
+      image: payload.seo?.twitterCard?.image || payload.seo?.ogImageUrl || featuredImageInput?.url || '',
       cardType: payload.seo?.twitterCard?.cardType || 'summary_large_image',
     },
-    schemaTypes: (Array.isArray(payload.seo?.schemaTypes) ? payload.seo.schemaTypes : ['Article']).filter((item) => allowedSchemaTypes.includes(item)),
+    schemaTypes: (Array.isArray(payload.seo?.schemaTypes) ? payload.seo.schemaTypes : ['Article']).filter((item) =>
+      allowedSchemaTypes.includes(item)
+    ),
   };
 
   return {
@@ -378,30 +528,45 @@ const normalizeBlogPayload = async (payload = {}, existingBlog = null) => {
     subtitle,
     excerpt,
     slug,
-    contentHtml: cleanedContentHtml,
+    contentHtml,
     contentText,
-    contentBlocks: Array.isArray(payload.contentBlocks) ? payload.contentBlocks : existingBlog?.contentBlocks || [],
-    customHtmlBlocks: Array.isArray(payload.customHtmlBlocks) ? payload.customHtmlBlocks.filter(Boolean) : existingBlog?.customHtmlBlocks || [],
+    contentBlocks,
+    customHtmlBlocks: Array.isArray(payload.customHtmlBlocks)
+      ? payload.customHtmlBlocks.filter(Boolean)
+      : existingBlog?.customHtmlBlocks || [],
     outline,
     author,
-    coAuthors: Array.isArray(payload.coAuthors) ? payload.coAuthors.map((item) => `${item}`.trim()).filter(Boolean) : existingBlog?.coAuthors || [],
+    coAuthors: Array.isArray(payload.coAuthors)
+      ? payload.coAuthors.map((item) => `${item}`.trim()).filter(Boolean)
+      : existingBlog?.coAuthors || [],
     category,
     tags,
-    featuredImage: getFeaturedImage(payload),
+    featuredImage: getFeaturedImage({
+      ...payload,
+      featuredImage: featuredImageInput,
+      youtubeUrl: payload.youtubeUrl ?? existingBlog?.youtubeUrl,
+      title,
+    }),
+    youtubeUrl: (payload.youtubeUrl ?? existingBlog?.youtubeUrl ?? '').trim(),
     gallery: Array.isArray(payload.gallery) ? payload.gallery : existingBlog?.gallery || [],
     embeds: Array.isArray(payload.embeds) ? payload.embeds : existingBlog?.embeds || [],
-    status: payload.status || existingBlog?.status || 'draft',
+    status,
     visibility: payload.visibility || existingBlog?.visibility || 'public',
-    isFeatured: Boolean(payload.isFeatured),
+    isFeatured: Boolean(payload.isFeatured ?? payload.featured),
     isPinned: Boolean(payload.isPinned),
     allowComments: payload.allowComments !== false,
-    publishAt: payload.status === 'published' ? new Date(payload.publishAt || Date.now()) : existingBlog?.publishAt || null,
-    scheduledFor: payload.status === 'scheduled' && payload.scheduledFor ? new Date(payload.scheduledFor) : null,
-    archivedAt: payload.status === 'archived' ? new Date() : null,
+    publishAt:
+      status === 'published'
+        ? new Date(payload.publishAt || existingBlog?.publishAt || Date.now())
+        : existingBlog?.publishAt || null,
+    scheduledFor: status === 'scheduled' && payload.scheduledFor ? new Date(payload.scheduledFor) : status === 'scheduled' ? existingBlog?.scheduledFor || null : null,
+    expiresAt: payload.expiresAt ? new Date(payload.expiresAt) : payload.expiresAt === null ? null : existingBlog?.expiresAt || null,
+    archivedAt: status === 'archived' ? new Date() : null,
     readingTimeMinutes: estimateReadingTimeMinutes(wordCount),
     wordCount,
     seo,
     analytics: existingBlog?.analytics || undefined,
+    draft: { title: '', contentBlocks: null, savedAt: null },
     updatedBy: ADMIN_EMAIL,
   };
 };
@@ -471,15 +636,23 @@ const buildQuery = ({ search, status, category, tag, author, featured, dateFrom,
       { excerpt: { $regex: search, $options: 'i' } },
       { contentText: { $regex: search, $options: 'i' } },
       { slug: { $regex: search, $options: 'i' } },
+      { 'author.name': { $regex: search, $options: 'i' } },
+      { 'tags.name': { $regex: search, $options: 'i' } },
     ];
   }
 
   if (status) query.status = status;
   if (category) query['category.slug'] = category;
   if (tag) query['tags.slug'] = tag;
-  if (author) query['author.email'] = author;
-  if (featured === 'true') query.isFeatured = true;
-  if (featured === 'false') query.isFeatured = false;
+  if (author) {
+    query.$or = [
+      ...(query.$or || []),
+      { 'author.email': author },
+      { 'author.name': { $regex: author, $options: 'i' } },
+    ];
+  }
+  if (featured === 'true' || featured === true) query.isFeatured = true;
+  if (featured === 'false' || featured === false) query.isFeatured = false;
 
   if (dateFrom || dateTo) {
     query.updatedAt = {};
@@ -506,8 +679,10 @@ const mapBlogSummary = (blog) => ({
   isPinned: blog.isPinned,
   allowComments: blog.allowComments,
   featuredImage: blog.featuredImage,
+  youtubeUrl: blog.youtubeUrl || '',
   publishAt: blog.publishAt,
   scheduledFor: blog.scheduledFor,
+  expiresAt: blog.expiresAt,
   archivedAt: blog.archivedAt,
   updatedAt: blog.updatedAt,
   createdAt: blog.createdAt,
@@ -519,6 +694,7 @@ const mapBlogSummary = (blog) => ({
   seoWarnings: blog.seo?.warnings || [],
   seoSuggestions: blog.seo?.suggestions || [],
   commentsCount: Array.isArray(blog.comments) ? blog.comments.length : 0,
+  hasDraft: Boolean(blog.draft?.savedAt),
 });
 
 router.get('/admin/categories', async (req, res) => {
@@ -677,30 +853,105 @@ router.delete('/admin/tags/:id', async (req, res) => {
 router.get('/admin/media', async (req, res) => {
   if (!ensureAdmin(req, res)) return;
 
-  const media = await MediaAsset.find({}).sort({ createdAt: -1 });
-  res.json({ media });
+  const page = Math.max(1, Number(req.query.page || 1));
+  const limit = Math.min(48, Math.max(1, Number(req.query.limit || 24)));
+  const search = (req.query.search || '').trim();
+  const kind = (req.query.kind || req.query.type || '').trim();
+
+  const query = {};
+  if (search) {
+    query.$or = [
+      { title: { $regex: search, $options: 'i' } },
+      { displayName: { $regex: search, $options: 'i' } },
+      { fileName: { $regex: search, $options: 'i' } },
+      { altText: { $regex: search, $options: 'i' } },
+      { caption: { $regex: search, $options: 'i' } },
+    ];
+  }
+  if (kind && kind !== 'all') {
+    query.$and = [
+      ...(query.$or ? [{ $or: query.$or }] : []),
+      { $or: [{ kind }, { type: kind }] },
+    ];
+    delete query.$or;
+  }
+
+  const [media, total] = await Promise.all([
+    MediaAsset.find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit),
+    MediaAsset.countDocuments(query),
+  ]);
+
+  res.json({ media, total, page, limit });
 });
 
-router.post('/admin/media', async (req, res) => {
+router.get('/admin/media/upload-config', (req, res) => {
   if (!ensureAdmin(req, res)) return;
 
-  const url = (req.body.url || req.body.dataUrl || '').trim();
-  if (!url) return res.status(400).json({ msg: 'Media url or upload payload is required' });
+  const config = getUploadConfig();
+  if (!config.ok) {
+    return res.status(config.status || 503).json({ msg: config.message || 'Image storage is not configured on the server.' });
+  }
 
-  const media = await MediaAsset.create({
-    title: (req.body.title || req.body.fileName || 'Media asset').trim(),
-    url,
-    altText: (req.body.altText || '').trim(),
-    caption: (req.body.caption || '').trim(),
-    fileName: (req.body.fileName || '').trim(),
-    type: (req.body.type || 'image').trim(),
-    width: Number(req.body.width || 0),
-    height: Number(req.body.height || 0),
-    sizeKb: Number(req.body.sizeKb || 0),
-    isOptimized: Boolean(req.body.isOptimized),
+  res.json({
+    cloudName: config.cloudName,
+    apiKey: config.apiKey,
+    folder: config.folder,
+    timestamp: config.timestamp,
+    signature: config.signature,
+    storageProvider: 'cloudinary',
   });
+});
 
-  res.status(201).json({ media });
+router.post('/admin/media', handleUpload, async (req, res) => {
+  if (!ensureAdmin(req, res)) return;
+
+  try {
+    const result = await createMediaFromRequest({
+      body: req.body || {},
+      file: req.file,
+      uploadedBy: ADMIN_EMAIL,
+    });
+
+    if (!result.ok) {
+      return res.status(result.status || 400).json({ msg: result.message || 'Unable to upload image.' });
+    }
+
+    res.status(201).json({ media: result.media });
+  } catch (error) {
+    console.error('[media] Create asset failed', { message: error.message, name: error.name });
+    res.status(500).json({ msg: 'Unable to upload image. Please try again.' });
+  }
+});
+
+router.post('/admin/media/batch', async (req, res) => {
+  if (!ensureAdmin(req, res)) return;
+
+  const items = Array.isArray(req.body.items) ? req.body.items : [];
+  if (!items.length) return res.status(400).json({ msg: 'No media items provided' });
+  if (items.length > 10) return res.status(400).json({ msg: 'Maximum 10 files per batch' });
+
+  try {
+    const created = [];
+    for (const item of items) {
+      const result = await createMediaFromRequest({
+        body: item,
+        uploadedBy: ADMIN_EMAIL,
+      });
+      if (result.ok && result.media) created.push(result.media);
+    }
+
+    if (!created.length) {
+      return res.status(400).json({ msg: 'No valid media items could be uploaded.' });
+    }
+
+    res.status(201).json({ media: created });
+  } catch (error) {
+    console.error('[media] Batch upload failed', { message: error.message });
+    res.status(500).json({ msg: 'Unable to upload images. Please try again.' });
+  }
 });
 
 router.put('/admin/media/:id', async (req, res) => {
@@ -710,11 +961,16 @@ router.put('/admin/media/:id', async (req, res) => {
   if (!media) return res.status(404).json({ msg: 'Media asset not found' });
 
   media.title = (req.body.title || media.title || '').trim();
+  media.displayName = (req.body.displayName || media.displayName || media.title || '').trim();
   media.url = (req.body.url || media.url || '').trim();
   media.altText = (req.body.altText || media.altText || '').trim();
   media.caption = (req.body.caption || media.caption || '').trim();
   media.fileName = (req.body.fileName || media.fileName || '').trim();
   media.type = (req.body.type || media.type || 'image').trim();
+  media.kind = (req.body.kind || media.kind || media.type || 'image').trim();
+  if (Array.isArray(req.body.tags)) {
+    media.tags = req.body.tags.map((t) => `${t}`.trim().toLowerCase()).filter(Boolean);
+  }
   media.width = Number(req.body.width || media.width || 0);
   media.height = Number(req.body.height || media.height || 0);
   media.sizeKb = Number(req.body.sizeKb || media.sizeKb || 0);
@@ -727,9 +983,15 @@ router.put('/admin/media/:id', async (req, res) => {
 router.delete('/admin/media/:id', async (req, res) => {
   if (!ensureAdmin(req, res)) return;
 
-  const media = await MediaAsset.findByIdAndDelete(req.params.id);
-  if (!media) return res.status(404).json({ msg: 'Media asset not found' });
-  res.json({ msg: 'Media asset deleted' });
+  try {
+    const media = await MediaAsset.findById(req.params.id);
+    if (!media) return res.status(404).json({ msg: 'Media asset not found' });
+    await deleteMediaAsset(media);
+    res.json({ msg: 'Media asset deleted' });
+  } catch (error) {
+    console.error('[media] Delete failed', { message: error.message });
+    res.status(500).json({ msg: 'Unable to delete media asset.' });
+  }
 });
 
 router.get('/admin/comments', async (req, res) => {
@@ -873,98 +1135,225 @@ router.get('/admin/:id', async (req, res) => {
 router.post('/admin', async (req, res) => {
   if (!ensureAdmin(req, res)) return;
 
-  const payload = await normalizeBlogPayload(req.body);
-  if (!payload.title) return res.status(400).json({ msg: 'Blog title is required' });
-
-  const existingBlogs = await Blog.find({}).select('title seo.metaDescription');
-  payload.seo = { ...payload.seo, ...analyzeSeo(payload, existingBlogs) };
-  payload.analytics = { seoPerformance: payload.seo.score };
-  payload.versions = [
-    {
-      title: payload.title,
-      excerpt: payload.excerpt,
-      contentHtml: payload.contentHtml,
-      status: payload.status,
-      summary: 'Initial version',
-      savedBy: ADMIN_EMAIL,
-    },
-  ];
-  payload.auditLog = [
-    {
-      action: 'created',
-      actor: ADMIN_EMAIL,
-      details: `Created ${payload.status} post`,
-      at: new Date(),
-    },
-  ];
-  payload.createdBy = ADMIN_EMAIL;
-
-  const blog = await Blog.create(payload);
-
-  if (blog.category?.name) {
-    await Category.findOneAndUpdate(
-      { slug: blog.category.slug },
+  try {
+    const payload = await normalizeBlogPayload(req.body);
+    const existingBlogs = await Blog.find({}).select('title seo.metaDescription');
+    payload.seo = { ...payload.seo, ...analyzeSeo(payload, existingBlogs) };
+    payload.analytics = { seoPerformance: payload.seo.score };
+    payload.versions = [
       {
-        name: blog.category.name,
-        slug: blog.category.slug,
-        description: '',
-        seoTitle: blog.category.seoTitle || blog.category.name,
-        metaDescription: blog.category.metaDescription || '',
+        title: payload.title,
+        excerpt: payload.excerpt,
+        contentHtml: payload.contentHtml,
+        contentBlocks: payload.contentBlocks,
+        status: payload.status,
+        summary: 'Initial version',
+        savedBy: ADMIN_EMAIL,
       },
-      { upsert: true, new: true }
-    );
-  }
+    ];
+    payload.auditLog = [
+      {
+        action: 'created',
+        actor: ADMIN_EMAIL,
+        details: `Created ${payload.status} post`,
+        at: new Date(),
+      },
+    ];
+    payload.createdBy = ADMIN_EMAIL;
 
-  await Promise.all(
-    (blog.tags || []).map((tag) =>
-      Tag.findOneAndUpdate(
-        { slug: tag.slug },
+    const blog = await Blog.create(payload);
+
+    if (blog.isFeatured) {
+      await enforceSingleFeatured(blog._id);
+    }
+
+    if (blog.category?.name) {
+      await Category.findOneAndUpdate(
+        { slug: blog.category.slug },
         {
-          name: tag.name,
-          slug: tag.slug,
-          seoTitle: tag.seoTitle || tag.name,
-          metaDescription: tag.metaDescription || '',
+          name: blog.category.name,
+          slug: blog.category.slug,
+          description: '',
+          seoTitle: blog.category.seoTitle || blog.category.name,
+          metaDescription: blog.category.metaDescription || '',
         },
         { upsert: true, new: true }
-      )
-    )
-  );
+      );
+    }
 
-  await refreshTaxonomyCounts();
-  res.status(201).json({ blog });
+    await Promise.all(
+      (blog.tags || []).map((tag) =>
+        Tag.findOneAndUpdate(
+          { slug: tag.slug },
+          {
+            name: tag.name,
+            slug: tag.slug,
+            seoTitle: tag.seoTitle || tag.name,
+            metaDescription: tag.metaDescription || '',
+          },
+          { upsert: true, new: true }
+        )
+      )
+    );
+
+    await refreshTaxonomyCounts();
+    res.status(201).json({ blog });
+  } catch (error) {
+    res.status(error.status || 500).json({ msg: error.message || 'Unable to create blog' });
+  }
 });
 
 router.put('/admin/:id', async (req, res) => {
   if (!ensureAdmin(req, res)) return;
 
+  try {
+    const blog = await Blog.findById(req.params.id);
+    if (!blog) return res.status(404).json({ msg: 'Blog not found' });
+
+    const payload = await normalizeBlogPayload(req.body, blog);
+    const existingBlogs = await Blog.find({}).select('title seo.metaDescription');
+    const seo = analyzeSeo({ ...payload, _id: blog._id }, existingBlogs);
+
+    blog.versions.unshift({
+      title: blog.title,
+      excerpt: blog.excerpt,
+      contentHtml: blog.contentHtml,
+      contentBlocks: blog.contentBlocks,
+      status: blog.status,
+      savedBy: ADMIN_EMAIL,
+      summary: 'Pre-update snapshot',
+    });
+    blog.versions = pruneVersions(blog.versions);
+
+    Object.assign(blog, payload, {
+      seo: { ...payload.seo, ...seo },
+      analytics: {
+        ...(blog.analytics?.toObject ? blog.analytics.toObject() : blog.analytics),
+        seoPerformance: seo.score,
+      },
+      draft: { title: '', contentBlocks: null, savedAt: null },
+    });
+
+    blog.auditLog.push({ action: 'updated', actor: ADMIN_EMAIL, details: `Updated ${blog.status} post`, at: new Date() });
+    await blog.save();
+
+    if (blog.isFeatured) {
+      await enforceSingleFeatured(blog._id);
+    }
+
+    await refreshTaxonomyCounts();
+    res.json({ blog });
+  } catch (error) {
+    res.status(error.status || 500).json({ msg: error.message || 'Unable to update blog' });
+  }
+});
+
+router.put('/admin/:id/draft', async (req, res) => {
+  if (!ensureAdmin(req, res)) return;
+
+  try {
+    const blog = await Blog.findById(req.params.id);
+    if (!blog) return res.status(404).json({ msg: 'Blog not found' });
+
+    const title = (req.body.title || blog.title || '').trim();
+    const contentBlocks = req.body.contentBlocks;
+    if (contentBlocks) assertRenderable(contentBlocks);
+
+    blog.draft = {
+      title,
+      contentBlocks: contentBlocks || blog.draft?.contentBlocks || null,
+      savedAt: new Date(),
+    };
+    await blog.save();
+
+    res.json({
+      draft: blog.draft,
+      msg: 'Draft autosaved',
+    });
+  } catch (error) {
+    res.status(error.status || 400).json({ msg: error.message || 'Unable to autosave draft' });
+  }
+});
+
+router.delete('/admin/:id/draft', async (req, res) => {
+  if (!ensureAdmin(req, res)) return;
+
   const blog = await Blog.findById(req.params.id);
   if (!blog) return res.status(404).json({ msg: 'Blog not found' });
 
-  const payload = await normalizeBlogPayload(req.body, blog);
-  const existingBlogs = await Blog.find({}).select('title seo.metaDescription');
-  const seo = analyzeSeo({ ...payload, _id: blog._id }, existingBlogs);
-
-  blog.versions.unshift({
-    title: blog.title,
-    excerpt: blog.excerpt,
-    contentHtml: blog.contentHtml,
-    status: blog.status,
-    savedBy: ADMIN_EMAIL,
-    summary: 'Pre-update snapshot',
-  });
-
-  Object.assign(blog, payload, {
-    seo: { ...payload.seo, ...seo },
-    analytics: {
-      ...(blog.analytics?.toObject ? blog.analytics.toObject() : blog.analytics),
-      seoPerformance: seo.score,
-    },
-  });
-
-  blog.auditLog.push({ action: 'updated', actor: ADMIN_EMAIL, details: `Updated ${blog.status} post`, at: new Date() });
+  blog.draft = { title: '', contentBlocks: null, savedAt: null };
   await blog.save();
-  await refreshTaxonomyCounts();
-  res.json({ blog });
+  res.json({ msg: 'Draft discarded' });
+});
+
+router.get('/admin/:id/revisions', async (req, res) => {
+  if (!ensureAdmin(req, res)) return;
+
+  const blog = await Blog.findById(req.params.id).select('versions title');
+  if (!blog) return res.status(404).json({ msg: 'Blog not found' });
+
+  const revisions = (blog.versions || []).slice(0, 20).map((version, index) => ({
+    id: version._id,
+    index,
+    title: version.title,
+    excerpt: version.excerpt,
+    status: version.status,
+    summary: version.summary,
+    savedAt: version.savedAt,
+    savedBy: version.savedBy,
+  }));
+
+  res.json({ revisions });
+});
+
+router.post('/admin/:id/revisions/:revisionId/restore', async (req, res) => {
+  if (!ensureAdmin(req, res)) return;
+
+  try {
+    const blog = await Blog.findById(req.params.id);
+    if (!blog) return res.status(404).json({ msg: 'Blog not found' });
+
+    const revision = blog.versions.id(req.params.revisionId);
+    if (!revision) return res.status(404).json({ msg: 'Revision not found' });
+
+    blog.versions.unshift({
+      title: blog.title,
+      excerpt: blog.excerpt,
+      contentHtml: blog.contentHtml,
+      contentBlocks: blog.contentBlocks,
+      status: blog.status,
+      savedBy: ADMIN_EMAIL,
+      summary: 'Snapshot before restoring…',
+    });
+    blog.versions = pruneVersions(blog.versions);
+
+    blog.title = revision.title || blog.title;
+    blog.excerpt = revision.excerpt || blog.excerpt;
+    if (revision.contentBlocks) {
+      assertRenderable(revision.contentBlocks);
+      blog.contentBlocks = revision.contentBlocks;
+      blog.contentHtml = renderAndSanitize(revision.contentBlocks);
+      blog.contentText = stripHtml(blog.contentHtml);
+    } else {
+      blog.contentHtml = sanitizeEditorHtml(revision.contentHtml || blog.contentHtml);
+      blog.contentText = stripHtml(blog.contentHtml);
+    }
+    blog.outline = buildOutline(blog.contentHtml);
+    blog.wordCount = getWordCount(blog.contentHtml);
+    blog.readingTimeMinutes = estimateReadingTimeMinutes(blog.wordCount);
+    blog.draft = { title: '', contentBlocks: null, savedAt: null };
+    blog.auditLog.push({
+      action: 'revision-restored',
+      actor: ADMIN_EMAIL,
+      details: `Restored revision ${req.params.revisionId}`,
+      at: new Date(),
+    });
+
+    await blog.save();
+    res.json({ blog, msg: 'Revision restored successfully.' });
+  } catch (error) {
+    res.status(error.status || 500).json({ msg: error.message || 'Unable to restore revision' });
+  }
 });
 
 router.post('/admin/:id/duplicate', async (req, res) => {
@@ -978,16 +1367,20 @@ router.post('/admin/:id/duplicate', async (req, res) => {
   delete duplicate.createdAt;
   delete duplicate.updatedAt;
   duplicate.title = `${original.title} Copy`;
-  duplicate.slug = slugify(`${original.slug}-copy-${Date.now()}`);
+  duplicate.slug = await buildUniqueSlug(`${original.slug}-copy`);
   duplicate.status = 'draft';
+  duplicate.isFeatured = false;
   duplicate.publishAt = null;
   duplicate.scheduledFor = null;
+  duplicate.expiresAt = null;
+  duplicate.draft = { title: '', contentBlocks: null, savedAt: null };
   duplicate.auditLog = [{ action: 'duplicated', actor: ADMIN_EMAIL, details: `Duplicated from ${original._id}`, at: new Date() }];
   duplicate.versions = [
     {
       title: duplicate.title,
       excerpt: duplicate.excerpt,
       contentHtml: duplicate.contentHtml,
+      contentBlocks: duplicate.contentBlocks,
       status: 'draft',
       summary: 'Duplicate created',
       savedBy: ADMIN_EMAIL,
@@ -1004,19 +1397,27 @@ router.patch('/admin/:id/status', async (req, res) => {
   const blog = await Blog.findById(req.params.id);
   if (!blog) return res.status(404).json({ msg: 'Blog not found' });
 
-  const nextStatus = req.body.status;
+  // Support both status enum and published boolean (list toggles)
+  let nextStatus = req.body.status;
+  if (req.body.published === true) nextStatus = 'published';
+  if (req.body.published === false) nextStatus = 'draft';
+
   if (!['draft', 'review', 'published', 'scheduled', 'archived'].includes(nextStatus)) {
     return res.status(400).json({ msg: 'Invalid status' });
   }
 
+  if (nextStatus === 'scheduled' && !req.body.scheduledFor && !blog.scheduledFor) {
+    return res.status(400).json({ msg: 'Scheduled posts require a publish date/time.' });
+  }
+
   blog.status = nextStatus;
   blog.publishAt = nextStatus === 'published' ? new Date(req.body.publishAt || Date.now()) : blog.publishAt;
-  blog.scheduledFor = nextStatus === 'scheduled' ? new Date(req.body.scheduledFor) : null;
+  blog.scheduledFor = nextStatus === 'scheduled' ? new Date(req.body.scheduledFor || blog.scheduledFor) : null;
   blog.archivedAt = nextStatus === 'archived' ? new Date() : null;
   blog.auditLog.push({ action: 'status-changed', actor: ADMIN_EMAIL, details: `Changed status to ${nextStatus}`, at: new Date() });
   await blog.save();
 
-  res.json({ blog });
+  res.json({ blog: mapBlogSummary(blog) });
 });
 
 router.patch('/admin/:id/feature', async (req, res) => {
@@ -1030,7 +1431,11 @@ router.patch('/admin/:id/feature', async (req, res) => {
   blog.auditLog.push({ action: 'featured-updated', actor: ADMIN_EMAIL, details: 'Updated feature flags', at: new Date() });
   await blog.save();
 
-  res.json({ blog });
+  if (blog.isFeatured) {
+    await enforceSingleFeatured(blog._id);
+  }
+
+  res.json({ blog: mapBlogSummary(blog) });
 });
 
 router.post('/admin/bulk', async (req, res) => {
@@ -1093,7 +1498,8 @@ router.get('/filters', async (_req, res) => {
 
 router.get('/sitemap.xml', async (_req, res) => {
   await syncScheduledPosts();
-  const blogs = await Blog.find({ status: 'published', visibility: 'public' }).sort({ updatedAt: -1 });
+  const now = new Date();
+  const blogs = await Blog.find(publicVisibilityFilter(now)).sort({ updatedAt: -1 });
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${blogs
     .map(
       (blog) =>
@@ -1108,12 +1514,14 @@ router.get('/', async (req, res) => {
 
   const page = Math.max(1, Number(req.query.page || 1));
   const limit = Math.min(24, Math.max(1, Number(req.query.limit || 9)));
+  const now = new Date();
+  const filters = buildQuery(req.query);
+  delete filters.status;
   const query = {
-    ...buildQuery(req.query),
-    status: 'published',
-    visibility: 'public',
+    ...filters,
+    ...publicVisibilityFilter(now),
   };
-  const sort = req.query.sort === 'mostViewed' ? { 'analytics.views': -1 } : req.query.sort === 'oldest' ? { publishAt: 1 } : { isPinned: -1, publishAt: -1 };
+  const sort = req.query.sort === 'mostViewed' ? { 'analytics.views': -1 } : req.query.sort === 'oldest' ? { publishAt: 1 } : { isPinned: -1, isFeatured: -1, publishAt: -1 };
 
   const [blogs, total] = await Promise.all([
     Blog.find(query)
@@ -1138,14 +1546,14 @@ router.get('/', async (req, res) => {
 router.get('/slug/:slug', async (req, res) => {
   await syncScheduledPosts();
 
-  const blog = await Blog.findOne({ slug: req.params.slug, status: 'published', visibility: 'public' });
-  if (!blog) return res.status(404).json({ msg: 'Blog not found' });
+  const now = new Date();
+  const blog = await Blog.findOne({ slug: req.params.slug, ...publicVisibilityFilter(now) });
+  if (!blog || !isPubliclyVisible(blog, now)) return res.status(404).json({ msg: 'Blog not found' });
 
   const related = await Blog.find({
     _id: { $ne: blog._id },
-    status: 'published',
-    visibility: 'public',
-    $or: [{ 'category.slug': blog.category.slug }, { 'tags.slug': { $in: blog.tags.map((tag) => tag.slug) } }],
+    ...publicVisibilityFilter(now),
+    $or: [{ 'category.slug': blog.category.slug }, { 'tags.slug': { $in: (blog.tags || []).map((tag) => tag.slug) } }],
   })
     .sort({ isFeatured: -1, publishAt: -1 })
     .limit(3);
@@ -1163,7 +1571,8 @@ router.get('/slug/:slug', async (req, res) => {
 });
 
 router.post('/slug/:slug/comments', async (req, res) => {
-  const blog = await Blog.findOne({ slug: req.params.slug, status: 'published', allowComments: true });
+  const now = new Date();
+  const blog = await Blog.findOne({ slug: req.params.slug, allowComments: true, ...publicVisibilityFilter(now) });
   if (!blog) return res.status(404).json({ msg: 'Blog not found or comments disabled' });
 
   const authorName = (req.body.authorName || '').trim();

@@ -136,7 +136,9 @@ export interface BlogSummary {
   featuredImage?: BlogMedia;
   publishAt?: string | null;
   scheduledFor?: string | null;
+  expiresAt?: string | null;
   archivedAt?: string | null;
+  youtubeUrl?: string;
   updatedAt: string;
   createdAt: string;
   readingTimeMinutes: number;
@@ -147,12 +149,13 @@ export interface BlogSummary {
   seoWarnings: string[];
   seoSuggestions: string[];
   commentsCount: number;
+  hasDraft?: boolean;
 }
 
 export interface BlogDocument extends BlogSummary {
   contentHtml: string;
   contentText?: string;
-  contentBlocks?: Array<Record<string, unknown>>;
+  contentBlocks?: Array<Record<string, unknown>> | Record<string, unknown>;
   customHtmlBlocks?: string[];
   outline: BlogOutlineItem[];
   gallery: BlogMedia[];
@@ -162,6 +165,11 @@ export interface BlogDocument extends BlogSummary {
   comments: BlogComment[];
   versions: BlogVersion[];
   auditLog: BlogAuditLog[];
+  draft?: {
+    title?: string;
+    contentBlocks?: Record<string, unknown> | null;
+    savedAt?: string | null;
+  };
 }
 
 export interface BlogDashboardResponse {
