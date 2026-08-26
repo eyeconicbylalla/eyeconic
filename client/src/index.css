@@ -763,6 +763,10 @@
     padding: 1rem;
   }
 
+  .ec-modal-backdrop-elevated {
+    z-index: 90;
+  }
+
   .ec-modal {
     width: min(64rem, 100%);
     max-height: min(90vh, 52rem);
@@ -788,6 +792,10 @@
   .ec-confirm-message {
     color: var(--text-secondary);
     margin-bottom: 1rem;
+  }
+
+  .ec-confirm-message-pre {
+    white-space: pre-line;
   }
 
   .ec-modal-header {
@@ -862,21 +870,74 @@
   }
 
   .ec-media-card {
+    position: relative;
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
-    text-align: left;
     background: var(--bg-tertiary);
     border: 1px solid var(--border-subtle);
     border-radius: 0.65rem;
     overflow: hidden;
-    padding: 0;
-    cursor: pointer;
     color: var(--text-secondary);
   }
 
   .ec-media-card:hover {
     border-color: var(--border-accent);
+  }
+
+  .ec-media-card-select {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: inherit;
+  }
+
+  .ec-media-card-delete {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.45rem;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    background: rgba(2, 6, 12, 0.78);
+    color: #fca5a5;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(-2px);
+    transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease;
+  }
+
+  .ec-media-card:hover .ec-media-card-delete,
+  .ec-media-card-delete:focus-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .ec-media-card-delete:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.55);
+    color: #fecaca;
+  }
+
+  .ec-media-card-delete:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  @media (hover: none) {
+    .ec-media-card-delete {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   .ec-media-card-recent {

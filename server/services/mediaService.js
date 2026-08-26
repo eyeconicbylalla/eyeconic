@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const cloudinary = require('cloudinary').v2;
 const MediaAsset = require('../models/MediaAsset');
+const Blog = require('../models/Blog');
 const {
   DEV_DATA_URL_MAX_BYTES,
   isAllowedExternalImageUrl,
@@ -111,12 +112,68 @@ async function uploadBufferToCloudinary(buffer, { fileName = 'upload.jpg', mime 
   });
 }
 
+function buildContentHtmlNeedles(media, url) {
+  const needles = [];
+  if (url) needles.push(url);
+
+  const publicId = String(media?.cloudinaryPublicId || '').trim();
+  if (publicId && publicId !== url) {
+    needles.push(publicId);
+  }
+
+  return [...new Set(needles)];
+}
+
+function buildContentHtmlUsageClauses(needles) {
+  return needles.map((needle) => ({
+    $expr: {
+      $gt: [{ $indexOfBytes: [{ $ifNull: ['$contentHtml', ''] }, needle] }, -1],
+    },
+  }));
+}
+
+async function findMediaAssetUsage(media) {
+  const url = String(media?.url || '').trim();
+  if (!url) return [];
+
+  const contentNeedles = buildContentHtmlNeedles(media, url);
+  const blogs = await Blog.find({
+    $or: [
+      { 'featuredImage.url': url },
+      { 'gallery.url': url },
+      { 'seo.openGraph.image': url },
+      { 'seo.twitterCard.image': url },
+      ...buildContentHtmlUsageClauses(contentNeedles),
+    ],
+  })
+    .select('title slug status')
+    .sort({ updatedAt: -1 })
+    .limit(25)
+    .lean();
+
+  return blogs.map((blog) => ({
+    id: blog._id,
+    title: blog.title,
+    slug: blog.slug,
+    status: blog.status,
+  }));
+}
+
 async function deleteCloudinaryAsset(publicId) {
-  if (!publicId || !isCloudinaryConfigured()) return;
+  if (!publicId || !isCloudinaryConfigured()) {
+    return { ok: true, skipped: true };
+  }
+
   try {
-    await cloudinary.uploader.destroy(publicId, { resource_type: 'image', invalidate: true });
+    const result = await cloudinary.uploader.destroy(publicId, { resource_type: 'image', invalidate: true });
+    if (result?.result !== 'ok' && result?.result !== 'not found') {
+      console.error('[media] Cloudinary delete unexpected result', { publicId, result: result?.result });
+      return { ok: false, message: 'Unable to remove image from cloud storage.' };
+    }
+    return { ok: true };
   } catch (error) {
     console.error('[media] Cloudinary delete failed', { publicId, message: error.message });
+    return { ok: false, message: 'Unable to remove image from cloud storage.' };
   }
 }
 
@@ -268,11 +325,35 @@ async function createMediaFromRequest({ body, file, uploadedBy }) {
   return registerExternalUrlAsset(body, uploadedBy);
 }
 
-async function deleteMediaAsset(media) {
-  if (media?.cloudinaryPublicId) {
-    await deleteCloudinaryAsset(media.cloudinaryPublicId);
+async function deleteMediaAsset(media, { force = false } = {}) {
+  if (!media?._id) {
+    return { ok: false, status: 404, message: 'Media asset not found.' };
   }
+
+  const usage = await findMediaAssetUsage(media);
+  if (usage.length && !force) {
+    return {
+      ok: false,
+      status: 409,
+      message: 'This asset is still referenced by one or more blog posts.',
+      usage,
+      canForceDelete: true,
+    };
+  }
+
+  if (media.cloudinaryPublicId) {
+    const cloudinaryResult = await deleteCloudinaryAsset(media.cloudinaryPublicId);
+    if (!cloudinaryResult.ok) {
+      return {
+        ok: false,
+        status: 502,
+        message: cloudinaryResult.message || 'Unable to remove image from cloud storage.',
+      };
+    }
+  }
+
   await MediaAsset.findByIdAndDelete(media._id);
+  return { ok: true, usage };
 }
 
 module.exports = {
@@ -280,6 +361,7 @@ module.exports = {
   configureCloudinary,
   createMediaFromRequest,
   deleteMediaAsset,
+  findMediaAssetUsage,
   getUploadConfig,
   isCloudinaryConfigured,
   registerCloudinaryAsset,

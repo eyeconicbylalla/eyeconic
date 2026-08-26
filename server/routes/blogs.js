@@ -10,6 +10,7 @@ const { handleUpload } = require('../middleware/upload');
 const {
   createMediaFromRequest,
   deleteMediaAsset,
+  findMediaAssetUsage,
   getUploadConfig,
 } = require('../services/mediaService');
 
@@ -980,14 +981,42 @@ router.put('/admin/media/:id', async (req, res) => {
   res.json({ media });
 });
 
+router.get('/admin/media/:id/usage', async (req, res) => {
+  if (!ensureAdmin(req, res)) return;
+
+  try {
+    const media = await MediaAsset.findById(req.params.id);
+    if (!media) return res.status(404).json({ msg: 'Media asset not found' });
+
+    const usage = await findMediaAssetUsage(media);
+    res.json({ usage, count: usage.length });
+  } catch (error) {
+    console.error('[media] Usage lookup failed', { message: error.message });
+    res.status(500).json({ msg: 'Unable to check media usage.' });
+  }
+});
+
 router.delete('/admin/media/:id', async (req, res) => {
   if (!ensureAdmin(req, res)) return;
 
   try {
     const media = await MediaAsset.findById(req.params.id);
     if (!media) return res.status(404).json({ msg: 'Media asset not found' });
-    await deleteMediaAsset(media);
-    res.json({ msg: 'Media asset deleted' });
+
+    const force = req.query.force === 'true' || req.body?.force === true;
+    const result = await deleteMediaAsset(media, { force });
+    if (!result.ok) {
+      return res.status(result.status || 400).json({
+        msg: result.message || 'Unable to delete media asset.',
+        usage: result.usage || [],
+        canForceDelete: Boolean(result.canForceDelete),
+      });
+    }
+
+    res.json({
+      msg: 'Media asset deleted',
+      usageCount: Array.isArray(result.usage) ? result.usage.length : 0,
+    });
   } catch (error) {
     console.error('[media] Delete failed', { message: error.message });
     res.status(500).json({ msg: 'Unable to delete media asset.' });

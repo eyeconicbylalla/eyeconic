@@ -33,6 +33,13 @@ export interface UploadedMediaAsset {
   cloudinaryPublicId?: string;
 }
 
+export interface MediaAssetUsage {
+  id: string;
+  title: string;
+  slug: string;
+  status?: string;
+}
+
 export function validateImageFile(file: File): string | null {
   if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
     return 'Unsupported image format. Use JPG, PNG, WebP, or GIF.';
@@ -179,4 +186,40 @@ export function getUploadErrorMessage(error: unknown): string {
     return error.message;
   }
   return 'Unable to upload this image. Please try again.';
+}
+
+export async function fetchMediaAssetUsage(assetId: string): Promise<MediaAssetUsage[]> {
+  const res = await axios.get<{ usage: MediaAssetUsage[] }>(
+    `${API_BASE_URL}/blogs/admin/media/${assetId}/usage`,
+    { params: getAuthParams() },
+  );
+  return res.data.usage || [];
+}
+
+export async function deleteMediaAssetById(assetId: string, options: { force?: boolean } = {}) {
+  const res = await axios.delete<{ msg: string; usageCount?: number }>(
+    `${API_BASE_URL}/blogs/admin/media/${assetId}`,
+    {
+      params: {
+        ...getAuthParams(),
+        ...(options.force ? { force: 'true' } : {}),
+      },
+    },
+  );
+  return res.data;
+}
+
+export function getDeleteErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    if (error.response?.data?.msg) {
+      return String(error.response.data.msg);
+    }
+    if (error.message) {
+      return error.message;
+    }
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return 'Unable to delete this asset. Please try again.';
 }
