@@ -1,13 +1,11 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../config/api';
-
-const ADMIN_EMAIL = 'admin@eyeconic1.com';
-const ADMIN_PASSWORD = 'admin@eyeconic$';
+import { getAdminAuthHeaders } from './adminAuth';
 
 const IMAGE_MAX_BYTES = 15 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
-export const getAuthParams = () => ({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
+const getAuthHeaders = () => getAdminAuthHeaders();
 
 export interface CloudinaryUploadConfig {
   cloudName: string;
@@ -56,7 +54,7 @@ export function validateImageFile(file: File): string | null {
 export async function fetchUploadConfig(): Promise<CloudinaryUploadConfig | null> {
   try {
     const res = await axios.get<CloudinaryUploadConfig>(`${API_BASE_URL}/blogs/admin/media/upload-config`, {
-      params: getAuthParams(),
+      headers: getAuthHeaders(),
     });
     return res.data;
   } catch {
@@ -105,7 +103,6 @@ export async function registerUploadedMedia(input: {
   sizeKb?: number;
 }) {
   const res = await axios.post<{ media: UploadedMediaAsset }>(`${API_BASE_URL}/blogs/admin/media`, {
-    ...getAuthParams(),
     url: input.url,
     publicId: input.publicId,
     fileName: input.fileName,
@@ -117,6 +114,8 @@ export async function registerUploadedMedia(input: {
     height: input.height || 0,
     sizeKb: input.sizeKb || 0,
     isOptimized: true,
+  }, {
+    headers: getAuthHeaders(),
   });
   return res.data.media;
 }
@@ -124,8 +123,6 @@ export async function registerUploadedMedia(input: {
 export async function uploadMediaViaServer(file: File) {
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('email', ADMIN_EMAIL);
-  formData.append('password', ADMIN_PASSWORD);
   formData.append('fileName', file.name);
   formData.append('title', file.name);
   formData.append('displayName', file.name);
@@ -134,7 +131,7 @@ export async function uploadMediaViaServer(file: File) {
   formData.append('sizeKb', String(Math.max(1, Math.round(file.size / 1024))));
 
   const res = await axios.post<{ media: UploadedMediaAsset }>(`${API_BASE_URL}/blogs/admin/media`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+    headers: { 'Content-Type': 'multipart/form-data', ...getAuthHeaders() },
   });
   return res.data.media;
 }
@@ -191,7 +188,7 @@ export function getUploadErrorMessage(error: unknown): string {
 export async function fetchMediaAssetUsage(assetId: string): Promise<MediaAssetUsage[]> {
   const res = await axios.get<{ usage: MediaAssetUsage[] }>(
     `${API_BASE_URL}/blogs/admin/media/${assetId}/usage`,
-    { params: getAuthParams() },
+    { headers: getAuthHeaders() },
   );
   return res.data.usage || [];
 }
@@ -200,10 +197,8 @@ export async function deleteMediaAssetById(assetId: string, options: { force?: b
   const res = await axios.delete<{ msg: string; usageCount?: number }>(
     `${API_BASE_URL}/blogs/admin/media/${assetId}`,
     {
-      params: {
-        ...getAuthParams(),
-        ...(options.force ? { force: 'true' } : {}),
-      },
+      params: options.force ? { force: 'true' } : undefined,
+      headers: getAuthHeaders(),
     },
   );
   return res.data;

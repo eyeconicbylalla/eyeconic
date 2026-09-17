@@ -2,10 +2,10 @@ import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import axios from 'axios';
 import { Search, Trash2, Upload, X } from 'lucide-react';
 import { API_BASE_URL } from '../../config/api';
+import { getAdminAuthHeaders } from '../../lib/adminAuth';
 import {
   deleteMediaAssetById,
   fetchMediaAssetUsage,
-  getAuthParams,
   getDeleteErrorMessage,
   getUploadErrorMessage,
   uploadMediaFile,
@@ -116,12 +116,12 @@ export function MediaPicker({ open, mode = 'insert', onClose, onSelect }: MediaP
         `${API_BASE_URL}/blogs/admin/media`,
         {
           params: {
-            ...getAuthParams(),
             page,
             limit,
             search: debouncedSearch || undefined,
             kind: kind === 'all' ? undefined : kind,
           },
+          headers: getAdminAuthHeaders(),
         },
       );
       setMedia(res.data.media || []);

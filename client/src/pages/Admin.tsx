@@ -3,6 +3,7 @@ import axios from 'axios';
 import { API_BASE_URL } from '../config/api';
 import * as XLSX from 'xlsx';
 import BlogCmsPanel from '../components/admin/BlogCmsPanel';
+import { adminLogin, clearAdminToken, getAdminAuthHeaders } from '../lib/adminAuth';
 
 interface Student {
   _id: string;
@@ -19,9 +20,6 @@ interface Student {
     time?: string;
   };
 }
-
-const ADMIN_EMAIL = 'admin@eyeconic1.com';
-const ADMIN_PASSWORD = 'admin@eyeconic$';
 
 const calledOptions = ['Not Called', 'Called'];
 const buyOptions = ['Have to Pay', 'Will Buy', 'Paid'];
@@ -45,11 +43,17 @@ const Admin: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await axios.post(`${API_BASE_URL}/auth/admin`, { email, password });
+      // Exchange credentials for a short-lived admin token (server-side env check).
+      await adminLogin(email, password);
+      // Load the student list with the token in the Authorization header.
+      const res = await axios.post(`${API_BASE_URL}/auth/admin`, {}, {
+        headers: getAdminAuthHeaders(),
+      });
       setStudents(res.data.students);
       setTotal(res.data.total);
       setAuthenticated(true);
     } catch (err) {
+      clearAdminToken();
       if (axios.isAxiosError(err)) {
         setError(err.response?.data?.msg || 'Invalid admin credentials');
       } else {
@@ -58,6 +62,14 @@ const Admin: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSessionExpired = () => {
+    clearAdminToken();
+    setAuthenticated(false);
+    setStudents([]);
+    setTotal(null);
+    setError('Admin session expired. Please log in again.');
   };
 
   const handleFieldChange = (id: string, field: keyof Student, value: string) => {
@@ -70,16 +82,12 @@ const Admin: React.FC = () => {
     setSavingId(student._id);
     try {
       const payload: {
-        email: string;
-        password: string;
         calledStatus: string | undefined;
         buyStatus: string | undefined;
         batchInterest: string | undefined;
         adminNotes: string | undefined;
         resetGt?: boolean;
       } = {
-        email: ADMIN_EMAIL,
-        password: ADMIN_PASSWORD,
         calledStatus: student.calledStatus,
         buyStatus: student.buyStatus,
         batchInterest: student.batchInterest,
@@ -88,13 +96,18 @@ const Admin: React.FC = () => {
       if (!student.gtScore) payload.resetGt = true;
       const res = await axios.patch(
         `${API_BASE_URL}/auth/admin/student/${student._id}`,
-        payload
+        payload,
+        { headers: getAdminAuthHeaders() }
       );
       setStudents(students =>
         students.map(s => (s._id === student._id ? { ...s, ...res.data } : s))
       );
-    } catch (_err) {
-      alert('Failed to save changes');
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
+        handleSessionExpired();
+      } else {
+        alert('Failed to save changes');
+      }
     } finally {
       setSavingId(null);
     }
@@ -105,17 +118,18 @@ const Admin: React.FC = () => {
     try {
       await axios.patch(
         `${API_BASE_URL}/auth/admin/student/${studentId}`,
-        {
-          email: ADMIN_EMAIL,
-          password: ADMIN_PASSWORD,
-          resetGt: true
-        }
+        { resetGt: true },
+        { headers: getAdminAuthHeaders() }
       );
       setStudents(students =>
         students.map(s => (s._id === studentId ? { ...s, gtScore: undefined } : s))
       );
-    } catch (_err) {
-      alert('Failed to reset GT score');
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
+        handleSessionExpired();
+      } else {
+        alert('Failed to reset GT score');
+      }
     } finally {
       setSavingId(null);
     }
@@ -126,15 +140,16 @@ const Admin: React.FC = () => {
     setDeletingId(studentId);
     try {
       await axios.delete(`${API_BASE_URL}/auth/admin/student/${studentId}`, {
-        data: {
-          email: ADMIN_EMAIL,
-          password: ADMIN_PASSWORD
-        }
+        headers: getAdminAuthHeaders()
       });
       setStudents(students => students.filter(s => s._id !== studentId));
       setTotal(t => (t !== null ? t - 1 : t));
-    } catch (_err) {
-      alert('Failed to delete account');
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
+        handleSessionExpired();
+      } else {
+        alert('Failed to delete account');
+      }
     } finally {
       setDeletingId(null);
     }

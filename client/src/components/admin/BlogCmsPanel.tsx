@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { API_BASE_URL } from '../../config/api';
+import { getAdminAuthHeaders } from '../../lib/adminAuth';
 import type { BlogDocument, BlogDashboardResponse, BlogSummary, TaxonomyItem } from '../../types/blog';
 import { generateSlug } from '../../lib/slug';
 import { analyzeAccessibility, analyzeSeoTips } from '../../lib/contentChecks';
@@ -24,10 +25,8 @@ import { RichEditor, emptyDoc, type EditorChangePayload, type RichEditorHandle }
 import { MediaPicker, type MediaPickerMode, type MediaPickerSelection } from './MediaPicker';
 import { ConfirmDialog } from './ConfirmDialog';
 
-const ADMIN_EMAIL = 'admin@eyeconic1.com';
-const ADMIN_PASSWORD = 'admin@eyeconic$';
 const LOCAL_DRAFT_KEY = 'eyeconic_editor_draft';
-const getAuthParams = () => ({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
+const getAuthHeaders = () => getAdminAuthHeaders();
 
 type StatusFilter = 'all' | 'draft' | 'published' | 'scheduled' | 'archived' | 'featured';
 type SortKey = 'updatedAt' | 'createdAt' | 'title' | 'publishAt';
@@ -178,7 +177,6 @@ const BlogCmsPanel: React.FC = () => {
     setError('');
     try {
       const params: Record<string, string | number | boolean> = {
-        ...getAuthParams(),
         page,
         limit,
         sort,
@@ -188,7 +186,10 @@ const BlogCmsPanel: React.FC = () => {
       if (statusFilter === 'featured') params.featured = 'true';
       else if (statusFilter !== 'all') params.status = statusFilter;
 
-      const res = await axios.get<BlogDashboardResponse>(`${API_BASE_URL}/blogs/admin`, { params });
+      const res = await axios.get<BlogDashboardResponse>(`${API_BASE_URL}/blogs/admin`, {
+        params,
+        headers: getAuthHeaders(),
+      });
       setBlogs(res.data.blogs || []);
       setTotal(res.data.total || 0);
       setSummary(res.data.summary || null);
@@ -267,7 +268,7 @@ const BlogCmsPanel: React.FC = () => {
     setError('');
     try {
       const res = await axios.get<{ blog: BlogDocument }>(`${API_BASE_URL}/blogs/admin/${id}`, {
-        params: getAuthParams(),
+        headers: getAuthHeaders(),
       });
       const blog = res.data.blog;
       const nextForm: EditorForm = {
@@ -321,7 +322,7 @@ const BlogCmsPanel: React.FC = () => {
 
       const rev = await axios.get<{ revisions: typeof revisions }>(
         `${API_BASE_URL}/blogs/admin/${id}/revisions`,
-        { params: getAuthParams() },
+        { headers: getAuthHeaders() },
       );
       setRevisions(rev.data.revisions || []);
     } catch (err) {
@@ -352,7 +353,6 @@ const BlogCmsPanel: React.FC = () => {
     const f = formRef.current;
     const status = statusOverride || f.status;
     return {
-      ...getAuthParams(),
       title: f.title.trim(),
       slug: f.slug.trim() || generateSlug(f.title),
       author: { name: f.author.trim() || 'EyeConic Editorial Team' },
@@ -403,10 +403,14 @@ const BlogCmsPanel: React.FC = () => {
       const payload = buildPayload(statusOverride);
       let blog: BlogDocument;
       if (editingId) {
-        const res = await axios.put<{ blog: BlogDocument }>(`${API_BASE_URL}/blogs/admin/${editingId}`, payload);
+        const res = await axios.put<{ blog: BlogDocument }>(`${API_BASE_URL}/blogs/admin/${editingId}`, payload, {
+          headers: getAuthHeaders(),
+        });
         blog = res.data.blog;
       } else {
-        const res = await axios.post<{ blog: BlogDocument }>(`${API_BASE_URL}/blogs/admin`, payload);
+        const res = await axios.post<{ blog: BlogDocument }>(`${API_BASE_URL}/blogs/admin`, payload, {
+          headers: getAuthHeaders(),
+        });
         blog = res.data.blog;
         setEditingId(blog._id);
         localStorage.removeItem(LOCAL_DRAFT_KEY);
@@ -431,7 +435,7 @@ const BlogCmsPanel: React.FC = () => {
 
       const rev = await axios.get<{ revisions: typeof revisions }>(
         `${API_BASE_URL}/blogs/admin/${blog._id}/revisions`,
-        { params: getAuthParams() },
+        { headers: getAuthHeaders() },
       );
       setRevisions(rev.data.revisions || []);
     } catch (err) {
@@ -468,10 +472,9 @@ const BlogCmsPanel: React.FC = () => {
       setAutosaveStatus('Saving…');
       try {
         await axios.put(`${API_BASE_URL}/blogs/admin/${id}/draft`, {
-          ...getAuthParams(),
           title: f.title,
           contentBlocks: c,
-        });
+        }, { headers: getAuthHeaders() });
         setAutosaveStatus('Draft saved');
         window.setTimeout(() => setAutosaveStatus((s) => (s === 'Draft saved' ? '' : s)), 2500);
       } catch {
@@ -486,7 +489,8 @@ const BlogCmsPanel: React.FC = () => {
     try {
       const res = await axios.patch(
         `${API_BASE_URL}/blogs/admin/${blog._id}/status`,
-        { ...getAuthParams(), published: nextPublished },
+        { published: nextPublished },
+        { headers: getAuthHeaders() },
       );
       setBlogs((prev) => prev.map((b) => (b._id === blog._id ? { ...b, ...res.data.blog } : b)));
       setMessage(nextPublished ? 'Post published.' : 'Post set to draft.');
@@ -503,7 +507,7 @@ const BlogCmsPanel: React.FC = () => {
       confirmLabel: 'Delete',
       action: async () => {
         try {
-          await axios.delete(`${API_BASE_URL}/blogs/admin/${blog._id}`, { params: getAuthParams() });
+          await axios.delete(`${API_BASE_URL}/blogs/admin/${blog._id}`, { headers: getAuthHeaders() });
           setBlogs((prev) => prev.filter((b) => b._id !== blog._id));
           setMessage('Blog deleted.');
         } catch (err) {
@@ -526,7 +530,8 @@ const BlogCmsPanel: React.FC = () => {
         try {
           const res = await axios.post<{ blog: BlogDocument }>(
             `${API_BASE_URL}/blogs/admin/${editingId}/revisions/${revisionId}/restore`,
-            getAuthParams(),
+            {},
+            { headers: getAuthHeaders() },
           );
           const blog = res.data.blog;
           const blocks =
@@ -544,7 +549,7 @@ const BlogCmsPanel: React.FC = () => {
           setMessage('Revision restored successfully.');
           const rev = await axios.get<{ revisions: typeof revisions }>(
             `${API_BASE_URL}/blogs/admin/${editingId}/revisions`,
-            { params: getAuthParams() },
+            { headers: getAuthHeaders() },
           );
           setRevisions(rev.data.revisions || []);
         } catch (err) {
@@ -1192,7 +1197,8 @@ const BlogCmsPanel: React.FC = () => {
                   try {
                     const res = await axios.post(
                       `${API_BASE_URL}/blogs/admin/categories`,
-                      { ...getAuthParams(), name },
+                      { name },
+                      { headers: getAuthHeaders() },
                     );
                     const cat = res.data.category;
                     setCategories((prev) => [...prev, cat]);

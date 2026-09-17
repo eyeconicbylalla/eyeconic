@@ -1,0 +1,438 @@
+<title>Eyeconic Integration Audit</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,650&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#F7F6F2; --surface:#FFFFFF; --surface2:#F0EEE8; --ink:#191C21; --muted:#5A6270;
+  --line:#E3E0D8; --app:#0E6E63; --app-soft:#E2EFEC; --web:#9A4E0E; --web-soft:#F5E9DD;
+  --ok:#2E7D43; --ok-soft:#E3F0E6; --warn:#9A6B0E; --warn-soft:#F6EDD8; --bad:#B3372B; --bad-soft:#F7E4E1;
+  --code:#EFEBE2;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#15171B; --surface:#1D2026; --surface2:#23272E; --ink:#E9E7E1; --muted:#9BA4B0;
+  --line:#2E323A; --app:#4CC4B4; --app-soft:#173230; --web:#E09A5A; --web-soft:#33261A;
+  --ok:#6FBF83; --ok-soft:#1B2E20; --warn:#D9B25C; --warn-soft:#2F2817; --bad:#E5776B; --bad-soft:#331E1B;
+  --code:#111318;
+}}
+:root[data-theme="dark"]{
+  --bg:#15171B; --surface:#1D2026; --surface2:#23272E; --ink:#E9E7E1; --muted:#9BA4B0;
+  --line:#2E323A; --app:#4CC4B4; --app-soft:#173230; --web:#E09A5A; --web-soft:#33261A;
+  --ok:#6FBF83; --ok-soft:#1B2E20; --warn:#D9B25C; --warn-soft:#2F2817; --bad:#E5776B; --bad-soft:#331E1B;
+  --code:#111318;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.62 "Public Sans",system-ui,sans-serif;padding:0 20px}
+.wrap{max-width:900px;margin:0 auto;padding-block:48px 80px}
+h1,h2,h3{font-family:"Bricolage Grotesque","Public Sans",sans-serif;text-wrap:balance;line-height:1.15}
+h1{font-size:clamp(28px,5vw,40px);font-weight:650;margin:0 0 6px}
+h2{font-size:22px;font-weight:650;margin:0;display:flex;align-items:baseline;gap:10px}
+h3{font-size:16.5px;font-weight:650;margin:26px 0 8px}
+p{margin:8px 0;max-width:72ch}
+code,.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.86em}
+code{background:var(--code);padding:1px 5px;border-radius:4px;word-break:break-word}
+header.hero{border-bottom:2px solid var(--line);padding-bottom:22px;margin-bottom:26px}
+.kicker{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.sub{color:var(--muted);font-size:16.5px;max-width:70ch}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.chip{font-family:"IBM Plex Mono",monospace;font-size:11.5px;padding:3px 10px;border:1px solid var(--line);border-radius:99px;color:var(--muted);background:var(--surface)}
+.chip.app{color:var(--app);border-color:var(--app)}
+.chip.web{color:var(--web);border-color:var(--web)}
+.verdict{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--app);border-radius:10px;padding:18px 20px;margin:26px 0}
+.verdict h2{margin-bottom:6px}
+nav.toc{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:6px 18px;margin:22px 0 40px;padding:16px 18px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+nav.toc a{color:var(--ink);text-decoration:none;font-size:13.5px;display:flex;gap:8px;align-items:baseline}
+nav.toc a:hover{text-decoration:underline}
+nav.toc .n{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);min-width:18px}
+section{margin:44px 0}
+.sec-head{display:flex;align-items:center;gap:12px;border-bottom:2px solid var(--line);padding-bottom:8px;margin-bottom:16px}
+.sec-head .num{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:600;color:var(--bg);background:var(--muted);border-radius:6px;padding:2px 8px;flex:none}
+.sec-head.app .num{background:var(--app)} .sec-head.web .num{background:var(--web)}
+.tag{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;padding:2px 8px;border-radius:4px;flex:none}
+.tag.app{background:var(--app-soft);color:var(--app)} .tag.web{background:var(--web-soft);color:var(--web)}
+.tblwrap{overflow-x:auto;margin:12px 0;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:640px}
+th{text-align:left;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:9px 12px;border-bottom:1px solid var(--line);background:var(--surface2);white-space:nowrap}
+td{padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td code{white-space:nowrap}
+.pill{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;padding:1px 8px;border-radius:99px;white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.bad{background:var(--bad-soft);color:var(--bad)} .pill.dim{background:var(--surface2);color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:12px 0}
+.card h3{margin-top:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:720px){.grid2{grid-template-columns:1fr}}
+ul{margin:8px 0;padding-left:22px}
+li{margin:4px 0}
+pre{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:16px;overflow-x:auto;font-family:"IBM Plex Mono",monospace;font-size:12.5px;line-height:1.55;margin:14px 0}
+pre .a{color:var(--app);font-weight:600} pre .w{color:var(--web);font-weight:600} pre .d{color:var(--muted)}
+.note{border-left:3px solid var(--warn);background:var(--surface);border-radius:0 8px 8px 0;padding:10px 16px;margin:14px 0;font-size:14.5px}
+.note.bad{border-left-color:var(--bad)} .note.ok{border-left-color:var(--ok)}
+.flow{fill:var(--ink);color:var(--muted)}
+.owner{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:14px 0}
+@media(max-width:720px){.owner{grid-template-columns:1fr}}
+.owner .card{margin:0;border-top:4px solid var(--muted)}
+.owner .card.app{border-top-color:var(--app)} .owner .card.web{border-top-color:var(--web)} .owner .card.shared{border-top-color:var(--warn)}
+.owner h3{display:flex;align-items:center;gap:8px}
+footer{margin-top:56px;padding-top:16px;border-top:2px solid var(--line);color:var(--muted);font-size:13px}
+a{color:var(--app)}
+</style>
+<div class="wrap">
+
+<header class="hero">
+  <div class="kicker">Read-only technical &amp; data audit · 18 Sep 2026</div>
+  <h1>Eyeconic Integration Audit</h1>
+  <p class="sub">Pre-implementation audit of the Eyeconic Mentorship App (<span class="mono">C:\Projects\eyeconic-app</span>) and the Eyeconic Website (<span class="mono">C:\Projects\eyeconic-main</span>), covering architecture, data ownership, identity, and the safest integration approach. Nothing was modified.</p>
+  <div class="meta">
+    <span class="chip app">Mentorship App · Expo + Express + Mongo</span>
+    <span class="chip web">Website · Vite React + Express + Mongo</span>
+    <span class="chip">Two separate Atlas clusters (verified)</span>
+    <span class="chip">Audit only — no changes made</span>
+  </div>
+</header>
+
+<div class="verdict">
+  <h2>Verdict at a glance</h2>
+  <p><strong>Recommended architecture — Option B:</strong> the Website's server calls a new, minimal set of <em>read-only, service-authenticated</em> endpoints on the Mentorship App API (<code>/api/integration/*</code>). The Website keeps its own database for everything it owns (blogs, CRM, predictor reference data); the App remains the single source of truth for students, questions, tests, attempts and analytics. The browser never talks to the App API directly, so no CORS changes are needed.</p>
+  <p style="margin-bottom:0"><strong>Top blockers before implementation:</strong> ① no exam rank/branch/cutoff dataset exists anywhere — the Rank &amp; Branch and Desired Branch predictors have no data foundation yet; ② two independent identity stores with no shared key except email (mutable in the App); ③ hardcoded admin credentials shipped in the Website client bundle must be fixed before the Website server can be trusted with integration credentials; ④ the eight listed website features exist as a requirements list only — no written spec was found in either repo.</p>
+</div>
+
+<nav class="toc">
+  <a href="#s1"><span class="n">1</span>Mentorship App architecture</a>
+  <a href="#s2"><span class="n">2</span>Mentorship App data inventory</a>
+  <a href="#s3"><span class="n">3</span>Website architecture</a>
+  <a href="#s4"><span class="n">4</span>Feature → data mapping</a>
+  <a href="#s5"><span class="n">5</span>Authentication &amp; identity</a>
+  <a href="#s6"><span class="n">6</span>Integration options compared</a>
+  <a href="#s7"><span class="n">7</span>Proposed read-only API contract</a>
+  <a href="#s8"><span class="n">8</span>Data ownership model</a>
+  <a href="#s9"><span class="n">9</span>Risks &amp; blockers</a>
+  <a href="#s10"><span class="n">10</span>Final recommendation</a>
+</nav>
+
+<!-- ============ 1 ============ -->
+<section id="s1">
+  <div class="sec-head app"><span class="num">1</span><h2>Mentorship App Architecture</h2><span class="tag app">App</span></div>
+
+  <h3>1.1 Frontend</h3>
+  <div class="tblwrap"><table>
+    <tr><th>Surface</th><th>Stack</th><th>Location</th><th>Deployed</th></tr>
+    <tr><td>Mobile app (students, mentors, admins)</td><td>Expo SDK 54 · React Native · Expo Router · TypeScript; contexts: Auth, Quiz, GuestQuiz, Call, Notification</td><td><code>eyeconic-app/app/</code>, <code>components/</code>, <code>context/</code>, <code>services/</code></td><td>EAS Android, package <code>com.eyeconicbydrlalla.mentorship</code> (<code>eas.json</code>, <code>app.json</code> v1.0.3)</td></tr>
+    <tr><td>Web console (admin/mentor)</td><td>React 19 · Vite 7 · TypeScript · Tailwind 4 · socket.io-client</td><td><code>eyeconic-app/client/src/</code> (routes in <code>App.tsx</code>)</td><td>Vercel — <code>https://eyeconicmentors.vercel.app</code></td></tr>
+    <tr><td>Public quiz web (guests)</td><td>Same Vite client, unauthenticated <code>/public-quiz/:token</code> flow</td><td><code>eyeconic-app/client/src/pages/public-quiz/</code></td><td>Render static site <code>eyeconic-public-web</code> (<code>render.yaml</code>)</td></tr>
+  </table></div>
+  <p>API base URL resolution for mobile lives in <code>services/config.ts</code> — production host <code>https://eyeconic-app-prod-1r8o.onrender.com</code> + <code>/api</code>; the web console uses <code>client/.env.production</code> (<code>VITE_API_URL</code> pointing at the same Render service).</p>
+
+  <h3>1.2 Backend</h3>
+  <ul>
+    <li><strong>Framework:</strong> Express 4 + Socket.IO 4, single service — <code>backend/server.js</code> (HTTP + WebSocket for chat/calls/live leaderboards).</li>
+    <li><strong>Database / ORM:</strong> MongoDB via Mongoose 7 (<code>backend/utils/database.js</code>, URI from <code>MONGODB_URI</code> via <code>utils/mongoUri.js</code>). Atlas cluster <code>eyeconic-production.08n4dst.mongodb.net</code>; the URI carries <em>no database segment</em>, so the production database is the default <code>test</code> (confirmed in <code>docs/ai-proctoring-implementation-plan.md</code> §2.1).</li>
+    <li><strong>Auth:</strong> bcrypt password hashing + JWT (7-day, payload <code>{userId, role}</code>) — <code>backend/middleware/auth.js</code>. Signup is email-OTP verified and admin-gated (AppSettings <code>signUpEnabled</code>, fail-closed). Guest public-quiz flow issues scoped guest JWTs (<code>kind:'guest'</code>) that are explicitly rejected on user routes.</li>
+    <li><strong>Other infra:</strong> Cloudinary (media), Resend/SMTP (OTP email), firebase-admin (push), ExcelJS/xlsx (question-bank import).</li>
+  </ul>
+
+  <h3>1.3 API architecture &amp; feature freeze</h3>
+  <p>All routers mount under <code>/api/*</code> in <code>backend/server.js:220-235</code>. A <strong>temporary feature freeze</strong> is active (<code>backend/config/featureAvailability.js</code>): the quiz ecosystem is live; chat, mentorship, userManagement and adminOverview routers answer <span class="pill bad">503 FEATURE_DISABLED</span> except for a per-router allowlist in <code>QUIZ_WORKFLOW_ALLOWLIST</code>. AI proctoring flag is temporarily on. <em>Any integration must respect this freeze discipline.</em></p>
+  <div class="tblwrap"><table>
+    <tr><th>Router (mount)</th><th>File</th><th>Status</th></tr>
+    <tr><td><code>/api/auth</code></td><td><code>backend/routes/auth.js</code> — login, me, send-otp, signup, forgot-password OTP/reset</td><td><span class="pill ok">live</span></td></tr>
+    <tr><td><code>/api/quizzes</code></td><td><code>backend/routes/quizzes.js</code> (4,395 lines) — full test lifecycle + attempts + analytics + leaderboards + share links + retests</td><td><span class="pill ok">live</span></td></tr>
+    <tr><td><code>/api/question-bank</code></td><td><code>backend/routes/question-bank.js</code> — CRUD, stats, Excel bulk import, template</td><td><span class="pill ok">live</span></td></tr>
+    <tr><td><code>/api/subjects</code></td><td><code>backend/routes/subjects.js</code></td><td><span class="pill ok">live</span></td></tr>
+    <tr><td><code>/api/public</code></td><td><code>backend/routes/public-quiz.js</code>, <code>public-lead.js</code> — share-token quiz + lead email-OTP</td><td><span class="pill ok">live</span></td></tr>
+    <tr><td><code>/api/student-analytics</code></td><td><code>backend/routes/student-analytics.js</code> — mentor/admin summary</td><td><span class="pill ok">live</span></td></tr>
+    <tr><td><code>/api/users</code>, <code>/api/groups</code>, <code>/api/messages</code>, <code>/api/upload</code>, <code>/api/settings</code>, <code>/api/assignments</code>, <code>/api/student-subjects</code>, <code>/api/mentor-students</code>, <code>/api/admin-overview</code></td><td>respective files in <code>backend/routes/</code></td><td><span class="pill warn">frozen</span> (503, with allowlist)</td></tr>
+  </table></div>
+
+  <h3>1.4 Deployment &amp; environment</h3>
+  <ul>
+    <li><strong>Backend:</strong> Render web service <code>eyeconic-app-prod</code> (dashboard-managed, not in <code>render.yaml</code>) — <code>https://eyeconic-app-prod-1r8o.onrender.com</code>.</li>
+    <li><strong>Env vars</strong> (<code>backend/.env.example</code>): <code>PORT</code>, <code>NODE_ENV</code>, <code>ALLOWED_ORIGINS</code>, <code>JWT_SECRET</code>, <code>MONGODB_URI</code>, <code>SMTP_*</code>, <code>RESEND_*</code>, <code>WEB_APP_URL</code>, <code>OTP_HASH_SECRET</code>, <code>GUEST_JWT_EXPIRES_IN</code>, <code>CLOUDINARY_*</code>, <code>FIREBASE_*</code>.</li>
+    <li><strong>CORS</strong> (<code>backend/config/cors.js</code>): allowlist = <code>ALLOWED_ORIGINS</code> env ∪ <code>WEB_APP_URL</code> origin ∪ prod default <code>https://eyeconicmentors.vercel.app</code>. Requests with no Origin header (server-to-server) are allowed — relevant to the recommended integration.</li>
+  </ul>
+</section>
+
+<!-- ============ 2 ============ -->
+<section id="s2">
+  <div class="sec-head app"><span class="num">2</span><h2>Mentorship App Data Inventory</h2><span class="tag app">App</span></div>
+  <p>All models live in <code>backend/models/</code>. Collection names follow Mongoose defaults (lowercased plural).</p>
+
+  <div class="tblwrap"><table>
+    <tr><th>Collection</th><th>Model file</th><th>Key fields</th><th>Relationships</th><th>Written by</th><th>Exposed via API</th></tr>
+    <tr><td><code>users</code></td><td><code>User.js</code></td><td><code>name</code>; <code>email</code> (unique, lowercased); <code>password</code> (bcrypt); <code>role</code> admin/mentor/student; <code>phone</code> (optional, not unique); <code>isFreeUser</code>; <code>studentProfile</code> {mbbsBatch, collegeName, attemptNo, batchType, <b>grandTestsGiven</b> (string), averageCorrects, averageScore, weakestSubjects, <b>targetBranch</b>, subscriptions}; <code>freeUserProfile</code> {year, issues, resources, isReadyToTransform}; <code>groups[]</code>; <code>unseenQuizzes[]</code>; <code>mentors[]</code>; push/fcm tokens; <code>profilePicture</code></td><td>refs → Group, Quiz, User (mentors)</td><td>auth, users, quizzes routes; <code>scripts/importStudents.js</code> (CSV: email,name only — <strong>no separate student ID exists</strong>)</td><td>Yes — <code>/api/auth/*</code>, <code>/api/users/*</code> (frozen except allowlist)</td></tr>
+    <tr><td><code>quizzes</code></td><td><code>Quiz.js</code></td><td><code>title</code>; <code>subject</code> ref; <code>testType</code> <b>daily | weekly | grand</b> ← <em>the Grand Test marker</em>; <code>duration</code>; <code>questions[]</code> refs; <code>totalMarks</code>, <code>positiveMarks</code> (default 4), <code>negativeMarks</code> (default 1 — NEET marking); <code>assignedStudents[]</code>, <code>assignedMentors[]</code>; <code>scheduledDate/expiryDate</code>; <code>shareToken</code> (unique sparse), <code>isPublic</code>, <code>publicExpiryDate</code>, <code>shareSolution</code>; <code>assignToAllFreeUsers</code>; <code>sections[]</code> (NEET-style per-section duration + question sets); <code>proctoring</code> config</td><td>→ Subject, QuestionBank, User</td><td>quiz authoring (admin), Excel import</td><td>Yes — <code>/api/quizzes</code> (role-scoped lists), <code>/api/public/quiz/:shareToken</code></td></tr>
+    <tr><td><code>quizattempts</code></td><td><code>QuizAttempt.js</code></td><td><code>quiz</code>, <code>student</code> refs; <code>answers[]</code> {questionIndex, <code>questionId</code>, selectedAnswer (type-shaped), isCorrect, timeSpent, <b>metadataSnapshot</b> {subjectId, subjectName, topicName, subtopicName, system, questionType, tags[], difficulty} — frozen at submit}; <code>status</code> in_progress/completed/auto_submitted; <code>score</code>, <code>marksObtained</code>, <code>totalMarks</code>, <code>totalQuestions</code>; <code>sectionPerformance[]</code> {sectionName, correct, incorrect, skipped, timeSpent, accuracy}; tab-switch tracking; retest workflow fields; section-lock state; proctoring snapshot</td><td>→ Quiz, User, QuestionBank</td><td>student attempt flow + public flow (GuestAttempt conversion at login)</td><td>Yes — <code>/api/quizzes/:id/attempt/*</code>, results with <code>groupBy=section|subject|topic|tag</code></td></tr>
+    <tr><td><code>questionbanks</code></td><td><code>QuestionBank.js</code></td><td><code>qid</code> (unique sparse); <code>subject</code> ref; <b>canonical classification</b>: <code>topicName</code>, <code>subtopicName</code>, <code>system</code>, <code>questionType</code> (mcq_single | assertion_reason | match_the_following | image_based | multiple_correct | numerical), <code>tags[]</code>, <code>difficulty</code> (easy/medium/hard); content: <code>question</code>, questionImage, options/optionImages, assertion/reason, columnA/B; <code>correctAnswer</code> (Mixed, type-shaped); <code>explanation</code> + explanationImage; <code>marrowCode</code>; <code>source</code>; <code>isActive</code>. Legacy <code>chapter</code>/<code>topic</code> refs unused</td><td>→ Subject</td><td>admin CRUD + Excel bulk import (<code>Format.md</code> is the import spec)</td><td>Yes — <code>/api/question-bank</code></td></tr>
+    <tr><td><code>subjects</code></td><td><code>Subject.js</code></td><td><code>name</code>, <code>year</code> (1st–4th), <code>displayOrder</code>, <code>isActive</code></td><td>referenced by Quiz/QuestionBank</td><td>admin CRUD</td><td>Yes — <code>/api/subjects</code></td></tr>
+    <tr><td><code>chapters</code>, <code>topics</code></td><td><code>Chapter.js</code>, <code>Topic.js</code></td><td>name/subject/order — <strong>legacy</strong>, unused by the production write path (string <code>topicName</code> is canonical)</td><td>→ Subject</td><td>historical</td><td><span class="pill dim">effectively read-only legacy</span></td></tr>
+    <tr><td><code>guests</code></td><td><code>Guest.js</code></td><td>verified public-quiz leads: <code>name</code>, <code>email</code> (indexed, <em>not</em> unique), <code>phone</code> (E.164, <strong>unique — the dedupe key</strong>), <code>marketingConsent</code>, <code>source</code> web/mobile, <code>quizzesTaken[]</code></td><td>→ Quiz</td><td>public lead OTP flow</td><td>Yes — <code>/api/public/quiz/:shareToken/lead/*</code></td></tr>
+    <tr><td><code>guestattempts</code></td><td><code>GuestAttempt.js</code></td><td>mirror of QuizAttempt for guests: <code>guestId</code> (device key), <code>guest</code> ref, name/email/phone snapshots, <code>linkedUser</code> (set when lead later logs in), scores, sectionPerformance, section locking</td><td>→ Quiz, Guest, User</td><td>public quiz flow; login converts + links attempts</td><td>Yes — public result endpoint; admin analytics views</td></tr>
+    <tr><td><code>guestotps</code>, <code>otps</code></td><td><code>GuestOtp.js</code>, <code>Otp.js</code></td><td>ephemeral OTP challenges (TTL), keyed (email, shareToken) / email</td><td>—</td><td>OTP flows</td><td><span class="pill dim">internal</span></td></tr>
+    <tr><td><code>assignments</code>, <code>mentorstudentassignments</code>, <code>studentsubjectassignments</code></td><td>respective models</td><td>mentorship workflow: tasks (R1/R2/R3 revisions…), mentor↔student pairs (unique index), student subject access</td><td>→ User, Subject</td><td>mentorship routes</td><td>frozen (503)</td></tr>
+    <tr><td><code>groups</code>, <code>messages</code>, <code>readstatuses</code>, <code>calls</code></td><td>respective models</td><td>chat/calls infrastructure</td><td>→ User</td><td>chat routes</td><td>frozen (503)</td></tr>
+    <tr><td><code>appsettings</code></td><td><code>AppSettings.js</code></td><td>singleton: <code>signUpEnabled</code> (default false), <code>proctoringEnabled</code>, <code>proctoringStrictCv</code> (all fail-closed)</td><td>—</td><td>admin settings</td><td><code>GET /api/settings/public</code></td></tr>
+    <tr><td><code>proctoringsessions</code> / <code>proctoringevents</code> / <code>proctoringviolations</code> / <code>proctoringconsents</code> / <code>proctoringoverrides</code></td><td><code>models/Proctoring*.js</code></td><td>opt-in AI proctoring (policy snapshot per attempt, event stream, violations)</td><td>→ QuizAttempt, User</td><td>proctoring routes</td><td><code>/api/quizzes/:id/proctoring/*</code> (partially live)</td></tr>
+  </table></div>
+
+  <h3>2.1 Where the audit's target data actually lives</h3>
+  <div class="tblwrap"><table>
+    <tr><th>Data</th><th>Location</th><th>Status</th></tr>
+    <tr><td>Students / users</td><td><code>users</code> collection</td><td><span class="pill ok">exists</span></td></tr>
+    <tr><td>Student IDs</td><td>Only <code>users._id</code> (ObjectId). No separate student-ID field; imports use email alone (<code>scripts/importStudents.js</code>, <code>students_input.csv</code> = email,name)</td><td><span class="pill warn">no human ID</span></td></tr>
+    <tr><td>Email / phone / login identity</td><td><code>users.email</code> unique+normalized; <code>users.phone</code> optional, non-unique; login is email+password</td><td><span class="pill ok">exists</span></td></tr>
+    <tr><td>Exams / tests</td><td><code>quizzes</code> (all tests live here)</td><td><span class="pill ok">exists</span></td></tr>
+    <tr><td>Grand Tests</td><td><code>quizzes.testType === 'grand'</code> — no separate GT model. Free users also <em>manually self-log</em> external GTs (Marrow etc.) in mobile AsyncStorage <code>gt_logs_${userId}</code> via <code>utils/gtTracker.ts</code> — <strong>device-local, never synced to the backend</strong></td><td><span class="pill warn">split</span></td></tr>
+    <tr><td>GT attempts / scores</td><td><code>quizattempts</code> (marksObtained, totalMarks, sectionPerformance) for app-internal GTs</td><td><span class="pill ok">exists</span></td></tr>
+    <tr><td>Quiz / test attempts</td><td><code>quizattempts</code> (+ <code>guestattempts</code> for public)</td><td><span class="pill ok">exists</span></td></tr>
+    <tr><td>Questions</td><td><code>questionbanks</code> (7-dimension classification; canonical enums in <code>backend/constants/question.js</code>)</td><td><span class="pill ok">exists</span></td></tr>
+    <tr><td>Question subjects / topics / tags</td><td><code>subject</code> ref + string <code>topicName</code>/<code>subtopicName</code>/<code>system</code> + <code>tags[]</code>; frozen per-answer in <code>answers.metadataSnapshot</code></td><td><span class="pill ok">exists</span></td></tr>
+    <tr><td>PYQs</td><td><strong>No dedicated model.</strong> "PYQ" appears only as a sample tag on questions; no year/exam metadata anywhere</td><td><span class="pill bad">missing</span></td></tr>
+    <tr><td>Answers &amp; explanations</td><td><code>questionbanks.correctAnswer</code> (Mixed) + <code>explanation</code>/<code>explanationImage</code></td><td><span class="pill ok">exists</span></td></tr>
+    <tr><td>Performance / analytics</td><td>Computed on demand from <code>quizattempts</code> — <code>utils/analytics.js</code>, <code>utils/studentPerformance.js</code>, <code>utils/testReportData.js</code>; endpoints: <code>/api/quizzes/analytics/*</code> (incl. <code>/analytics/me</code> for students, <code>/analytics/student/:id/performance</code> for the 7-dimension breakdown, <code>/analytics/heatmap</code>)</td><td><span class="pill ok">computed, not stored</span></td></tr>
+    <tr><td>Percentile / rank</td><td>Computed per test: <code>computePercentile()</code> (cohort, excludeSelf) and <code>rankStudentAttempts()</code> (deterministic tie-breakers) in <code>utils/analytics.js</code>; exposed via leaderboard + CSV/Excel exports. <strong>Never persisted</strong>. No all-India / NEET-rank mapping</td><td><span class="pill warn">app-cohort only</span></td></tr>
+    <tr><td>Branch / cutoff data</td><td><strong>None.</strong> Only self-reported <code>studentProfile.targetBranch</code> (free-text string). No college/branch/cutoff tables anywhere</td><td><span class="pill bad">missing</span></td></tr>
+  </table></div>
+</section>
+
+<!-- ============ 3 ============ -->
+<section id="s3">
+  <div class="sec-head web"><span class="num">3</span><h2>Eyeconic Website Architecture</h2><span class="tag web">Website</span></div>
+
+  <h3>3.1 Frontend</h3>
+  <ul>
+    <li>Vite 5 + React 18 + TypeScript + Tailwind 3, react-router-dom 6 — routes in <code>client/src/App.tsx</code>: <code>/</code>, <code>/dashboard</code>, <code>/admin</code>, <code>/blogs/*</code> (listing, search, category, tag, author), <code>/blog/:slug</code>, policy pages.</li>
+    <li>Pages in <code>client/src/pages/</code> (Home, Dashboard, Admin, Blogs, BlogPost, policies); TipTap v3 editor suite for the blog CMS; Chart.js for the dashboard GT chart; <code>xlsx</code> for CRM export.</li>
+    <li>API config: <code>client/src/config/api.ts</code> — <code>API_BASE_URL = VITE_API_BASE_URL || 'http://localhost:5000/api' (dev) || 'https://eyeconic-server.vercel.app/api' (prod)</code>. JWT kept in <code>localStorage['token']</code>, attached manually per request (no interceptor).</li>
+  </ul>
+
+  <h3>3.2 Backend</h3>
+  <ul>
+    <li>Express 4 + Mongoose 7, <code>server/server.js</code> (30 lines): <code>cors()</code> fully open, JSON limit 20mb, exactly two routers — <code>/api/auth</code> and <code>/api/blogs</code>. <strong>No helmet, no rate limiting, no error middleware.</strong> (<code>server/config/db.js</code> exists but is dead code — connection is inline in <code>server.js</code>.)</li>
+    <li>Database: MongoDB Atlas cluster <code>cluster0.u8tungu.mongodb.net</code> (<code>MONGO_URI</code>) — <strong>a different cluster from the App's</strong>. Mongoose models: <code>User</code>, <code>Blog</code>, <code>Category</code>, <code>Tag</code>, <code>MediaAsset</code> (<code>server/models/</code>).</li>
+    <li>Deployment: both halves on Vercel — <code>server/vercel.json</code> (<code>@vercel/node</code> serverless) and <code>client/vercel.json</code> (SPA rewrite). Serverless matters: <em>in-memory state (OTP store) does not survive cold starts</em>.</li>
+  </ul>
+
+  <h3>3.3 Auth, users, and what actually exists</h3>
+  <div class="tblwrap"><table>
+    <tr><th>Concern</th><th>Current state</th><th>Files</th></tr>
+    <tr><td>Authentication</td><td>Student JWT (7d, payload <code>{user:{id}}</code>, secret <code>JWT_SECRET</code> — separate from the App's). Admin auth = <strong>hardcoded credentials</strong> <code>admin@eyeconic1.com</code> / <code>admin@eyeconic$</code> sent in body/query strings — and baked into the client bundle</td><td><code>server/routes/auth.js</code>, <code>server/middleware/auth.js</code>, <code>client/src/components/admin/Admin.tsx</code>, <code>BlogCmsPanel.tsx</code>, <code>lib/mediaUpload.ts</code></td></tr>
+    <tr><td>User model</td><td>Marketing/CRM user: name, email, phone, password, enrolledCourses, progress (map), resources, notifications, <code>analytics{scores, feedback}</code> (never written by any route), calledStatus, buyStatus, batchInterest, adminNotes, <code>gtScore{current, time, predicted}</code></td><td><code>server/models/User.js</code></td></tr>
+    <tr><td>Quiz / question functionality</td><td><strong>None.</strong> No engine, no models, no routes. Only a client-side GT-score calculator with a hardcoded improvement table (caps at 180), persisted as 3 numbers via <code>POST /api/auth/gt-score</code></td><td><code>client/src/pages/Dashboard.tsx</code> (<code>predictGTScore()</code>)</td></tr>
+    <tr><td>Analytics</td><td>Blog analytics only (views, read time, traffic sources; <code>POST /api/blogs/slug/:slug/analytics</code> beacon + admin SEO dashboard)</td><td><code>server/routes/blogs.js</code>, <code>Blog.js</code></td></tr>
+    <tr><td>Admin / mentor functionality</td><td>Single hardcoded admin. CRM tab (students table, Excel export, GT-predictor reset/delete) + Blog CMS (TipTap, media library, revisions, scheduling, comments, SEO)</td><td><code>client/src/components/admin/</code>, <code>server/routes/blogs.js</code> (~1,660 lines)</td></tr>
+    <tr><td>"Feature spec"</td><td>The only written spec is <code>BLOGS_SECTION_REFERENCE_SPECIFICATION.md</code> (blogs). The "Website Features" folder is 13 marketing screenshots (<code>client/src/assets/Website Features/</code> — GT Analysis, Weakzone Heatmap, INICET Mock Tests, You vs Your Competition, …) shown in <code>FeaturesShowcaseSection.tsx</code>. <strong>The eight integration features exist in neither codebase</strong></td><td>—</td></tr>
+  </table></div>
+</section>
+
+<!-- ============ 4 ============ -->
+<section id="s4">
+  <div class="sec-head"><span class="num">4</span><h2>Website Feature → Data Mapping</h2></div>
+  <div class="note">Verified against both codebases: <strong>Rank &amp; Branch Predictor, Desired Branch Predictor, Mini CCT, Platform Choice Recommender and Daily PYQ appear nowhere in either repo</strong> — no code, no spec, no data. "Individual Rank vs Average Score" and "Topic &amp; Tag-wise Analysis" have close primitives in the App. Treat the eight-item list as the requirements source; a written spec should be confirmed before building.</div>
+
+  <div class="tblwrap"><table>
+    <tr><th>Feature</th><th>Data required</th><th>In App?</th><th>In Website?</th><th>Where it should live</th><th>Website access</th></tr>
+    <tr><td><strong>Rank &amp; Branch Predictor</strong></td><td>Student GT scores/marks; historical marks→rank mapping (NEET-PG/INI-CET); branch/college cutoff dataset</td><td><span class="pill warn">partial</span> — GT scores in <code>quizattempts</code> (app tests) + device-local manual logs; <span class="pill bad">no rank/cutoff data</span></td><td><span class="pill bad">none</span> (hardcoded improvement table only)</td><td>Reference dataset = <strong>Website-owned content</strong>; student scores = App</td><td>Read-only (scores) + Website-owned dataset</td></tr>
+    <tr><td><strong>Desired Branch Predictor</strong></td><td>Cutoffs by branch/college/year; student scores; <code>targetBranch</code> intent</td><td><span class="pill warn">partial</span> — <code>studentProfile.targetBranch</code> is self-reported free text</td><td><span class="pill bad">none</span></td><td>Same split: cutoffs Website, scores + intent App</td><td>Read-only (profile + attempts)</td></tr>
+    <tr><td><strong>Individual Rank vs Average Score</strong></td><td>Per-test student marks, cohort rank, cohort average</td><td><span class="pill ok">yes</span> — <code>rankStudentAttempts</code>, leaderboard, <code>averageScore</code> in <code>/analytics/:id</code>; but leaderboard endpoints are admin/mentor-only — needs a student-scoped variant</td><td><span class="pill bad">none</span></td><td>App (computed); Website renders</td><td>Read-only via new endpoint</td></tr>
+    <tr><td><strong>Mini CCT</strong></td><td>Questions, grading engine, attempt storage</td><td><span class="pill ok">engine exists</span> (QuestionBank, quizzes, grading, public share-token flow) — <strong>but "CCT" appears nowhere</strong>; definition needed</td><td><span class="pill bad">no engine</span></td><td>Open: reuse App questions read-only; attempts either Website-owned or via App's public/guest flow — <strong>product decision required</strong></td><td>Read-only (questions) minimum</td></tr>
+    <tr><td><strong>Topic &amp; Tag-wise Analysis</strong></td><td>Per-answer classification + correctness</td><td><span class="pill ok">yes</span> — <code>metadataSnapshot</code> + <code>computePerformanceBuckets</code> (byTopic/byTag/byDifficulty/…), endpoints <code>/analytics/student/:id/performance</code> (admin/mentor) and <code>/analytics/me</code> (student)</td><td><span class="pill bad">none</span></td><td>App</td><td>Read-only</td></tr>
+    <tr><td><strong>Platform Choice Recommender</strong></td><td>Platform comparison content (Marrow/PreP… — <code>marrowCode</code> hints at the world); student subject strengths/weaknesses</td><td><span class="pill warn">partial</span> — strengths/weaknesses computed; no platform dataset</td><td><span class="pill bad">none</span></td><td>Platform content = Website; performance = App</td><td>Read-only (performance)</td></tr>
+    <tr><td><strong>Daily PYQ</strong></td><td>PYQ pool with year/exam metadata; daily rotation</td><td><span class="pill bad">no PYQ model</span> — PYQ is just an optional free-text tag; no year/exam fields</td><td><span class="pill bad">none</span></td><td>Either tag-filtered App questions (needs metadata enrichment in App) or Website-owned PYQ store — <strong>decision + enrichment needed</strong></td><td>Read-only (questions) if App-sourced</td></tr>
+    <tr><td><strong>Free Login User Dashboard</strong></td><td>Student identity, free-user profile, assigned free quizzes, GT tracker data</td><td><span class="pill ok">yes</span> — <code>isFreeUser</code>, <code>freeUserProfile</code>, <code>assignToAllFreeUsers</code>, manual GT tracker (device-local)</td><td><span class="pill warn">shell</span> — dashboard exists; analytics/progress panels are never populated; own separate User model</td><td>Identity + data = App; presentation = Website</td><td>Read-only (profile, quizzes, attempts)</td></tr>
+  </table></div>
+  <p><strong>Pattern:</strong> everything student-performance-related already lives in (or is computed by) the App; everything exam-marketplace-related (rank/cutoff/platform datasets) exists nowhere and is naturally Website-owned content.</p>
+</section>
+
+<!-- ============ 5 ============ -->
+<section id="s5">
+  <div class="sec-head"><span class="num">5</span><h2>Authentication &amp; Identity</h2></div>
+  <div class="grid2">
+    <div class="card"><h3>App identity</h3>
+      <ul>
+        <li>Canonical ID: <code>users._id</code> (ObjectId)</li>
+        <li>Login: <code>email</code> + password; email unique, trimmed, lowercased (<code>models/User.js</code>)</li>
+        <li>JWT 7d, <code>{userId, role}</code>; guest JWTs scoped <code>kind:'guest'</code></li>
+        <li>Phone: optional, <strong>not unique, not verified</strong></li>
+        <li>No human-readable student ID (imports are email,name CSV)</li>
+      </ul>
+    </div>
+    <div class="card"><h3>Website identity</h3>
+      <ul>
+        <li>Own <code>users</code> collection on a <strong>different cluster</strong> — IDs are unrelated ObjectIds</li>
+        <li>JWT 7d, <code>{user:{id}}</code>, different secret; student signup open (no OTP on the wire — the OTP endpoints exist but SignupModal never calls them)</li>
+        <li>Admin: hardcoded credentials in client bundle + query strings</li>
+      </ul>
+    </div>
+  </div>
+  <h3>Cross-system recognition</h3>
+  <ul>
+    <li><strong>Only practical shared key today: email.</strong> It is unique + normalized in the App; the Website model marks it unique but normalization on write was not verified (flagged below).</li>
+    <li><strong>Email is mutable in the App</strong> — <code>PUT /api/users/:id/email</code> (admin) can change it, so email is a bootstrap key, not a permanent join key.</li>
+    <li><strong>Security concerns with email as identifier:</strong> (1) enumerable/joinable across the two systems; (2) a person can create a Website account with an email already belonging to an App student (or vice versa) — no verification bridges them, so lookups could return another person's data if trust is naive; (3) App guest leads share emails across records by design; (4) family/shared inboxes. <em>Conclusion: email may bootstrap a link, but the link itself should be an explicit mapping (App <code>user._id</code> ↔ Website account) established at login through the App's authority, not free-text lookup.</em></li>
+    <li>Recommended shape (not implemented): Website authenticates the student <em>through the App</em> (App issues the identity), or the Website server verifies a user-supplied App token by calling an App endpoint — either way the App remains the identity authority.</li>
+  </ul>
+</section>
+
+<!-- ============ 6 ============ -->
+<section id="s6">
+  <div class="sec-head"><span class="num">6</span><h2>Integration Options</h2></div>
+  <div class="tblwrap"><table>
+    <tr><th>Criterion</th><th>A · Direct DB access<br><span class="pill bad">not recommended</span></th><th>B · Website → App API<br><span class="pill ok">recommended</span></th><th>C · Dedicated integration service</th><th>D · Shared cluster / merged backend</th></tr>
+    <tr><td>Security</td><td>Website would hold Atlas credentials to the App's production cluster; bypasses all route-level authz and the feature freeze; widest blast radius</td><td>App enforces its own authz on new read-only endpoints; service token can be scoped, rotated, revoked; server-to-server (no CORS exposure)</td><td>Same as B plus an extra trusted service and secret store</td><td>One credential failure compromises both products</td></tr>
+    <tr><td>Maintainability</td><td>Couples Website to App's raw schema (incl. <code>metadataSnapshot</code> semantics, freeze flags); schema changes silently break the Website</td><td>Contract is explicit and versioned; App keeps owning business rules (grading, percentile, ranking live in <code>utils/analytics.js</code>)</td><td>Extra deployable to build, monitor, and keep in sync with two codebases</td><td>Forces joint releases forever</td></tr>
+    <tr><td>Performance</td><td>Fastest raw queries, but duplicates aggregation logic; risk of unindexed scans from a second client</td><td>Adds a network hop; mitigated by caching in the Website server (App API also sits on Render free-tier — cold starts make caching mandatory anyway)</td><td>Two hops; best isolation for heavy fan-out later</td><td>Best latency, worst everything else</td></tr>
+    <tr><td>Data consistency</td><td>Reads uncommitted intent; race with in-flight writes (e.g. attempt finalization)</td><td>Reads flow through the same code paths the App uses</td><td>Same as B</td><td>Single store — but two writers to the same collections</td></tr>
+    <tr><td>Development complexity</td><td>Looks cheap, ages badly: duplicated logic (percentile, grading, section-lock rules)</td><td>Moderate: ~6–8 read-only endpoints + service auth in the App; no schema changes</td><td>Highest upfront; justified only at greater scale</td><td>Highest risk; contradicts the App's freeze discipline</td></tr>
+    <tr><td>Future scalability</td><td>Dead end</td><td>Grows into C if needed (endpoints can be split out later without contract change)</td><td>Good but premature</td><td>Constrains both products</td></tr>
+  </table></div>
+  <div class="note ok"><strong>Recommendation — Option B.</strong> The App's own design argues for it: rank/percentile/grading are server-computed and must not be duplicated; the feature freeze is enforced at the router layer, which direct DB access would sidestep; and the App API already allows no-Origin (server-to-server) requests while the Website's browser traffic never needs CORS changes. Start with B; extract a dedicated service (C) only if the Website's traffic grows enough to matter.</div>
+</section>
+
+<!-- ============ 7 ============ -->
+<section id="s7">
+  <div class="sec-head"><span class="num">7</span><h2>Proposed Minimum Read-Only API Contract</h2></div>
+  <p>Not implemented — contract proposal only. All endpoints: read-only, service-token authenticated (new JWT <code>kind:'service'</code> or static secret + IP allowlist), rate-limited, mounted under a versioned prefix so the freeze tooling never touches them.</p>
+  <div class="tblwrap"><table>
+    <tr><th>Endpoint</th><th>Returns</th><th>Powers</th></tr>
+    <tr><td><code>GET /api/integration/v1/students/:id</code></td><td>Public profile: name, cohort fields, <code>targetBranch</code>, free-user profile (no credentials/PII beyond need)</td><td>Dashboards, predictors</td></tr>
+    <tr><td><code>GET /api/integration/v1/students/:id/attempts?testType=grand</code></td><td>Attempt history: quiz title, testType, marks/total, sectionPerformance, endTime</td><td>GT history, predictors, rank-vs-average</td></tr>
+    <tr><td><code>GET /api/integration/v1/students/:id/performance</code></td><td>7-dimension breakdown (subject/topic/subtopic/system/type/tag/difficulty) + strengths/weaknesses (already built in <code>computePerformanceBuckets</code>)</td><td>Topic &amp; Tag-wise Analysis, Platform Recommender</td></tr>
+    <tr><td><code>GET /api/integration/v1/tests/:testId/statistics</code></td><td>Cohort aggregates: average/median score, distribution, participant count (derived from existing <code>computeTestAnalytics</code>, minus student-identifying rows)</td><td>Individual Rank vs Average Score</td></tr>
+    <tr><td><code>GET /api/integration/v1/students/:id/rank?testId=:testId</code></td><td>Student's rank + percentile for one test (from <code>rankStudentAttempts</code>/<code>computePercentile</code>)</td><td>Rank vs Average Score, predictors</td></tr>
+    <tr><td><code>GET /api/integration/v1/questions?tag=PYQ&subject=…&limit=…</code></td><td>Question metadata + content (answer key optional per use case)</td><td>Daily PYQ, Mini CCT (if App-sourced)</td></tr>
+    <tr><td><code>GET /api/integration/v1/subjects</code></td><td>Subject list</td><td>Filters everywhere</td></tr>
+  </table></div>
+  <p class="mono" style="font-size:13px">+ one auth endpoint to resolve an App student from a Website session (see §5) — design deferred by design.</p>
+</section>
+
+<!-- ============ 8 ============ -->
+<section id="s8">
+  <div class="sec-head"><span class="num">8</span><h2>Data Ownership Model</h2></div>
+  <div class="owner">
+    <div class="card app"><h3><span class="tag app">App</span> Mentorship App owns</h3>
+      <ul>
+        <li>Student/mentor/admin identities &amp; credentials (<code>users</code>)</li>
+        <li>Subjects, chapters/topics (legacy), <strong>Question Bank</strong></li>
+        <li>Quizzes/tests (incl. Grand Tests) &amp; assignments</li>
+        <li>All attempts &amp; scores (<code>quizattempts</code>, <code>guestattempts</code>)</li>
+        <li>Analytics computation (percentile, rank, breakdowns)</li>
+        <li>Guest leads &amp; OTP, proctoring data, app settings</li>
+      </ul>
+    </div>
+    <div class="card web"><h3><span class="tag web">Website</span> Website owns</h3>
+      <ul>
+        <li>Blog CMS (blogs, categories, tags, media assets)</li>
+        <li>Marketing CRM fields on its own users (calledStatus, buyStatus, batchInterest, adminNotes)</li>
+        <li><strong>New reference datasets:</strong> marks→rank mapping, branch/college cutoffs, platform comparison content</li>
+        <li>Predictor inputs/outputs &amp; snapshots it computes for visitors</li>
+        <li>Daily-PYQ rotation schedule, CCT delivery config (presentation concerns)</li>
+        <li>Its own sessions/UI state</li>
+      </ul>
+    </div>
+    <div class="card shared"><h3><span class="tag" style="background:var(--warn-soft);color:var(--warn)">Shared</span> Shared / read-only</h3>
+      <ul>
+        <li>Student profile, attempts, performance, question metadata → flow App → Website, <strong>read-only</strong></li>
+        <li>Identity link (App user ↔ Website account) — established once via App-verified login; owned by the Website DB, keyed by App <code>user._id</code></li>
+        <li>Nothing in the Website writes to App collections through integration</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 9 ============ -->
+<section id="s9">
+  <div class="sec-head"><span class="num">9</span><h2>Risks &amp; Blockers</h2></div>
+  <div class="tblwrap"><table>
+    <tr><th>Category</th><th>Finding</th><th>Severity</th></tr>
+    <tr><td>Missing data</td><td>No marks→rank dataset, no branch/college cutoffs, no platform comparison data — the two predictor features and the recommender have no data foundation; "Mini CCT" and "Daily PYQ" are undefined concepts (zero occurrences in both repos)</td><td><span class="pill bad">blocker</span></td></tr>
+    <tr><td>Missing question metadata</td><td>PYQs have no year/exam/source-of-truth fields — only an optional free-text tag; enrichment needed before Daily PYQ can query them</td><td><span class="pill warn">high</span></td></tr>
+    <tr><td>Missing APIs</td><td>No student-self rank/leaderboard endpoint (admin/mentor only); no service-to-service auth; no integration router</td><td><span class="pill warn">high</span> (expected — this is the work)</td></tr>
+    <tr><td>Identity</td><td>Two independent user stores, two JWT secrets, no SSO; email is the only overlap and is mutable in the App; Website signup can silently create a second account for an existing App student</td><td><span class="pill bad">blocker</span> (needs a decision)</td></tr>
+    <tr><td>Security — Website</td><td>Admin credentials hardcoded in the client bundle and sent in query strings; fully open CORS; no rate limiting; JWT + OTP stores in-memory on serverless. <strong>Must be fixed before the Website server holds any integration credential</strong></td><td><span class="pill bad">blocker</span></td></tr>
+    <tr><td>Security — App repo</td><td>Real secrets committed at repo root: <code>.env</code>, <code>backend/.env</code>, <code>credentials.json</code>, two <code>.jks</code> keystores; plaintext API token in <code>.claude/settings.local.json</code>; manual edits inside <code>node_modules</code> (per <code>Start.md</code>)</td><td><span class="pill bad">high</span></td></tr>
+    <tr><td>Deployment / network</td><td>App API on Render (free-tier cold starts → 50s spin-up) sits in the Website's critical path: caching + graceful degradation required; Website server is Vercel serverless (no long-lived state)</td><td><span class="pill warn">medium</span></td></tr>
+    <tr><td>Database</td><td>Two separate Atlas clusters (verified: <code>cluster0.u8tungu…</code> vs <code>eyeconic-production.08n4dst…</code>); both connect with no DB name in the URI (both default to a db literally named <code>test</code>). Compatibility itself is fine (both MongoDB/Mongoose 7)</td><td><span class="pill warn">medium</span></td></tr>
+    <tr><td>App freeze</td><td>Feature freeze is active; integration endpoints must ship as a new, explicitly-enabled router so they don't widen the frozen surface</td><td><span class="pill warn">medium</span></td></tr>
+    <tr><td>Assumptions to verify</td><td>① The eight-feature list has no in-repo spec (13 screenshots are aspirational marketing) — confirm scope; ② GT data quality: manual free-user GT logs are device-local and unreachable by any integration; ③ whether Website should keep its own user accounts at all; ④ email normalization parity on the Website; ⑤ meaningful percentiles require enough cohort attempts per test</td><td><span class="pill warn">verify</span></td></tr>
+  </table></div>
+</section>
+
+<!-- ============ 10 ============ -->
+<section id="s10">
+  <div class="sec-head"><span class="num">10</span><h2>Final Recommendation</h2></div>
+
+  <h3>10.1 Architecture</h3>
+  <p><strong>Option B — API-based, server-to-server, read-only.</strong> The Website's Express server is the only component that talks to the App API, using a scoped service credential; the App exposes a small versioned read-only surface (<code>/api/integration/v1/*</code>); each product keeps its own database. No schema changes, no shared credentials, no browser-visible CORS surface.</p>
+
+  <h3>10.2 Data flow</h3>
+  <pre>
+<span class="d">                       ┌──────────────────────────────────────────────┐</span>
+                       <span class="w">│  EYECONIC WEBSITE (eyeconic-main)              │</span>
+  Visitor browser ────▶ <span class="w">│  client (Vercel)                               │</span>
+                       <span class="w">│    └─ server (Vercel serverless, Express)      │</span>
+                       <span class="w">│         ├─ own Mongo: cluster0.u8tungu…        │</span>
+                       <span class="w">│         │   blogs · CRM · predictors ·          │</span>
+                       <span class="w">│         │   rank/cutoff reference data (new)    │</span>
+                       <span class="w">│         ├─ cache (in-memory / KV)              │</span>
+                       <span class="w">│         └─ integration client ─────────────────┼──────┐</span>
+                       <span class="d">└──────────────────────────────────────────────┘</span>       <span class="d">│</span>
+                                                                HTTPS, read-only      <span class="d">│</span>
+                                                                service JWT           <span class="d">▼</span>
+                       <span class="d">┌──────────────────────────────────────────────┐</span>
+   App users ────────▶ <span class="a">│  EYECONIC MENTORSHIP APP (eyeconic-app)        │</span>
+   (mobile / web      <span class="a">│  Expo app (EAS) · web console (Vercel)         │</span>
+   console / public   <span class="a">│  API (Render): /api/* + /api/integration/v1/*  │</span>
+   quiz)              <span class="a">│    └─ Mongo: eyeconic-production.08n4dst…      │</span>
+                       <span class="a">│        users · quizzes · quizattempts ·        │</span>
+                       <span class="a">│        questionbanks · analytics logic          │</span>
+                       <span class="d">└──────────────────────────────────────────────┘</span>
+<span class="d">  Writes flow ONLY from app clients into the App; the Website reads. Ever.</span></pre>
+
+  <h3>10.3 Required integration components</h3>
+  <ul>
+    <li><strong>App:</strong> integration router (read-only endpoints, §7) + service-auth middleware + rate limiting; explicitly enabled in <code>featureAvailability.js</code> as its own feature flag.</li>
+    <li><strong>Website server:</strong> integration client module (timeout, retry, cache), config for the service credential, response shaping, graceful degradation when the App API is cold.</li>
+    <li><strong>Website DB:</strong> identity-link storage (App <code>user._id</code> ↔ Website account) + new reference collections (rank/cutoff/platform datasets) — Website-owned.</li>
+    <li><strong>Pre-req hardening:</strong> replace the Website's hardcoded admin auth; add rate limiting; move OTP to persistent storage.</li>
+  </ul>
+
+  <h3>10.4 What must NOT change</h3>
+  <ul>
+    <li>The App's schemas, grading logic (<code>utils/grading.js</code>), analytics (<code>utils/analytics.js</code>), and section-locking/duration enforcement.</li>
+    <li>The App's auth model (JWT shape, OTP flows, guest scoping) and the feature-freeze mechanism.</li>
+    <li>Direct write access from the Website to the App's cluster (never granted).</li>
+    <li>The Website's blog CMS data model (works, shipped, orthogonal to integration).</li>
+  </ul>
+
+  <h3>10.5 Build order</h3>
+  <ul>
+    <li><strong>Phase 0 (enablers):</strong> fix Website admin auth + rate limiting; confirm the written feature spec; decide the identity model (recommend: App as identity authority).</li>
+    <li><strong>Phase 1:</strong> service auth + the 3 highest-value read endpoints (student attempts, performance breakdown, test statistics) → unlocks Rank vs Average Score and Topic/Tag Analysis with existing data.</li>
+    <li><strong>Phase 2:</strong> Free Login User Dashboard wiring (profile + quiz list).</li>
+    <li><strong>Phase 3:</strong> reference datasets (rank/cutoff) + the two predictors and the recommender — gated on data acquisition, not engineering.</li>
+    <li><strong>Phase 4:</strong> Daily PYQ / Mini CCT after product decisions (metadata enrichment vs Website-owned content).</li>
+  </ul>
+
+  <h3>10.6 Complexity estimate</h3>
+  <div class="tblwrap"><table>
+    <tr><th>Workstream</th><th>Estimate</th></tr>
+    <tr><td>Service auth + read-only endpoints (§7)</td><td>Low–medium · ~1–2 weeks · no schema changes</td></tr>
+    <tr><td>Website integration client + caching + dashboard wiring</td><td>Medium · 2–3 weeks</td></tr>
+    <tr><td>Website security hardening (pre-req)</td><td>Low · 2–4 days</td></tr>
+    <tr><td>Predictors + recommender (dataset-dependent)</td><td>Medium engineering, <strong>unbounded data-acquisition risk</strong></td></tr>
+    <tr><td>Daily PYQ / Mini CCT</td><td>Depends entirely on the pending product decisions</td></tr>
+  </table></div>
+
+  <h3>10.7 Blockers to resolve before implementation</h3>
+  <ul>
+    <li>Confirm the eight-feature specification (nothing in-repo documents them).</li>
+    <li>Decide the identity model (recommended: App is the authority; email only bootstraps the link).</li>
+    <li>Acquire/build the marks→rank and branch-cutoff datasets.</li>
+    <li>Fix the Website's hardcoded admin credentials and open CORS before sharing any secret with that server.</li>
+    <li>Decide Mini CCT's engine (reuse App questions vs Website-owned) and Daily PYQ's source; if App-sourced, enrich question metadata (year/exam fields) in the App.</li>
+    <li>Acknowledge: free users' manual GT logs are device-local and cannot be integrated without a new sync feature in the App.</li>
+  </ul>
+</section>
+
+<footer>
+  Read-only audit · produced 18 Sep 2026 · sources: <span class="mono">C:\Projects\eyeconic-app</span> (Expo client, backend/, client/ console) and <span class="mono">C:\Projects\eyeconic-main</span> (client/, server/). No files, schemas, APIs or configs were modified during this audit.
+</footer>
+</div>

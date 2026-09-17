@@ -6,6 +6,7 @@ const Tag = require('../models/Tag');
 const MediaAsset = require('../models/MediaAsset');
 const { renderAndSanitize, assertRenderable, emptyDoc, stripText } = require('../content/renderer');
 const { sanitizeLinkUrl } = require('../content/linkUtils');
+const requireAdmin = require('../middleware/adminAuth');
 const { handleUpload } = require('../middleware/upload');
 const {
   createMediaFromRequest,
@@ -13,34 +14,63 @@ const {
   findMediaAssetUsage,
   getUploadConfig,
 } = require('../services/mediaService');
+const { hitRateLimit, clientIp } = require('../services/rateLimiter');
+const { getAdminIdentity } = require('../config/admin');
+const { escapeRegex, isValidEmail, isValidObjectId } = require('../utils/validation');
 
 const router = express.Router();
 
-const ADMIN_EMAIL = 'admin@eyeconic1.com';
-const ADMIN_PASSWORD = 'admin@eyeconic$';
+const adminIdentity = () => getAdminIdentity();
 const MAX_REVISIONS = 50;
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const DEFAULT_AUTHOR = {
   name: 'Eyeconic Editorial Team',
-  email: ADMIN_EMAIL,
+  email: getAdminIdentity(),
   avatar: '',
   role: 'Admin',
 };
 
 const allowedSchemaTypes = ['Article', 'BlogPosting', 'FAQ', 'Breadcrumb', 'HowTo', 'Review'];
+const ADMIN_SORT_FIELDS = new Set(['updatedAt', 'createdAt', 'title', 'publishAt', 'status']);
 
-const isValidAdminCredentials = (email, password) => email === ADMIN_EMAIL && password === ADMIN_PASSWORD;
-
-const ensureAdmin = (req, res) => {
-  const email = req.body.email || req.query.email;
-  const password = req.body.password || req.query.password;
-
-  if (!isValidAdminCredentials(email, password)) {
-    res.status(401).json({ msg: 'Unauthorized' });
+// Rejects malformed ids before they reach Mongoose (prevents cast-error 500s).
+const requireValidId = (req, res, value = req.params.id) => {
+  if (!isValidObjectId(value)) {
+    res.status(400).json({ msg: 'Invalid id' });
     return false;
   }
-
   return true;
+};
+
+// Client-safe error responses: validation errors keep their message,
+// internal failures are logged server-side and return a generic message.
+const respondWithError = (res, error, fallbackMsg) => {
+  const status = error && error.status ? error.status : 500;
+  if (status >= 500) {
+    console.error('[blogs] Request failed', {
+      message: error && error.message,
+      name: error && error.name,
+      status,
+    });
+    return res.status(500).json({ msg: fallbackMsg });
+  }
+  return res.status(status).json({ msg: (error && error.message) || fallbackMsg });
+};
+
+// Strips internal/private data from blog documents returned by public
+// endpoints (commenter emails, moderation queue, revision history, drafts).
+const toPublicBlog = (blog) => {
+  const doc = blog.toObject ? blog.toObject() : { ...blog };
+  delete doc.auditLog;
+  delete doc.versions;
+  delete doc.draft;
+  doc.comments = (Array.isArray(doc.comments) ? doc.comments : [])
+    .filter((comment) => comment && comment.status === 'approved')
+    .map((comment) => {
+      const { authorEmail, ...safeComment } = comment;
+      return safeComment;
+    });
+  return doc;
 };
 
 const slugify = (value = '') =>
@@ -568,7 +598,7 @@ const normalizeBlogPayload = async (payload = {}, existingBlog = null) => {
     seo,
     analytics: existingBlog?.analytics || undefined,
     draft: { title: '', contentBlocks: null, savedAt: null },
-    updatedBy: ADMIN_EMAIL,
+    updatedBy: adminIdentity(),
   };
 };
 
@@ -632,24 +662,26 @@ const buildQuery = ({ search, status, category, tag, author, featured, dateFrom,
   const query = {};
 
   if (search) {
+    const safeSearch = escapeRegex(search);
     query.$or = [
-      { title: { $regex: search, $options: 'i' } },
-      { excerpt: { $regex: search, $options: 'i' } },
-      { contentText: { $regex: search, $options: 'i' } },
-      { slug: { $regex: search, $options: 'i' } },
-      { 'author.name': { $regex: search, $options: 'i' } },
-      { 'tags.name': { $regex: search, $options: 'i' } },
+      { title: { $regex: safeSearch, $options: 'i' } },
+      { excerpt: { $regex: safeSearch, $options: 'i' } },
+      { contentText: { $regex: safeSearch, $options: 'i' } },
+      { slug: { $regex: safeSearch, $options: 'i' } },
+      { 'author.name': { $regex: safeSearch, $options: 'i' } },
+      { 'tags.name': { $regex: safeSearch, $options: 'i' } },
     ];
   }
 
   if (status) query.status = status;
-  if (category) query['category.slug'] = category;
-  if (tag) query['tags.slug'] = tag;
+  if (category) query['category.slug'] = escapeRegex(category);
+  if (tag) query['tags.slug'] = escapeRegex(tag);
   if (author) {
+    const safeAuthor = escapeRegex(author);
     query.$or = [
       ...(query.$or || []),
-      { 'author.email': author },
-      { 'author.name': { $regex: author, $options: 'i' } },
+      { 'author.email': safeAuthor },
+      { 'author.name': { $regex: safeAuthor, $options: 'i' } },
     ];
   }
   if (featured === 'true' || featured === true) query.isFeatured = true;
@@ -698,16 +730,12 @@ const mapBlogSummary = (blog) => ({
   hasDraft: Boolean(blog.draft?.savedAt),
 });
 
-router.get('/admin/categories', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.get('/admin/categories', requireAdmin, async (req, res) => {
   const categories = await Category.find({}).sort({ name: 1 });
   res.json({ categories });
 });
 
-router.post('/admin/categories', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.post('/admin/categories', requireAdmin, async (req, res) => {
   const name = (req.body.name || '').trim();
   if (!name) return res.status(400).json({ msg: 'Category name is required' });
 
@@ -724,9 +752,8 @@ router.post('/admin/categories', async (req, res) => {
   res.status(201).json({ category });
 });
 
-router.put('/admin/categories/:id', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.put('/admin/categories/:id', requireAdmin, async (req, res) => {
+  if (!requireValidId(req, res)) return;
   const category = await Category.findById(req.params.id);
   if (!category) return res.status(404).json({ msg: 'Category not found' });
 
@@ -758,9 +785,8 @@ router.put('/admin/categories/:id', async (req, res) => {
   res.json({ category });
 });
 
-router.delete('/admin/categories/:id', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.delete('/admin/categories/:id', requireAdmin, async (req, res) => {
+  if (!requireValidId(req, res)) return;
   const category = await Category.findByIdAndDelete(req.params.id);
   if (!category) return res.status(404).json({ msg: 'Category not found' });
 
@@ -783,16 +809,12 @@ router.delete('/admin/categories/:id', async (req, res) => {
   res.json({ msg: 'Category deleted' });
 });
 
-router.get('/admin/tags', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.get('/admin/tags', requireAdmin, async (req, res) => {
   const tags = await Tag.find({}).sort({ name: 1 });
   res.json({ tags });
 });
 
-router.post('/admin/tags', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.post('/admin/tags', requireAdmin, async (req, res) => {
   const name = (req.body.name || '').trim();
   if (!name) return res.status(400).json({ msg: 'Tag name is required' });
 
@@ -807,9 +829,8 @@ router.post('/admin/tags', async (req, res) => {
   res.status(201).json({ tag });
 });
 
-router.put('/admin/tags/:id', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.put('/admin/tags/:id', requireAdmin, async (req, res) => {
+  if (!requireValidId(req, res)) return;
   const tag = await Tag.findById(req.params.id);
   if (!tag) return res.status(404).json({ msg: 'Tag not found' });
 
@@ -833,9 +854,8 @@ router.put('/admin/tags/:id', async (req, res) => {
   res.json({ tag });
 });
 
-router.delete('/admin/tags/:id', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.delete('/admin/tags/:id', requireAdmin, async (req, res) => {
+  if (!requireValidId(req, res)) return;
   const tag = await Tag.findByIdAndDelete(req.params.id);
   if (!tag) return res.status(404).json({ msg: 'Tag not found' });
 
@@ -851,9 +871,7 @@ router.delete('/admin/tags/:id', async (req, res) => {
   res.json({ msg: 'Tag deleted' });
 });
 
-router.get('/admin/media', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.get('/admin/media', requireAdmin, async (req, res) => {
   const page = Math.max(1, Number(req.query.page || 1));
   const limit = Math.min(48, Math.max(1, Number(req.query.limit || 24)));
   const search = (req.query.search || '').trim();
@@ -861,18 +879,20 @@ router.get('/admin/media', async (req, res) => {
 
   const query = {};
   if (search) {
+    const safeSearch = escapeRegex(search);
     query.$or = [
-      { title: { $regex: search, $options: 'i' } },
-      { displayName: { $regex: search, $options: 'i' } },
-      { fileName: { $regex: search, $options: 'i' } },
-      { altText: { $regex: search, $options: 'i' } },
-      { caption: { $regex: search, $options: 'i' } },
+      { title: { $regex: safeSearch, $options: 'i' } },
+      { displayName: { $regex: safeSearch, $options: 'i' } },
+      { fileName: { $regex: safeSearch, $options: 'i' } },
+      { altText: { $regex: safeSearch, $options: 'i' } },
+      { caption: { $regex: safeSearch, $options: 'i' } },
     ];
   }
   if (kind && kind !== 'all') {
+    const safeKind = escapeRegex(kind);
     query.$and = [
       ...(query.$or ? [{ $or: query.$or }] : []),
-      { $or: [{ kind }, { type: kind }] },
+      { $or: [{ kind: safeKind }, { type: safeKind }] },
     ];
     delete query.$or;
   }
@@ -888,9 +908,7 @@ router.get('/admin/media', async (req, res) => {
   res.json({ media, total, page, limit });
 });
 
-router.get('/admin/media/upload-config', (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.get('/admin/media/upload-config', requireAdmin, (req, res) => {
   const config = getUploadConfig();
   if (!config.ok) {
     return res.status(config.status || 503).json({ msg: config.message || 'Image storage is not configured on the server.' });
@@ -906,14 +924,12 @@ router.get('/admin/media/upload-config', (req, res) => {
   });
 });
 
-router.post('/admin/media', handleUpload, async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.post('/admin/media', requireAdmin, handleUpload, async (req, res) => {
   try {
     const result = await createMediaFromRequest({
       body: req.body || {},
       file: req.file,
-      uploadedBy: ADMIN_EMAIL,
+      uploadedBy: adminIdentity(),
     });
 
     if (!result.ok) {
@@ -927,9 +943,7 @@ router.post('/admin/media', handleUpload, async (req, res) => {
   }
 });
 
-router.post('/admin/media/batch', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.post('/admin/media/batch', requireAdmin, async (req, res) => {
   const items = Array.isArray(req.body.items) ? req.body.items : [];
   if (!items.length) return res.status(400).json({ msg: 'No media items provided' });
   if (items.length > 10) return res.status(400).json({ msg: 'Maximum 10 files per batch' });
@@ -939,7 +953,7 @@ router.post('/admin/media/batch', async (req, res) => {
     for (const item of items) {
       const result = await createMediaFromRequest({
         body: item,
-        uploadedBy: ADMIN_EMAIL,
+        uploadedBy: adminIdentity(),
       });
       if (result.ok && result.media) created.push(result.media);
     }
@@ -955,9 +969,8 @@ router.post('/admin/media/batch', async (req, res) => {
   }
 });
 
-router.put('/admin/media/:id', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.put('/admin/media/:id', requireAdmin, async (req, res) => {
+  if (!requireValidId(req, res)) return;
   const media = await MediaAsset.findById(req.params.id);
   if (!media) return res.status(404).json({ msg: 'Media asset not found' });
 
@@ -981,11 +994,10 @@ router.put('/admin/media/:id', async (req, res) => {
   res.json({ media });
 });
 
-router.get('/admin/media/:id/usage', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.get('/admin/media/:id/usage', requireAdmin, async (req, res) => {
   try {
-    const media = await MediaAsset.findById(req.params.id);
+    if (!requireValidId(req, res)) return;
+  const media = await MediaAsset.findById(req.params.id);
     if (!media) return res.status(404).json({ msg: 'Media asset not found' });
 
     const usage = await findMediaAssetUsage(media);
@@ -996,11 +1008,10 @@ router.get('/admin/media/:id/usage', async (req, res) => {
   }
 });
 
-router.delete('/admin/media/:id', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.delete('/admin/media/:id', requireAdmin, async (req, res) => {
   try {
-    const media = await MediaAsset.findById(req.params.id);
+    if (!requireValidId(req, res)) return;
+  const media = await MediaAsset.findById(req.params.id);
     if (!media) return res.status(404).json({ msg: 'Media asset not found' });
 
     const force = req.query.force === 'true' || req.body?.force === true;
@@ -1023,9 +1034,7 @@ router.delete('/admin/media/:id', async (req, res) => {
   }
 });
 
-router.get('/admin/comments', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.get('/admin/comments', requireAdmin, async (req, res) => {
   const blogs = await Blog.find({ 'comments.0': { $exists: true } }).select('title slug comments');
   const comments = blogs.flatMap((blog) =>
     blog.comments.map((comment) => ({
@@ -1039,10 +1048,9 @@ router.get('/admin/comments', async (req, res) => {
   res.json({ comments: comments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)) });
 });
 
-router.patch('/admin/comments/:commentId', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.patch('/admin/comments/:commentId', requireAdmin, async (req, res) => {
   const { commentId } = req.params;
+  if (!requireValidId(req, res, commentId)) return;
   const { action, replyContent } = req.body;
   const blog = await Blog.findOne({ 'comments._id': commentId });
   if (!blog) return res.status(404).json({ msg: 'Comment not found' });
@@ -1060,15 +1068,13 @@ router.patch('/admin/comments/:commentId', async (req, res) => {
   }
 
   comment.updatedAt = new Date();
-  blog.auditLog.push({ action: 'comment-moderated', actor: ADMIN_EMAIL, details: `${action} comment`, at: new Date() });
+  blog.auditLog.push({ action: 'comment-moderated', actor: adminIdentity(), details: `${action} comment`, at: new Date() });
   await blog.save();
 
   res.json({ comment });
 });
 
-router.post('/admin/assistant', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.post('/admin/assistant', requireAdmin, async (req, res) => {
   const action = (req.body.action || '').trim();
   const title = (req.body.title || '').trim();
   const focusKeyword = (req.body.focusKeyword || '').trim();
@@ -1115,15 +1121,15 @@ router.post('/admin/assistant', async (req, res) => {
   });
 });
 
-router.get('/admin', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.get('/admin', requireAdmin, async (req, res) => {
   await syncScheduledPosts();
 
   const page = Math.max(1, Number(req.query.page || 1));
   const limit = Math.min(100, Math.max(1, Number(req.query.limit || 25)));
   const search = (req.query.search || '').trim();
-  const sort = req.query.sort || 'updatedAt';
+  const requestedSort = String(req.query.sort || 'updatedAt');
+  // Whitelist prevents arbitrary field names reaching the Mongo sort.
+  const sort = ADMIN_SORT_FIELDS.has(requestedSort) ? requestedSort : 'updatedAt';
   const sortDirection = req.query.order === 'asc' ? 1 : -1;
   const query = buildQuery(req.query);
 
@@ -1152,18 +1158,15 @@ router.get('/admin', async (req, res) => {
   });
 });
 
-router.get('/admin/:id', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.get('/admin/:id', requireAdmin, async (req, res) => {
+  if (!requireValidId(req, res)) return;
   const blog = await Blog.findById(req.params.id);
   if (!blog) return res.status(404).json({ msg: 'Blog not found' });
 
   res.json({ blog });
 });
 
-router.post('/admin', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.post('/admin', requireAdmin, async (req, res) => {
   try {
     const payload = await normalizeBlogPayload(req.body);
     const existingBlogs = await Blog.find({}).select('title seo.metaDescription');
@@ -1177,18 +1180,18 @@ router.post('/admin', async (req, res) => {
         contentBlocks: payload.contentBlocks,
         status: payload.status,
         summary: 'Initial version',
-        savedBy: ADMIN_EMAIL,
+        savedBy: adminIdentity(),
       },
     ];
     payload.auditLog = [
       {
         action: 'created',
-        actor: ADMIN_EMAIL,
+        actor: adminIdentity(),
         details: `Created ${payload.status} post`,
         at: new Date(),
       },
     ];
-    payload.createdBy = ADMIN_EMAIL;
+    payload.createdBy = adminIdentity();
 
     const blog = await Blog.create(payload);
 
@@ -1228,15 +1231,14 @@ router.post('/admin', async (req, res) => {
     await refreshTaxonomyCounts();
     res.status(201).json({ blog });
   } catch (error) {
-    res.status(error.status || 500).json({ msg: error.message || 'Unable to create blog' });
+    respondWithError(res, error, 'Unable to create blog');
   }
 });
 
-router.put('/admin/:id', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.put('/admin/:id', requireAdmin, async (req, res) => {
   try {
-    const blog = await Blog.findById(req.params.id);
+    if (!requireValidId(req, res)) return;
+  const blog = await Blog.findById(req.params.id);
     if (!blog) return res.status(404).json({ msg: 'Blog not found' });
 
     const payload = await normalizeBlogPayload(req.body, blog);
@@ -1249,7 +1251,7 @@ router.put('/admin/:id', async (req, res) => {
       contentHtml: blog.contentHtml,
       contentBlocks: blog.contentBlocks,
       status: blog.status,
-      savedBy: ADMIN_EMAIL,
+      savedBy: adminIdentity(),
       summary: 'Pre-update snapshot',
     });
     blog.versions = pruneVersions(blog.versions);
@@ -1263,7 +1265,7 @@ router.put('/admin/:id', async (req, res) => {
       draft: { title: '', contentBlocks: null, savedAt: null },
     });
 
-    blog.auditLog.push({ action: 'updated', actor: ADMIN_EMAIL, details: `Updated ${blog.status} post`, at: new Date() });
+    blog.auditLog.push({ action: 'updated', actor: adminIdentity(), details: `Updated ${blog.status} post`, at: new Date() });
     await blog.save();
 
     if (blog.isFeatured) {
@@ -1273,14 +1275,13 @@ router.put('/admin/:id', async (req, res) => {
     await refreshTaxonomyCounts();
     res.json({ blog });
   } catch (error) {
-    res.status(error.status || 500).json({ msg: error.message || 'Unable to update blog' });
+    respondWithError(res, error, 'Unable to update blog');
   }
 });
 
-router.put('/admin/:id/draft', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.put('/admin/:id/draft', requireAdmin, async (req, res) => {
   try {
+    if (!requireValidId(req, res)) return;
     const blog = await Blog.findById(req.params.id);
     if (!blog) return res.status(404).json({ msg: 'Blog not found' });
 
@@ -1300,13 +1301,12 @@ router.put('/admin/:id/draft', async (req, res) => {
       msg: 'Draft autosaved',
     });
   } catch (error) {
-    res.status(error.status || 400).json({ msg: error.message || 'Unable to autosave draft' });
+    respondWithError(res, error.status ? error : { ...error, status: 400 }, 'Unable to autosave draft');
   }
 });
 
-router.delete('/admin/:id/draft', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.delete('/admin/:id/draft', requireAdmin, async (req, res) => {
+  if (!requireValidId(req, res)) return;
   const blog = await Blog.findById(req.params.id);
   if (!blog) return res.status(404).json({ msg: 'Blog not found' });
 
@@ -1315,9 +1315,8 @@ router.delete('/admin/:id/draft', async (req, res) => {
   res.json({ msg: 'Draft discarded' });
 });
 
-router.get('/admin/:id/revisions', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.get('/admin/:id/revisions', requireAdmin, async (req, res) => {
+  if (!requireValidId(req, res)) return;
   const blog = await Blog.findById(req.params.id).select('versions title');
   if (!blog) return res.status(404).json({ msg: 'Blog not found' });
 
@@ -1335,10 +1334,10 @@ router.get('/admin/:id/revisions', async (req, res) => {
   res.json({ revisions });
 });
 
-router.post('/admin/:id/revisions/:revisionId/restore', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.post('/admin/:id/revisions/:revisionId/restore', requireAdmin, async (req, res) => {
   try {
+    if (!requireValidId(req, res)) return;
+    if (!isValidObjectId(req.params.revisionId)) return res.status(400).json({ msg: 'Invalid revision id' });
     const blog = await Blog.findById(req.params.id);
     if (!blog) return res.status(404).json({ msg: 'Blog not found' });
 
@@ -1351,7 +1350,7 @@ router.post('/admin/:id/revisions/:revisionId/restore', async (req, res) => {
       contentHtml: blog.contentHtml,
       contentBlocks: blog.contentBlocks,
       status: blog.status,
-      savedBy: ADMIN_EMAIL,
+      savedBy: adminIdentity(),
       summary: 'Snapshot before restoring…',
     });
     blog.versions = pruneVersions(blog.versions);
@@ -1373,7 +1372,7 @@ router.post('/admin/:id/revisions/:revisionId/restore', async (req, res) => {
     blog.draft = { title: '', contentBlocks: null, savedAt: null };
     blog.auditLog.push({
       action: 'revision-restored',
-      actor: ADMIN_EMAIL,
+      actor: adminIdentity(),
       details: `Restored revision ${req.params.revisionId}`,
       at: new Date(),
     });
@@ -1381,13 +1380,12 @@ router.post('/admin/:id/revisions/:revisionId/restore', async (req, res) => {
     await blog.save();
     res.json({ blog, msg: 'Revision restored successfully.' });
   } catch (error) {
-    res.status(error.status || 500).json({ msg: error.message || 'Unable to restore revision' });
+    respondWithError(res, error, 'Unable to restore revision');
   }
 });
 
-router.post('/admin/:id/duplicate', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.post('/admin/:id/duplicate', requireAdmin, async (req, res) => {
+  if (!requireValidId(req, res)) return;
   const original = await Blog.findById(req.params.id).lean();
   if (!original) return res.status(404).json({ msg: 'Blog not found' });
 
@@ -1403,7 +1401,7 @@ router.post('/admin/:id/duplicate', async (req, res) => {
   duplicate.scheduledFor = null;
   duplicate.expiresAt = null;
   duplicate.draft = { title: '', contentBlocks: null, savedAt: null };
-  duplicate.auditLog = [{ action: 'duplicated', actor: ADMIN_EMAIL, details: `Duplicated from ${original._id}`, at: new Date() }];
+  duplicate.auditLog = [{ action: 'duplicated', actor: adminIdentity(), details: `Duplicated from ${original._id}`, at: new Date() }];
   duplicate.versions = [
     {
       title: duplicate.title,
@@ -1412,7 +1410,7 @@ router.post('/admin/:id/duplicate', async (req, res) => {
       contentBlocks: duplicate.contentBlocks,
       status: 'draft',
       summary: 'Duplicate created',
-      savedBy: ADMIN_EMAIL,
+      savedBy: adminIdentity(),
     },
   ];
 
@@ -1420,9 +1418,8 @@ router.post('/admin/:id/duplicate', async (req, res) => {
   res.status(201).json({ blog: created });
 });
 
-router.patch('/admin/:id/status', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.patch('/admin/:id/status', requireAdmin, async (req, res) => {
+  if (!requireValidId(req, res)) return;
   const blog = await Blog.findById(req.params.id);
   if (!blog) return res.status(404).json({ msg: 'Blog not found' });
 
@@ -1443,21 +1440,20 @@ router.patch('/admin/:id/status', async (req, res) => {
   blog.publishAt = nextStatus === 'published' ? new Date(req.body.publishAt || Date.now()) : blog.publishAt;
   blog.scheduledFor = nextStatus === 'scheduled' ? new Date(req.body.scheduledFor || blog.scheduledFor) : null;
   blog.archivedAt = nextStatus === 'archived' ? new Date() : null;
-  blog.auditLog.push({ action: 'status-changed', actor: ADMIN_EMAIL, details: `Changed status to ${nextStatus}`, at: new Date() });
+  blog.auditLog.push({ action: 'status-changed', actor: adminIdentity(), details: `Changed status to ${nextStatus}`, at: new Date() });
   await blog.save();
 
   res.json({ blog: mapBlogSummary(blog) });
 });
 
-router.patch('/admin/:id/feature', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.patch('/admin/:id/feature', requireAdmin, async (req, res) => {
+  if (!requireValidId(req, res)) return;
   const blog = await Blog.findById(req.params.id);
   if (!blog) return res.status(404).json({ msg: 'Blog not found' });
 
   if (req.body.isFeatured !== undefined) blog.isFeatured = Boolean(req.body.isFeatured);
   if (req.body.isPinned !== undefined) blog.isPinned = Boolean(req.body.isPinned);
-  blog.auditLog.push({ action: 'featured-updated', actor: ADMIN_EMAIL, details: 'Updated feature flags', at: new Date() });
+  blog.auditLog.push({ action: 'featured-updated', actor: adminIdentity(), details: 'Updated feature flags', at: new Date() });
   await blog.save();
 
   if (blog.isFeatured) {
@@ -1467,10 +1463,9 @@ router.patch('/admin/:id/feature', async (req, res) => {
   res.json({ blog: mapBlogSummary(blog) });
 });
 
-router.post('/admin/bulk', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
-  const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+router.post('/admin/bulk', requireAdmin, async (req, res) => {
+  const rawIds = Array.isArray(req.body.ids) ? req.body.ids : [];
+  const ids = rawIds.filter((id) => isValidObjectId(id));
   const action = req.body.action;
   if (!ids.length) return res.status(400).json({ msg: 'No blogs selected' });
 
@@ -1484,7 +1479,7 @@ router.post('/admin/bulk', async (req, res) => {
       { _id: { $in: ids } },
       {
         $set: { status: action },
-        $push: { auditLog: { action: 'bulk-status', actor: ADMIN_EMAIL, details: `Bulk status update to ${action}`, at: new Date() } },
+        $push: { auditLog: { action: 'bulk-status', actor: adminIdentity(), details: `Bulk status update to ${action}`, at: new Date() } },
       }
     );
     return res.json({ msg: 'Blogs updated' });
@@ -1503,9 +1498,8 @@ router.post('/admin/bulk', async (req, res) => {
   res.status(400).json({ msg: 'Unsupported bulk action' });
 });
 
-router.delete('/admin/:id', async (req, res) => {
-  if (!ensureAdmin(req, res)) return;
-
+router.delete('/admin/:id', requireAdmin, async (req, res) => {
+  if (!requireValidId(req, res)) return;
   const deleted = await Blog.findByIdAndDelete(req.params.id);
   if (!deleted) return res.status(404).json({ msg: 'Blog not found' });
 
@@ -1588,7 +1582,7 @@ router.get('/slug/:slug', async (req, res) => {
     .limit(3);
 
   res.json({
-    blog,
+    blog: toPublicBlog(blog),
     related: related.map(mapBlogSummary),
     recommended: related.map(mapBlogSummary),
     breadcrumbs: [
@@ -1600,67 +1594,90 @@ router.get('/slug/:slug', async (req, res) => {
 });
 
 router.post('/slug/:slug/comments', async (req, res) => {
-  const now = new Date();
-  const blog = await Blog.findOne({ slug: req.params.slug, allowComments: true, ...publicVisibilityFilter(now) });
-  if (!blog) return res.status(404).json({ msg: 'Blog not found or comments disabled' });
+  try {
+    const limit = await hitRateLimit(`comment:ip:${clientIp(req)}`, { windowMs: 10 * 60 * 1000, max: 5 });
+    if (!limit.allowed) {
+      return res.status(429).json({ msg: 'Too many comments submitted. Please try again later.' });
+    }
 
-  const authorName = (req.body.authorName || '').trim();
-  const authorEmail = (req.body.authorEmail || '').trim();
-  const content = `${req.body.content || ''}`.trim();
+    const now = new Date();
+    const blog = await Blog.findOne({ slug: req.params.slug, allowComments: true, ...publicVisibilityFilter(now) });
+    if (!blog) return res.status(404).json({ msg: 'Blog not found or comments disabled' });
 
-  if (!authorName || !authorEmail || !content) {
-    return res.status(400).json({ msg: 'Name, email, and comment are required' });
+    const authorName = `${req.body.authorName || ''}`.trim().slice(0, 80);
+    const authorEmail = `${req.body.authorEmail || ''}`.trim().slice(0, 254);
+    const content = `${req.body.content || ''}`.trim().slice(0, 5000);
+
+    if (!authorName || !authorEmail || !content) {
+      return res.status(400).json({ msg: 'Name, email, and comment are required' });
+    }
+    if (!isValidEmail(authorEmail)) {
+      return res.status(400).json({ msg: 'A valid email is required' });
+    }
+
+    const suspicious = /(casino|loan|crypto doubling|free money)/i.test(content);
+    const comment = {
+      authorName,
+      authorEmail,
+      content,
+      status: suspicious ? 'spam' : 'pending',
+    };
+
+    blog.comments.push(comment);
+    blog.auditLog.push({ action: 'comment-submitted', actor: authorEmail, details: 'Comment submitted', at: new Date() });
+    await blog.save();
+
+    res.status(201).json({ msg: suspicious ? 'Comment flagged for review' : 'Comment submitted for moderation' });
+  } catch (err) {
+    console.error('[blogs] Comment submit failed', { message: err.message, name: err.name });
+    res.status(500).json({ msg: 'Unable to submit comment' });
   }
-
-  const suspicious = /(casino|loan|crypto doubling|free money)/i.test(content);
-  const comment = {
-    authorName,
-    authorEmail,
-    content,
-    status: suspicious ? 'spam' : 'pending',
-  };
-
-  blog.comments.push(comment);
-  blog.auditLog.push({ action: 'comment-submitted', actor: authorEmail, details: 'Comment submitted', at: new Date() });
-  await blog.save();
-
-  res.status(201).json({ msg: suspicious ? 'Comment flagged for review' : 'Comment submitted for moderation' });
 });
 
 router.post('/slug/:slug/analytics', async (req, res) => {
-  const blog = await Blog.findOne({ slug: req.params.slug });
-  if (!blog) return res.status(404).json({ msg: 'Blog not found' });
+  try {
+    const limit = await hitRateLimit(`analytics:ip:${clientIp(req)}`, { windowMs: 5 * 60 * 1000, max: 120 });
+    if (!limit.allowed) {
+      return res.status(429).json({ msg: 'Too many requests' });
+    }
 
-  const source = (req.body.source || 'direct').trim();
-  const readTimeSeconds = Math.max(0, Number(req.body.readTimeSeconds || 0));
-  const unique = Boolean(req.body.unique);
-  const dateKey = new Date().toISOString().slice(0, 10);
+    const blog = await Blog.findOne({ slug: req.params.slug });
+    if (!blog) return res.status(404).json({ msg: 'Blog not found' });
 
-  blog.analytics.views = (blog.analytics.views || 0) + 1;
-  if (unique) blog.analytics.uniqueVisitors = (blog.analytics.uniqueVisitors || 0) + 1;
-  blog.analytics.averageReadTimeSeconds = blog.analytics.averageReadTimeSeconds
-    ? Math.round((blog.analytics.averageReadTimeSeconds + readTimeSeconds) / 2)
-    : readTimeSeconds;
-  blog.analytics.bounceRate = readTimeSeconds < 30 ? Math.min(100, (blog.analytics.bounceRate || 0) + 5) : Math.max(0, (blog.analytics.bounceRate || 0) - 2);
-  blog.analytics.engagementRate = Math.max(0, Math.min(100, Math.round(((blog.analytics.averageReadTimeSeconds || 0) / Math.max(60, blog.readingTimeMinutes * 60)) * 100)));
-  blog.analytics.lastViewedAt = new Date();
+    const source = `${req.body.source || 'direct'}`.trim().slice(0, 60);
+    const readTimeSeconds = Math.min(24 * 60 * 60, Math.max(0, Number(req.body.readTimeSeconds || 0) || 0));
+    const unique = Boolean(req.body.unique);
+    const dateKey = new Date().toISOString().slice(0, 10);
 
-  const existingSource = blog.analytics.topTrafficSources.find((item) => item.source === source);
-  if (existingSource) {
-    existingSource.visits += 1;
-  } else {
-    blog.analytics.topTrafficSources.push({ source, visits: 1 });
+    blog.analytics.views = (blog.analytics.views || 0) + 1;
+    if (unique) blog.analytics.uniqueVisitors = (blog.analytics.uniqueVisitors || 0) + 1;
+    blog.analytics.averageReadTimeSeconds = blog.analytics.averageReadTimeSeconds
+      ? Math.round((blog.analytics.averageReadTimeSeconds + readTimeSeconds) / 2)
+      : readTimeSeconds;
+    blog.analytics.bounceRate = readTimeSeconds < 30 ? Math.min(100, (blog.analytics.bounceRate || 0) + 5) : Math.max(0, (blog.analytics.bounceRate || 0) - 2);
+    blog.analytics.engagementRate = Math.max(0, Math.min(100, Math.round(((blog.analytics.averageReadTimeSeconds || 0) / Math.max(60, blog.readingTimeMinutes * 60)) * 100)));
+    blog.analytics.lastViewedAt = new Date();
+
+    const existingSource = blog.analytics.topTrafficSources.find((item) => item.source === source);
+    if (existingSource) {
+      existingSource.visits += 1;
+    } else {
+      blog.analytics.topTrafficSources.push({ source, visits: 1 });
+    }
+
+    const existingDay = blog.analytics.dailyViews.find((item) => item.date === dateKey);
+    if (existingDay) {
+      existingDay.views += 1;
+    } else {
+      blog.analytics.dailyViews.push({ date: dateKey, views: 1 });
+    }
+
+    await blog.save();
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[blogs] Analytics update failed', { message: err.message, name: err.name });
+    res.status(500).json({ msg: 'Unable to record analytics' });
   }
-
-  const existingDay = blog.analytics.dailyViews.find((item) => item.date === dateKey);
-  if (existingDay) {
-    existingDay.views += 1;
-  } else {
-    blog.analytics.dailyViews.push({ date: dateKey, views: 1 });
-  }
-
-  await blog.save();
-  res.json({ ok: true });
 });
 
 module.exports = router;
