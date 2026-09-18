@@ -32,7 +32,7 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose, onSignupSucc
       localStorage.setItem('token', res.data.token); // Save token
       onSignupSuccess(res.data.token);
       onClose();
-      window.location.href = '/dashboard'; // Redirect to dashboard
+      window.location.href = '/gt-predictor'; // Legacy visitor area
     } catch (err) {
       if (axios.isAxiosError(err)) {
         setError(err.response?.data?.msg || 'Signup failed');

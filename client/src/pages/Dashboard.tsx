@@ -1,272 +1,183 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import { API_BASE_URL } from '../config/api';
-import { useNavigate } from 'react-router-dom';
-import { Bar } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend
-} from 'chart.js';
-import { HashLink } from 'react-router-hash-link';
-import { CHART_DARK_DEFAULTS, CHART_DARK_BAR_COLORS } from '../config/chartConfig';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { AlertTriangle, Activity, BookOpen, LogOut, RefreshCw, TrendingUp, Trophy } from 'lucide-react';
+import { appErrorMessage, appQuizApi, isAppUnavailable } from '../lib/appClient';
+import { useAppAuth } from '../context/AppAuthContext';
+import type { AnalyticsMe } from '../types/app';
+import OpenInAppButton from '../components/app/OpenInAppButton';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+const dateLabel = (value?: string) =>
+  value ? new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '—';
 
-interface Analytics {
-  scores: Array<{ date: string; score: number }>;
-  feedback: string;
-}
-
-interface UserData {
-  email: string;
-  enrolledCourses: string[];
-  progress: Record<string, number>;
-  resources: string[];
-  notifications: Array<{
-    message: string;
-    date: string;
-    read: boolean;
-  }>;
-  analytics: Analytics;
-  gtScore?: {
-    current: number;
-    time: string;
-    predicted: number;
-  };
-}
-
-const GT_TIME_OPTIONS = [
-  { label: '1 Month', value: '1 Month' },
-  { label: '3 Months', value: '3 Months' },
-  { label: '6 Months', value: '6 Months' },
-  { label: '9 Months', value: '9 Months' },
-  { label: '1 Year', value: '1 Year' }
-];
-
-const GT_SCORE_TABLE = [
-  { time: '1 Month', gt: { C: 0.15, B: 0.30, A: 0.50 } },
-  { time: '3 Months', gt: { C: 0.25, B: 0.45, A: 0.60 } },
-  { time: '6 Months', gt: { C: 0.35, B: 0.75, A: 0.90 } },
-  { time: '9 Months', gt: { C: 0.55, B: 0.95, A: 1.20 } },
-  { time: '1 Year', gt: { C: 0.70, B: 1.25, A: 1.50 } }
-];
-
-function predictGTScore(current: number, time: string) {
-  let band: 'C' | 'B' | 'A';
-  if (current > 110) band = 'C';
-  else if (current > 80) band = 'B';
-  else band = 'A';
-  const row = GT_SCORE_TABLE.find(r => r.time === time);
-  if (!row) return current;
-  let predicted = Math.round(current + current * row.gt[band]);
-  if (predicted > 180) predicted = 180;
-  return predicted;
-}
-
+/**
+ * Integrated student dashboard: identity, tests and results come from the
+ * Eyeconic App backend (same data as the mobile app), served through the
+ * website's authenticated proxy.
+ */
 const Dashboard: React.FC = () => {
-  const [user, setUser] = useState<UserData | null>(null);
+  const { user, logout } = useAppAuth();
+  const [analytics, setAnalytics] = useState<AnalyticsMe | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [gtCurrent, setGtCurrent] = useState<number>(0);
-  const [gtTime, setGtTime] = useState<string>('1 Month');
-  const [gtPredicted, setGtPredicted] = useState<number>(0);
-  const [gtSaved, setGtSaved] = useState<boolean>(false);
-  const [showGtResult, setShowGtResult] = useState<boolean>(false);
-  const navigate = useNavigate();
+  const [unavailable, setUnavailable] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    setUnavailable(false);
+    try {
+      setAnalytics(await appQuizApi.analyticsMe({ limit: 10 }));
+    } catch (err) {
+      setError(appErrorMessage(err, 'Could not load your performance data.'));
+      setUnavailable(isAppUnavailable(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/');
-      return;
-    }
+    load();
+  }, [load]);
 
-    axios.get<UserData>(`${API_BASE_URL}/auth/dashboard`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => {
-        setUser(res.data);
-        setLoading(false);
-        setGtCurrent(res.data.gtScore?.current || 0);
-        setGtTime(res.data.gtScore?.time || '1 Month');
-        setGtPredicted(res.data.gtScore?.predicted || 0);
-        setShowGtResult(!!res.data.gtScore); // Only show result if gtScore exists
-      })
-      .catch(() => {
-        setError('Failed to load dashboard');
-        setLoading(false);
-      });
-  }, [navigate]);
+  const attempts = useMemo(() => analytics?.attempts ?? [], [analytics]);
 
-  const saveGtScore = async () => {
-    const token = localStorage.getItem('token');
-    try {
-      await axios.post(`${API_BASE_URL}/auth/gt-score`, {
-        current: gtCurrent,
-        time: gtTime,
-        predicted: predictGTScore(gtCurrent, gtTime)
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setGtPredicted(predictGTScore(gtCurrent, gtTime));
-      setGtSaved(true);
-      setShowGtResult(true);
-      setUser(prev => prev ? { ...prev, gtScore: { current: gtCurrent, time: gtTime, predicted: predictGTScore(gtCurrent, gtTime) } } : prev);
-      setTimeout(() => setGtSaved(false), 2000);
-    } catch {
-      setGtSaved(false);
-    }
-  };
-
-  if (loading) return <div className="min-h-screen bg-[#0A0F14] flex items-center justify-center text-[#94A3B8] py-20">Loading dashboard...</div>;
-  if (error) return <div className="min-h-screen bg-[#0A0F14] flex items-center justify-center text-red-400 py-20">{error}</div>;
-  if (!user) return null;
-
-  const userData = {
-    enrolledCourses: user.enrolledCourses || [],
-    progress: user.progress || {},
-    resources: user.resources || [],
-    notifications: user.notifications || [],
-    analytics: {
-      scores: user.analytics?.scores || [],
-      feedback: user.analytics?.feedback || ''
-    }
-  };
+  const summaryCards = useMemo(() => {
+    const total = attempts.length;
+    const avgPercent = total
+      ? Math.round(attempts.reduce((acc, a) => acc + (a.scorePercentage ?? 0), 0) / total)
+      : null;
+    const best = total ? Math.max(...attempts.map((a) => a.scorePercentage ?? 0)) : null;
+    return [
+      { icon: <BookOpen size={16} />, label: 'Recent tests', value: total > 0 ? String(total) : '—' },
+      { icon: <TrendingUp size={16} />, label: 'Average score', value: avgPercent !== null ? `${avgPercent}%` : '—' },
+      { icon: <Trophy size={16} />, label: 'Best recent', value: best !== null ? `${best}%` : '—' },
+    ];
+  }, [attempts]);
 
   return (
-    <section className="py-10 md:py-20 bg-[#0A0F14] min-h-screen">
+    <section className="py-10 md:py-16 bg-[#0A0F14] min-h-screen">
       <div className="container mx-auto px-2 sm:px-4">
-        <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-[#F8FAFC] mb-6 md:mb-8 text-center">Student Dashboard</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8 mb-8 md:mb-12">
-          <div className="bg-[#18222E] rounded-xl shadow-card-dark p-4 md:p-6 border border-white/[0.06]">
-            <h3 className="font-semibold text-[#4DD7C8] mb-2">Notifications</h3>
-            <ul className="space-y-2 max-h-40 overflow-y-auto">
-              {userData.notifications.length === 0 && <li className="text-[#94A3B8]">No notifications yet.</li>}
-              {userData.notifications.map((n, i) => (
-                <li key={i} className={`text-sm ${n.read ? 'text-[#94A3B8]' : 'text-[#4DD7C8] font-semibold'}`}>
-                  {n.message} <span className="text-xs text-[#94A3B8]/60">({new Date(n.date).toLocaleDateString()})</span>
-                </li>
-              ))}
-            </ul>
+        <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
+          <div>
+            <h2 className="text-2xl md:text-3xl font-bold text-[#F8FAFC]">Hi, {user?.name?.split(' ')[0] || 'there'} 👋</h2>
+            <p className="text-[#94A3B8] text-sm mt-1">
+              Signed in with your Eyeconic Mentorship account · same data as your mobile app.
+            </p>
           </div>
-          <div className="bg-[#18222E] rounded-xl shadow-card-dark p-4 md:p-6 border border-white/[0.06]">
-            <h3 className="font-semibold text-[#4DD7C8] mb-2">Resources</h3>
-            <ul className="space-y-2">
-              {userData.resources.length === 0 && <li className="text-[#94A3B8]">No resources yet.</li>}
-              {userData.resources.map((r, i) => (
-                <li key={i}>
-                  <a href={r} className="text-[#4DD7C8] hover:text-[#1CC8B5] transition-colors duration-200" target="_blank" rel="noopener noreferrer">
-                    Download Resource {i + 1}
-                  </a>
-                </li>
-              ))}
-            </ul>
+          <div className="flex items-center gap-3">
+            <OpenInAppButton destination={{ screen: 'dashboard' }} />
+            <button onClick={load} className="btn btn-outline text-sm px-4 py-2" aria-label="Refresh">
+              <RefreshCw size={14} className="mr-2" /> Refresh
+            </button>
+            <button onClick={logout} className="btn btn-outline text-sm px-4 py-2">
+              <LogOut size={14} className="mr-2" /> Logout
+            </button>
           </div>
         </div>
-        <div className="bg-[#18222E] rounded-xl shadow-card-dark p-4 md:p-6 border border-white/[0.06] mb-8">
-          <h3 className="font-semibold text-[#4DD7C8] mb-2">Performance Analytics</h3>
-          
-         
-          {/* GT Score Predictor */}
-          <div className="mt-10 border-t border-white/[0.06] pt-8">
-            <h4 className="text-lg md:text-xl font-bold mb-4 text-[#4DD7C8]">GT Score Predictor</h4>
-            <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
-              <div className="flex-1">
-                <label className="block font-semibold mb-1 text-[#CBD5E1]">Current Number of Corrects (max 200)</label>
-                <input
-                  type="number"
-                  min={0}
-                  max={200}
-                  value={gtCurrent}
-                  onChange={e => setGtCurrent(Math.max(0, Math.min(200, Number(e.target.value))))}
-                  className="border border-[#263445] bg-[#151E29] rounded px-3 py-2 w-full text-white placeholder-[#94A3B8] focus:border-[#18B6A4] focus:ring-1 focus:ring-[#18B6A4] outline-none transition"
-                  disabled={!!user?.gtScore && showGtResult}
-                />
-              </div>
-              <div className="flex-1">
-                <label className="block font-semibold mb-1 text-[#CBD5E1]">Time with Eyeconic</label>
-                <select
-                  value={gtTime}
-                  onChange={e => setGtTime(e.target.value)}
-                  className="border border-[#263445] bg-[#151E29] rounded px-3 py-2 w-full text-white focus:border-[#18B6A4] focus:ring-1 focus:ring-[#18B6A4] outline-none transition"
-                  disabled={!!user?.gtScore && showGtResult}
-                >
-                  {GT_TIME_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex-1">
-                <button
-                  className="btn bg-gradient-to-r from-[#18B6A4] to-[#1CC8B5] text-[#0A0F14] font-semibold px-6 py-2 rounded-lg mt-2 w-full hover:shadow-[0_0_15px_rgba(24,182,164,0.3)] transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={saveGtScore}
-                  disabled={!!user?.gtScore && showGtResult}
-                >
-                  Predict Score
-                </button>
-                {gtSaved && <span className="ml-3 text-emerald-400">Saved!</span>}
-              </div>
-            </div>
-            {showGtResult && (
-              <div className="mt-6 flex flex-col lg:flex-row gap-6 md:gap-8 items-center">
-                <div className="w-full lg:w-1/2 mb-6 lg:mb-0">
-                  <div className="font-semibold text-[#94A3B8] mb-1">Predicted Corrects (Max 200)</div>
-                  <div className="text-3xl font-bold text-[#4DD7C8]">
-                    {gtPredicted}
-                  </div>
-                  {/* Add call-to-action line */}
-                  <div className="mt-4">
-                    <a
-                      href="https://forms.gle/CAa6xLNsjsdhJt5M7"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-block bg-gradient-to-r from-teal-600 to-cyan-600 text-white font-semibold px-4 py-2 rounded-lg shadow-md hover:from-teal-500 hover:to-cyan-500 transition-all text-base"
-                      style={{ borderLeft: '5px solid #18B6A4' }}
-                    >
-                      🚀 Want to boost your GT score even more? <span className="underline decoration-white/50 hover:decoration-white">Book a free call now!</span>
-                    </a>
-                  </div>
 
-                </div>
-                <div className="w-full lg:w-1/2">
-                  <Bar
-                    data={{
-                      labels: ['Without Eyeconic', 'With Eyeconic'],
-                      datasets: [
-                        {
-                          label: 'GT Score',
-                          data: [
-                            gtCurrent,
-                            gtPredicted
-                          ],
-                          backgroundColor: [CHART_DARK_BAR_COLORS.without, CHART_DARK_BAR_COLORS.withEyeconic]
-                        }
-                      ]
-                    }}
-                    options={{
-                      responsive: true,
-                      plugins: {
-                        ...CHART_DARK_DEFAULTS.plugins,
-                        legend: { display: false }
-                      },
-                      scales: {
-                        x: CHART_DARK_DEFAULTS.scales.x,
-                        y: {
-                          ...CHART_DARK_DEFAULTS.scales.y,
-                          min: 0,
-                          max: 200
-                        }
-                      }
-                    }}
-                  />
-                </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          {summaryCards.map((card) => (
+            <div key={card.label} className="bg-[#18222E] border border-white/[0.06] rounded-2xl p-5">
+              <div className="flex items-center gap-2 text-[#94A3B8] text-xs uppercase tracking-wide mb-2">
+                {card.icon} {card.label}
+              </div>
+              <div className="text-2xl font-bold text-[#F8FAFC]">{card.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-[#18222E] border border-white/[0.06] rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-[#4DD7C8] flex items-center gap-2"><Activity size={16} /> Recent results</h3>
+              <Link to="/tests" className="text-sm text-[#18B6A4] hover:text-[#1CC8B5]">View all tests →</Link>
+            </div>
+
+            {loading && (
+              <div className="space-y-2">
+                {[0, 1, 2].map((i) => <div key={i} className="h-12 bg-[#151E29] rounded-xl animate-pulse" />)}
               </div>
             )}
+
+            {!loading && error && (
+              <div className="dark-banner-error text-sm">
+                <p>{error}</p>
+                {unavailable && <p className="text-xs mt-1 opacity-80">The Eyeconic service may be waking up — this can take up to a minute.</p>}
+                <button onClick={load} className="btn btn-outline text-xs px-3 py-1.5 mt-3">Try Again</button>
+              </div>
+            )}
+
+            {!loading && !error && attempts.length === 0 && (
+              <div className="text-center py-10">
+                <BookOpen className="w-9 h-9 text-[#18B6A4] mx-auto mb-3" />
+                <p className="text-[#CBD5E1] text-sm">No test results yet.</p>
+                <Link to="/tests" className="btn btn-primary text-sm mt-4">Browse My Tests</Link>
+              </div>
+            )}
+
+            {!loading && !error && attempts.length > 0 && (
+              <div className="space-y-2">
+                {attempts.map((attempt) => {
+                  const quizTitle = typeof attempt.quiz === 'object' && attempt.quiz ? attempt.quiz.title : 'Test';
+                  const quizId = typeof attempt.quiz === 'object' && attempt.quiz ? attempt.quiz._id : '';
+                  const percent = attempt.scorePercentage ?? 0;
+                  return (
+                    <Link
+                      key={attempt._id}
+                      to={quizId ? `/tests/${quizId}/results/${attempt._id}` : '/tests'}
+                      className="flex items-center justify-between gap-4 bg-[#151E29] border border-white/[0.06] rounded-xl px-4 py-3 hover:border-[#18B6A4]/30 transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-[#F8FAFC] truncate">{quizTitle}</div>
+                        <div className="text-xs text-[#94A3B8]">{dateLabel(attempt.endTime)}</div>
+                      </div>
+                      <div className="flex items-center gap-4 shrink-0">
+                        <div className="text-right">
+                          <div className="text-sm font-bold text-[#4DD7C8]">{attempt.marksObtained}/{attempt.totalMarks}</div>
+                          <div className="text-xs text-[#94A3B8]">{percent}%</div>
+                        </div>
+                        <div className="w-20 h-1.5 rounded-full bg-[#0A0F14] overflow-hidden hidden sm:block">
+                          <div className="h-full bg-[#18B6A4]" style={{ width: `${Math.min(100, percent)}%` }} />
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-6">
+            <div className="bg-[#18222E] border border-white/[0.06] rounded-2xl p-6">
+              <h3 className="font-semibold text-[#4DD7C8] mb-4">Quick links</h3>
+              <div className="space-y-2.5">
+                <Link to="/tests" className="block bg-[#151E29] border border-white/[0.06] rounded-xl px-4 py-3 text-sm text-[#CBD5E1] hover:border-[#18B6A4]/30 hover:text-[#F8FAFC] transition-colors">
+                  📝 My Tests — take or resume tests on the web
+                </Link>
+                <Link to="/blogs" className="block bg-[#151E29] border border-white/[0.06] rounded-xl px-4 py-3 text-sm text-[#CBD5E1] hover:border-[#18B6A4]/30 hover:text-[#F8FAFC] transition-colors">
+                  📚 Eyeconic Blogs — NEET PG guides & insights
+                </Link>
+                <a
+                  href="https://wa.me/919116303037?text=Hey!%20I%20have%20a%20question%20about%20my%20Eyeconic%20account."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block bg-[#151E29] border border-white/[0.06] rounded-xl px-4 py-3 text-sm text-[#CBD5E1] hover:border-[#18B6A4]/30 hover:text-[#F8FAFC] transition-colors"
+                >
+                  💬 Talk to your mentor
+                </a>
+              </div>
+            </div>
+
+            <div className="bg-[#18222E] border border-white/[0.06] rounded-2xl p-6 text-sm text-[#94A3B8]">
+              <h3 className="font-semibold text-[#4DD7C8] mb-2 flex items-center gap-2">
+                <AlertTriangle size={14} /> Good to know
+              </h3>
+              <ul className="space-y-1.5 list-disc pl-4">
+                <li>Proctored tests open in the mobile app only.</li>
+                <li>Answers save automatically — refresh-safe.</li>
+                <li>Starting on the web? Resume any time on the app, and vice versa.</li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>

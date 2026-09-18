@@ -3,6 +3,8 @@ import { Menu, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import LoginModal from '../auth/LoginModal';
 import SignupModal from '../auth/SignupModal';
+import StudentLoginModal from '../auth/StudentLoginModal';
+import { useAppAuth } from '../../context/AppAuthContext';
 import logo from '../../assets/Logo.png'; // <-- Add your logo file here
 
 const sectionLinks = [
@@ -19,9 +21,11 @@ const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [signupOpen, setSignupOpen] = useState(false);
+  const [studentLoginOpen, setStudentLoginOpen] = useState(false);
   const location = useLocation();
-  const isLoggedIn = Boolean(localStorage.getItem('token'));
-  const isDashboard = location.pathname === '/dashboard';
+  const { user: appUser, logout: appLogout } = useAppAuth();
+  const isStudentArea = location.pathname === '/dashboard' || location.pathname.startsWith('/tests');
+  const isAppAuthed = Boolean(appUser);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -35,8 +39,8 @@ const Navbar: React.FC = () => {
     };
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
+  const handleStudentLogout = async () => {
+    await appLogout();
     window.location.href = '/';
   };
 
@@ -71,8 +75,8 @@ const Navbar: React.FC = () => {
                 Home
               </Link>
             </li>
-            {/* Show all options on home page, only dashboard/book a call on dashboard */}
-            {isDashboard && isLoggedIn ? (
+            {/* Show all options on public pages, student nav inside the student area */}
+            {isStudentArea && isAppAuthed ? (
               <>
                 <li>
                   <Link
@@ -103,24 +107,25 @@ const Navbar: React.FC = () => {
             )}
           </ul>
           {/* Auth buttons */}
-          {isDashboard && isLoggedIn ? (
-            <button
-              onClick={handleLogout}
-              className="btn btn-outline ml-2"
-            >
-              Logout
-            </button>
-          ) : (
-            isLoggedIn ? (
-              <Link to="/dashboard" className="btn btn-outline">Dashboard</Link>
-            ) : (
+          {isAppAuthed ? (
+            <>
+              {!isStudentArea && (
+                <Link to="/dashboard" className="btn btn-outline">My Dashboard</Link>
+              )}
               <button
-                onClick={() => setLoginOpen(true)}
-                className="btn btn-outline"
+                onClick={handleStudentLogout}
+                className="btn btn-outline ml-2"
               >
-                Login
+                Logout
               </button>
-            )
+            </>
+          ) : (
+            <button
+              onClick={() => setStudentLoginOpen(true)}
+              className="btn btn-outline"
+            >
+              Student Login
+            </button>
           )}
           <a
             href="https://forms.gle/CAa6xLNsjsdhJt5M7"
@@ -154,7 +159,7 @@ const Navbar: React.FC = () => {
                   Home
                 </Link>
               </li>
-              {isDashboard && isLoggedIn ? (
+              {isStudentArea && isAppAuthed ? (
                 <>
                   <li>
                     <Link
@@ -187,36 +192,33 @@ const Navbar: React.FC = () => {
               )}
             </ul>
             <div className="mt-6 space-y-4 flex flex-col">
-              {isDashboard && isLoggedIn ? (
-                <button
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    handleLogout();
-                  }}
-                  className="btn btn-outline w-full text-center"
-                >
-                  Logout
-                </button>
-              ) : (
-                isLoggedIn ? (
-                  <Link
-                    to="/dashboard"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="btn btn-outline w-full text-center"
-                  >
-                    Dashboard
-                  </Link>
-                ) : (
+              {isAppAuthed ? (
+                <>
+                  {!isStudentArea && (
+                    <Link to="/dashboard" onClick={() => setIsMenuOpen(false)} className="btn btn-outline w-full text-center">
+                      My Dashboard
+                    </Link>
+                  )}
                   <button
                     onClick={() => {
                       setIsMenuOpen(false);
-                      setLoginOpen(true);
+                      handleStudentLogout();
                     }}
-                    className="btn btn-outline w-full"
+                    className="btn btn-outline w-full text-center"
                   >
-                    Login
+                    Logout
                   </button>
-                )
+                </>
+              ) : (
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    setStudentLoginOpen(true);
+                  }}
+                  className="btn btn-outline w-full"
+                >
+                  Student Login
+                </button>
               )}
               <a
                 href="https://forms.gle/CAa6xLNsjsdhJt5M7"
@@ -232,6 +234,15 @@ const Navbar: React.FC = () => {
         </div>
       )}
 
+      <StudentLoginModal
+        isOpen={studentLoginOpen}
+        onClose={() => setStudentLoginOpen(false)}
+        onSuccess={() => window.location.assign('/dashboard')}
+        onSwitchToLegacy={() => {
+          setStudentLoginOpen(false);
+          setLoginOpen(true);
+        }}
+      />
       <LoginModal
         isOpen={loginOpen}
         onClose={() => setLoginOpen(false)}

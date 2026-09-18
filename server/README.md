@@ -53,6 +53,33 @@ Browser origins are allowlisted. Set `ALLOWED_ORIGINS` (comma-separated)
 in the environment; when unset it defaults to the production website.
 Localhost origins (any port) are allowed automatically outside production.
 
+## App integration (students + quizzes)
+
+Students authenticate with their **Eyeconic Mentorship app account**; the App
+API on Render remains the single source of truth. The website server proxies
+it, holding the student's App JWT inside an AES-256-GCM encrypted HttpOnly
+session cookie (never exposed to browser JS).
+
+Required env (see `../INTEGRATION_PHASE2.md` for the full architecture):
+
+- `APP_API_BASE_URL` — App API base (default `http://localhost:3000/api` outside production)
+- `APP_INTEGRATION_TOKEN` — shared service token, mirrored as `INTEGRATION_SERVICE_TOKEN` on the App backend
+- `SESSION_SECRET` — 32+ chars, encrypts the session cookie
+
+Endpoints:
+
+- `POST /api/app-auth/login` — student login (sets HttpOnly session)
+- `GET  /api/app-auth/session` — current student (401 when expired)
+- `POST /api/app-auth/logout` — clear session
+- `POST /api/app-auth/handoff` — exchange the mobile app's one-time code
+  (minted by the App API's `POST /api/auth/web-handoff`) for a session
+- `GET|POST /api/app/*` — allowlisted proxy to student-scoped App endpoints
+  (quiz list/detail, attempt start/answer/section/submit/status, results,
+  retest, `/analytics/me`). Attempt-state and answer writes are never cached.
+
+Tests: `npm test` (mock App API + a full E2E run against the real backend in
+`../eyeconic-app`, plus legacy regressions).
+
 ## Blog media uploads
 
 Blog image uploads use **Cloudinary** in production (folder: `bm-blog` by default). Required environment variables:
