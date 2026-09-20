@@ -34,6 +34,14 @@ const BAND_ORDER = Object.freeze([
  * Build an in-memory index over one counselling snapshot.
  * Rows are filtered per query (quota/category/pwd) — the full row set is
  * small enough (tens of thousands) to scan per request.
+ *
+ * Session-awareness (INI-CET, Phase 6 M2): INI-CET runs two counselling
+ * sessions per calendar year, so a snapshot carrying `session: 'YYYY-MM'`
+ * gets a UNIQUE sortable numeric tag (YYYYMM) as its examYear plus the
+ * session string passed through — keeping per-session blocks distinct
+ * (Jan-2024 vs Jul-2024 would otherwise collide on 2024). NEET PG snapshots
+ * carry no session and are byte-for-byte unaffected.
+ *
  * @param {object} snapshot parsed closing-ranks.json
  */
 function buildCounsellingIndex(snapshot) {
@@ -47,9 +55,11 @@ function buildCounsellingIndex(snapshot) {
     opening: r[6],
     allottedCount: r[7],
   }));
+  const session = snapshot.session || null;
   return Object.freeze({
     snapshotId: snapshot.snapshot_id,
-    examYear: snapshot.exam_year,
+    session,
+    examYear: session ? Number(session.replace('-', '')) : snapshot.exam_year,
     institutes: snapshot.institutes,
     courses: snapshot.courses,
     rows,
@@ -98,6 +108,7 @@ function matchIndex({ index, bestRank, worstRank, category, pwd, quota, margins 
       openingRank: row.opening,
       allottedCount: row.allottedCount,
       year: index.examYear,
+      ...(index.session ? { session: index.session } : {}),
       round: 'final state (end of counselling)',
       category: row.category,
       quota: row.quota,
@@ -109,6 +120,7 @@ function matchIndex({ index, bestRank, worstRank, category, pwd, quota, margins 
     return {
       snapshotId: index.snapshotId,
       year: index.examYear,
+      ...(index.session ? { session: index.session } : {}),
       state: 'NO_DATA_FOR_FILTER',
       counts: { total: 0 },
       rows: { COMFORTABLE: [], WITHIN_RANGE: [], BORDERLINE: [], ASPIRATIONAL: [] },
@@ -133,6 +145,7 @@ function matchIndex({ index, bestRank, worstRank, category, pwd, quota, margins 
   return {
     snapshotId: index.snapshotId,
     year: index.examYear,
+    ...(index.session ? { session: index.session } : {}),
     state: counts.total > 0 ? 'MATCHED' : 'BEYOND_LAST_CLOSING',
     // §12 explicit states, computed against THIS year's filtered cutoffs:
     minClosingRank: minClosing,

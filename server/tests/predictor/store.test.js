@@ -18,15 +18,28 @@ describe('predictor snapshot store', () => {
   beforeAll(() => store.resetCache());
   afterAll(() => store.resetCache());
 
-  it('lists exactly the seven Phase 2 files', () => {
+  it('lists exactly the Phase 2 + M2 files (7 NEET PG + 11 INI-CET + 1 prior)', () => {
+    // alphabetical — mirrors Object.keys().sort()
     expect(Object.keys(manifest.file_hashes).sort()).toEqual([
+      'counselling/ini-cet-2023-01/v1/closing-ranks.json',
+      'counselling/ini-cet-2024-01/v1/closing-ranks.json',
+      'counselling/ini-cet-2024-07/v1/closing-ranks.json',
+      'counselling/ini-cet-2025-01/v1/closing-ranks.json',
+      'counselling/ini-cet-2025-07/v1/closing-ranks.json',
       'counselling/neet-pg-2024/v1/closing-ranks.json',
       'counselling/neet-pg-2025/v1/closing-ranks.json',
       'dictionaries/v1/category.json',
       'dictionaries/v1/name-normalization.json',
       'dictionaries/v1/quota.json',
+      'distribution/ini-cet-2021-07/v1/rank-percentile.json',
+      'distribution/ini-cet-2022-01/v1/rank-percentile.json',
+      'distribution/ini-cet-2023-07/v1/rank-percentile.json',
+      'distribution/ini-cet-2024-01/v1/rank-percentile.json',
+      'distribution/ini-cet-2025-01/v1/rank-percentile.json',
+      'distribution/ini-cet-2025-07/v1/rank-percentile.json',
       'distribution/neet-pg-2025/v1/score-rank-bands.json',
       'golden/v1/goldens.json',
+      'priors/inicet/v1/hazra-corrects-air.json',
     ]);
   });
 
@@ -34,7 +47,7 @@ describe('predictor snapshot store', () => {
     for (const relPath of Object.keys(manifest.file_hashes)) {
       const { snapshotId, data } = store.loadSnapshot(relPath);
       expect(data).toBeTruthy();
-      if (relPath.startsWith('distribution/') || relPath.startsWith('counselling/')) {
+      if (relPath.startsWith('distribution/') || relPath.startsWith('counselling/') || relPath.startsWith('priors/')) {
         expect(typeof snapshotId).toBe('string');
       } else {
         // goldens and dictionaries carry version info, not snapshot ids

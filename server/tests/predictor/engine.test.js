@@ -25,7 +25,7 @@ describe('engine.listExams', () => {
     const exams = engine.listExams();
     expect(exams.map((e) => e.id).sort()).toEqual(['INI_CET', 'NEET_PG']);
     const ini = exams.find((e) => e.id === 'INI_CET');
-    expect(ini.available).toBe(false);
+    expect(ini.available).toBe(true); // live since the M2 UI step
     expect(ini.milestone).toBe('M2');
   });
 });
@@ -211,13 +211,14 @@ describe('engine.predict — error paths surface typed errors', () => {
     expect(() => engine.predict({ exam: 'NEET-UG', gts: [manual(100)] })).toThrow(PredictorError);
   });
 
-  it('INI-CET → EXAM_NOT_AVAILABLE (M2)', () => {
+  it('INI-CET validates through the shared rules (live since M2)', () => {
     try {
-      engine.predict({ exam: 'INI_CET', gts: [manual(100)] });
+      engine.predict({ exam: 'INI_CET', gts: [manual(250)] });
       throw new Error('should have thrown');
     } catch (e) {
       expect(e).toBeInstanceOf(PredictorError);
-      expect(e.code).toBe(CODES.EXAM_NOT_AVAILABLE);
+      expect(e.code).toBe(CODES.INVALID_INPUT); // same §3.5 bounds as NEET PG
+      expect(e.details.field).toBe('gts[0].attempts[0].corrects');
     }
   });
 

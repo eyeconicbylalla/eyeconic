@@ -79,6 +79,73 @@
     "category": "UR",
     "pwd": true
    }
+  },
+  "inicet": {
+   "distributions": {
+    "sessions": [
+     "2021-07",
+     "2022-01",
+     "2023-07",
+     "2024-01",
+     "2025-01",
+     "2025-07"
+    ],
+    "s2025_07": {
+     "rows": 46884,
+     "max_rank": 49248,
+     "rank_gaps": 2364,
+     "min_pct": 45.166,
+     "first_pct": 100.0,
+     "first_rank": 1
+    },
+    "s2021_07": {
+     "rows": 31680,
+     "max_rank": 33445,
+     "rank_gaps": 1765
+    }
+   },
+   "counselling_2025_07": {
+    "groups": 944,
+    "final_rows": 2276,
+    "general_pool": 1901,
+    "institutes": 22,
+    "specialties": 63
+   },
+   "counselling_2023_01": {
+    "groups": 808,
+    "institutes": 19,
+    "specialties": 58
+   },
+   "anchors_2025_07": {
+    "genmed_aiimsnd_ur": {
+     "closing": 4,
+     "opening": 2,
+     "count": 3
+    },
+    "radiodiagnosis_aiimsnd_ur": {
+     "closing": 7
+    },
+    "neurology6_nimhans_ur": {
+     "closing": 107
+    }
+   }
+  },
+  "inicet_prior": {
+   "prior_id": "PR-INICET-HAZRA-CORRECTS-AIR-v1",
+   "points": 7,
+   "ur_only": true,
+   "corrects_span": [
+    110,
+    160
+   ],
+   "air_span": [
+    10,
+    28000
+   ],
+   "anchors": {
+    "corrects_140": 1000,
+    "corrects_120": 10000
+   }
   }
  }
 }

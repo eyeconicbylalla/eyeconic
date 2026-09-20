@@ -1,0 +1,95 @@
+{
+ "dataset_kind": "corrects_to_air_prior",
+ "format": "ladder-points-v1",
+ "format_doc": [
+  "points: corrects -> AIR ladder for one exam session (monotone: more corrects => better (smaller) AIR)",
+  "air values are CROWD-COMPILED ESTIMATES (approximate where air_qualifier='~'), never ground truth",
+  "cross_check_points: additional session points kept for consistency reporting only, never runtime"
+ ],
+ "exam": "INI-CET",
+ "source": {
+  "type": "crowd-sourced",
+  "compiler": "Dr Mayukh Hazra (YouTube / Telegram)",
+  "compiler_statement": "compiled from Reddit, Telegram... because officially nothing has been revealed by AIIMS",
+  "extracted_by": "four-agent research sweep (rank-predictor-data-research.html, 2026-09-18) \u2014 audio-extracted ladder points; descriptions carry zero data",
+  "ur_only": true,
+  "reliability_disclaimer": "the author himself disclaims predictive reliability; treat as a wide labelled prior only"
+ },
+ "runtime_points": [
+  {
+   "session": "2025-07",
+   "corrects": 160,
+   "air": 10,
+   "air_qualifier": "top-10"
+  },
+  {
+   "session": "2025-07",
+   "corrects": 150,
+   "air": 100,
+   "air_qualifier": "top-100"
+  },
+  {
+   "session": "2025-07",
+   "corrects": 140,
+   "air": 1000,
+   "air_qualifier": "~"
+  },
+  {
+   "session": "2025-07",
+   "corrects": 135,
+   "air": 2500,
+   "air_qualifier": "~"
+  },
+  {
+   "session": "2025-07",
+   "corrects": 130,
+   "air": 4000,
+   "air_qualifier": "~"
+  },
+  {
+   "session": "2025-07",
+   "corrects": 120,
+   "air": 10000,
+   "air_qualifier": "~"
+  },
+  {
+   "session": "2025-07",
+   "corrects": 110,
+   "air": 28000,
+   "air_qualifier": "~"
+  }
+ ],
+ "cross_check_points": [
+  {
+   "session": "2026-01",
+   "marks": 150,
+   "air": 1,
+   "note": "Nov-2025 exam (Jan-2026 session): AIR-1 = 150 marks"
+  },
+  {
+   "session": "2026-01",
+   "marks": 80,
+   "air": 20000,
+   "note": "Nov-2025 exam (Jan-2026 session): AIR-20,000 = ~80 marks"
+  }
+ ],
+ "notes": [
+  "RUNTIME uses the seven 2025-07 points ONLY \u2014 they pair with the official distribution anchor DS-INICET-DISTRIBUTION-202507-v1 (same session)",
+  "the 2026-01 marks points are cross-check only: no official 2026 distribution exists to pair them with (M2 Phase 1 gap)",
+  "UR-only prior: weaker for reserved categories (spec 9) \u2014 the strategy flags this in warnings whenever a non-UR category is present",
+  "marks<->corrects arithmetic (pattern 200Q +1/-1/3, no-skip): marks = corrects - (200 - corrects)/3; 160c=146.7m, 150c=133.3m, 110c=80m"
+ ],
+ "validation": {
+  "points": 7,
+  "monotone": true,
+  "corrects_span": [
+   110,
+   160
+  ],
+  "air_span": [
+   10,
+   28000
+  ]
+ },
+ "snapshot_id": "PR-INICET-HAZRA-CORRECTS-AIR-v1"
+}

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Feature** | Rank & Branch Predictor (Eyeconic Mentorship App) |
-| **Status** | Phases 0–10a complete — M1 COMPLETE (see §20); engine `server/predictor/` |
+| **Status** | M1 + M2 COMPLETE (Phases 0–10b, 2026-09-20) — NEET PG + INI-CET live, full outcome capture + evaluation-dataset assembly shipped — see §20; engine `server/predictor/` |
 | **Exams (MVP)** | NEET PG, INI-CET |
 | **MVP methodology** | Percentile-Transfer Prior (statistical estimate, not ML) |
 | **Supersedes** | Legacy `client/src/pages/GtPredictor.tsx` (single-GT + hardcoded uplift bands) — retired/redirected when Phase 8 ships; the two must never be live together |
@@ -576,7 +576,7 @@ Disclaimers must be visible with the results, not only on a separate page.
 
 ## 15. Future Outcome Capture System
 
-*(Roadmap — a minimal consent-based capture form (Phase 10a) ships with M1 so no result window is missed; the full system below is Phase 10b.)*
+*(Live — 10a shipped the minimal consent-based capture form with M1 so no result window was missed; 10b (M2, 2026-09-20) completed it with the counselling outcome + allotted branch and the evaluation-dataset assembly — see `RANK_PREDICTOR_PHASE10B_REPORT.md`.)*
 
 Once Eyeconic is live, capture for each willing student:
 
@@ -704,14 +704,14 @@ Sequencing rules:
 - **Not yet:** No branch matching (next phase); no recalibration claims.
 - **Done when:** AIR ranges are produced; monotonicity checks pass; **100% of a spot-check sample of official score→rank pairs reproduce exactly** — this stage is a lookup over official data, so any mismatch is an ingestion bug, not a tolerance question; official category-cutoff anchors agree.
 
-### Phase 5 — INI-CET prediction (M2)
+### Phase 5 — INI-CET prediction (**✅ shipped 2026-09-20 — see `RANK_PREDICTOR_PHASE5_REPORT.md`**; strategy complete, availability flips with Phase 6 + UI)
 - **Objective:** Corrects → percentile range → rank range for INI-CET.
 - **Build:** INI-CET strategy: corrects→percentile prior (Hazra ladders as labelled priors where used — UR-only, flagged for reserved categories), official percentile↔rank resolution; consistency checks against historical sessions (no paired GT data exists — Section 4).
 - **Dependencies:** Phase 3; Phase 2 INI-CET data.
 - **Not yet:** Do not treat crowd-sourced priors as ground truth; no invention of INI-CET marks data.
 - **Done when:** Rank ranges produced for INI-CET with the weaker step clearly flagged in output metadata.
 
-### Phase 6 — Branch/college prediction (M1 = NEET PG portion; M2 = INI-CET)
+### Phase 6 — Branch/college prediction (M1 = NEET PG portion ✅ · M2 = INI-CET ✅ 2026-09-20, see `RANK_PREDICTOR_PHASE6_INICET_REPORT.md` — recall 125/125)
 - **Objective:** Rank range → possible branches/colleges.
 - **Build:** Cutoff matching over imported counselling data; category/quota/round filters; possibility banding; result rows per Section 12.
 - **Dependencies:** NEET PG portion — Phase 4 only (M1); INI-CET portion — Phase 5 (M2); Phase 2 counselling data per exam.
@@ -739,7 +739,7 @@ Sequencing rules:
 - **Not yet:** No analysis of accuracy (no ground truth yet).
 - **Done when:** Predictions are persisted and reproducible (method version + dataset snapshot + inputs retrievable).
 
-### Phase 10 — Outcome capture (**10a ✅ shipped 2026-09-20 — M1 complete, see `RANK_PREDICTOR_PHASE10A_REPORT.md`** · 10b in M2)
+### Phase 10 — Outcome capture (**✅ COMPLETE — 10a + 10b shipped 2026-09-20**, see `RANK_PREDICTOR_PHASE10A_REPORT.md` and `RANK_PREDICTOR_PHASE10B_REPORT.md`)
 - **Objective:** Start building the paired dataset (Section 15) — timed to real result windows, which are externally scheduled: miss one and the next calibration cohort is months away.
 - **Build (10a — minimal, M1):** consent-based post-exam form capturing actual score / percentile / rank, linked to the stored prediction (method + dataset snapshot versions) and GT history.
 - **Build (10b — M2):** counselling outcome and allotted branch if shared; evaluation-dataset assembly.
@@ -777,25 +777,21 @@ Sequencing rules:
 
 ### Current status
 
-- **Feature:** **Phases 0–10a complete (2026-09-20) — M1 COMPLETE: NEET PG predictor live end-to-end (data → engine → API + persistence → UI → outcome capture)** — sources (`RANK_PREDICTOR_SOURCE_CATALOGUE.md`) · GT audit (`RANK_PREDICTOR_GT_DATA_AUDIT.md`) · data (`RANK_PREDICTOR_INGESTION_REPORT.md`) · engine (`RANK_PREDICTOR_PHASE3_REPORT.md`) · rank (`RANK_PREDICTOR_PHASE4_REPORT.md`) · branches (`RANK_PREDICTOR_PHASE6_REPORT.md`) · API + persistence (`RANK_PREDICTOR_PHASE7_REPORT.md`) · UI (`RANK_PREDICTOR_PHASE8_REPORT.md`) · persistence audit (`RANK_PREDICTOR_PHASE9_REPORT.md`) · **outcome capture (`RANK_PREDICTOR_PHASE10A_REPORT.md`)**
-- **Exams:** NEET PG (full flow live: `/predictor` UI → `/api/predictor/*`, every prediction persisted) + INI-CET (scaffolded → Phase 5/M2, disabled in the selector)
+- **Feature:** **M1 + M2 COMPLETE (Phases 0–10b, 2026-09-20)** — sources (`RANK_PREDICTOR_SOURCE_CATALOGUE.md`) · GT audit (`RANK_PREDICTOR_GT_DATA_AUDIT.md`) · data (`RANK_PREDICTOR_INGESTION_REPORT.md`) · engine (`RANK_PREDICTOR_PHASE3_REPORT.md`) · rank (`RANK_PREDICTOR_PHASE4_REPORT.md`) · branches (`RANK_PREDICTOR_PHASE6_REPORT.md`) · API + persistence (`RANK_PREDICTOR_PHASE7_REPORT.md`) · UI (`RANK_PREDICTOR_PHASE8_REPORT.md`) · persistence audit (`RANK_PREDICTOR_PHASE9_REPORT.md`) · outcome capture (`RANK_PREDICTOR_PHASE10A_REPORT.md` + `RANK_PREDICTOR_PHASE10B_REPORT.md`) · INI-CET ingestion (`RANK_PREDICTOR_INICET_INGESTION_REPORT.md`) · INI-CET strategy (`RANK_PREDICTOR_PHASE5_REPORT.md`) · INI-CET branches (`RANK_PREDICTOR_PHASE6_INICET_REPORT.md`) · INI-CET UI (`RANK_PREDICTOR_M2_UI_REPORT.md`)
+- **Exams:** NEET PG + **INI-CET — BOTH LIVE** (`/predictor` UI → `/api/predictor/*`, every prediction persisted with per-exam method versions)
 - **Legacy GtPredictor page: RETIRED** — `/gt-predictor` redirects to `/predictor`; one predictor only (§1)
 - **MVP methodology:** Percentile-Transfer Prior (Tier 1 launch mode; baselines approved 2026-09-20) — method version `neetpg-branch-p6.v1`
-- **Direct Eyeconic GT → actual exam outcome dataset:** Not available yet — **capture is live and accumulating pairs** (10a: consent-based score/percentile/rank linked to each stored prediction via method + dataset snapshot versions)
-- **ML model:** Future scope · **Outcome capture:** 10a **LIVE** (M1) · 10b (counselling outcomes + evaluation-dataset assembly) in M2
+- **Direct Eyeconic GT → actual exam outcome dataset:** Not available yet — **full capture is live and accumulating pairs** (10a: consent-based score/percentile/rank; 10b: counselling outcome + allotted institute/branch/round; every outcome linked to its stored prediction via method + dataset snapshot versions; evaluation dataset assembles on demand — `node scripts/phase10b/assemble_evaluation_dataset.js`)
+- **ML model:** Future scope · **Outcome capture: COMPLETE** (10a + 10b) — calibration gated at ~100+ pairs (§16, Phase 11)
 - **Known pre-existing client debt:** admin components carry tsc errors at HEAD (build script does not type-check); predictor files are clean
 
 ### Immediate next action
 
-> **M2 — INI-CET + completeness (§18 milestone table),** now that M1 is complete:
-> 1. **Phase 2 extension — INI-CET ingestion:** AIIMS source enumeration (result PDFs → official percentile↔rank distribution; counselling round PDFs → allotments), mirror-first where verified, same validation bar as NEET PG (sanity suite + golden files + provenance).
-> 2. **Phase 5 — INI-CET strategy:** corrects→percentile prior (Hazra ladders as labelled, UR-only crowd-sourced priors — flagged for reserved categories), official percentile↔rank resolution; weaker step flagged in output metadata.
-> 3. **Phase 6 INI-CET portion** (allotment matching) → **INI-CET UI** (enable the selector).
-> 4. **Phase 10b — full capture:** counselling outcome + allotted branch (the API already rejects those fields with an explicit M2 message), evaluation-dataset assembly.
+> **Phase 11 readiness (data-gated):** keep capturing through real result/counselling windows (the 10b form reaches every student on every stored prediction); re-run `node scripts/phase10b/assemble_evaluation_dataset.js` around each window and watch the §16 gate (~100+ pairs). Error measurement and any recalibration start only once that gate is met — until then no range narrowing, no fitting, per §18.
 >
-> Calibration analysis (Phase 11) stays gated on ~100+ captured pairs (§16). Ranges must not narrow before then (§18 accuracy note).
+> Optional strengthening: the 2026 INI-CET session PDFs behind the AIIMS SPA (one-time manual browser grab, catalogue §5) would refresh the INI-CET anchor from Jul 2025 to a 2026 session.
 
-(Phases 0–10a complete — **M1 COMPLETE**. Store: `server/predictor-data/` — re-validate with `python scripts/phase2/validate_snapshots.py`. Server tests: `cd server && npm test` (198/198). Client: `cd client && npm run build`. Rank reproduction: `node scripts/phase4/verify_rank_reproduction.js` — 41,695/41,695 exact. Allotment recall: `node scripts/phase6/verify_allotment_recall.js` — 100/100. Persistence: `node scripts/phase9/verify_prediction_persistence.js` — 13/13. Outcome capture: exercised by `tests/predictorApi.test.js` (13 tests, incl. linkage-drift detection).)
+(M1 + M2 COMPLETE. Store: `server/predictor-data/` — re-validate with `python scripts/phase2/validate_snapshots.py` (64 checks, NEET PG + INI-CET + prior). Server tests: `cd server && npm test` (235/235). Client: `cd client && npm run build`. Rank reproduction: `node scripts/phase4/verify_rank_reproduction.js` — 41,695/41,695 exact. Allotment recall: `node scripts/phase6/verify_allotment_recall.js` — 100/100; INI-CET: `node scripts/phase6/verify_inicet_allotment_recall.js` — 125/125. Persistence: `node scripts/phase9/verify_prediction_persistence.js` — 13/13. Outcome capture: `node scripts/phase10b/verify_outcome_capture.js` — 17/17; dataset assembly: `node scripts/phase10b/assemble_evaluation_dataset.js`. INI-CET pipeline re-run: `python scripts/phase2/inicet_parse.py && python scripts/phase2/inicet_snapshots.py`; Phase 5 consistency: `node scripts/phase5/inicet_consistency_report.js`.)
 
 ---
 

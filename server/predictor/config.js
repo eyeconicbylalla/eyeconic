@@ -52,11 +52,41 @@ const EXAMS = {
   INI_CET: {
     id: 'INI_CET',
     label: 'INI-CET',
-    available: false, // strategy scaffolding only; implemented in Phase 5 (M2)
+    // LIVE since the M2 UI step (data Phase 1 + strategy Phase 5 + branches
+    // Phase 6 all shipped; §13 INI-CET notes rendered by the client).
+    available: true,
     milestone: 'M2',
     strategy: 'iniCet',
+    methodVersion: 'inicet-branch-p6.v1',
     patternVersion: '200 marks (+1/-1/3)',
     pattern: { totalQuestions: 200, positive: 1, negative: 1 / 3, maxMarks: 200 },
+    quotaScope: {
+      supported: ['INI'], // §3.6: single counselling pool — no quota selection
+      label: 'Single INI counselling pool',
+    },
+    distribution: {
+      // M2 Phase 1 snapshot anchor — the SAME session the crowd prior's
+      // runtime points were compiled for (2025-07), so prior↔official stay
+      // session-coherent.
+      dir: 'distribution/ini-cet-2025-07/v1',
+      snapshotId: 'DS-INICET-DISTRIBUTION-202507-v1',
+      session: '2025-07',
+      examYear: 2025,
+    },
+    counselling: [
+      // Final-state closing ranks per session (M2 Phase 1; complete round
+      // sets only). Sessions are the counselling "years" for INI-CET — the
+      // shared matcher tags them YYYYMM so Jan/Jul stay distinct.
+      { session: '2023-01', snapshotId: 'DS-INICET-COUNSELLING-202301-v1', examYear: 2023 },
+      { session: '2024-01', snapshotId: 'DS-INICET-COUNSELLING-202401-v1', examYear: 2024 },
+      { session: '2024-07', snapshotId: 'DS-INICET-COUNSELLING-202407-v1', examYear: 2024 },
+      { session: '2025-01', snapshotId: 'DS-INICET-COUNSELLING-202501-v1', examYear: 2025 },
+      { session: '2025-07', snapshotId: 'DS-INICET-COUNSELLING-202507-v1', examYear: 2025 },
+    ],
+    prior: {
+      id: 'PR-INICET-HAZRA-CORRECTS-AIR-v1',
+      file: 'priors/inicet/v1/hazra-corrects-air.json',
+    },
   },
 };
 

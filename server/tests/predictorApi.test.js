@@ -173,14 +173,14 @@ describe('predictor API — auth and metadata', () => {
     expect((await request(app).get('/api/predictor/predictions')).status).toBe(401);
   });
 
-  it('lists exams with explicit availability (INI-CET disabled until M2)', async () => {
+  it('lists exams with explicit availability (both live since the M2 UI step)', async () => {
     const cookie = await login();
     const res = await request(app).get('/api/predictor/exams').set('Cookie', cookie);
     expect(res.status).toBe(200);
     const neet = res.body.exams.find((e) => e.id === 'NEET_PG');
     const ini = res.body.exams.find((e) => e.id === 'INI_CET');
     expect(neet.available).toBe(true);
-    expect(ini.available).toBe(false);
+    expect(ini.available).toBe(true); // INI-CET live (M2: Phases 1+5+6+UI)
   });
 });
 
@@ -223,21 +223,21 @@ describe('predictor API — POST /predict (persist before serve)', () => {
     expect(res.body.field).toBe('gts[0].attempts[0].corrects');
   });
 
-  it('rejects INI-CET (M2) and non-AIQ quotas with typed errors', async () => {
+  it('rejects wrong-exam quotas with typed errors', async () => {
     const cookie = await login();
-    const ini = await request(app)
-      .post('/api/predictor/predict')
-      .set('Cookie', cookie)
-      .send({ exam: 'INI_CET', gts: [manualGt(100)] });
-    expect(ini.status).toBe(400);
-    expect(ini.body.code).toBe('EXAM_NOT_AVAILABLE');
-
     const quota = await request(app)
       .post('/api/predictor/predict')
       .set('Cookie', cookie)
       .send({ exam: 'NEET_PG', gts: [manualGt(100)], quota: 'DU' });
     expect(quota.status).toBe(400);
     expect(quota.body.field).toBe('quota');
+    // INI-CET is a single counselling pool: AIQ is not a valid quota there
+    const iniQuota = await request(app)
+      .post('/api/predictor/predict')
+      .set('Cookie', cookie)
+      .send({ exam: 'INI_CET', gts: [manualGt(130)], quota: 'AIQ' });
+    expect(iniQuota.status).toBe(400);
+    expect(iniQuota.body.field).toBe('quota');
   });
 
   it('accepts the site’s own origins behind rewriting proxies (dev + prod shapes)', async () => {
@@ -350,7 +350,92 @@ describe('predictor API — history and retrieval (§18 Phase 9)', () => {
   });
 });
 
-describe('predictor API — outcome capture (§18 Phase 10a)', () => {
+describe('predictor API — INI-CET predictions (M2: live end-to-end)', () => {
+  it('serves a persisted INI-CET prediction with full §9 metadata and session-tagged branches', async () => {
+    const cookie = await login();
+    const res = await request(app)
+      .post('/api/predictor/predict')
+      .set('Cookie', cookie)
+      .send({ exam: 'INI_CET', gts: [manualGt(130), manualGt(140)], category: 'UR' });
+    expect(res.status).toBe(201);
+    expect(res.body.persisted).toBe(true);
+    expect(res.body.predictionId).toBeTruthy();
+
+    const p = res.body.prediction;
+    expect(p.method.version).toBe('inicet-branch-p6.v1');
+    expect(p.method.stage).toBe('BRANCHES');
+    expect(p.method.datasetSnapshots.distribution).toBe('DS-INICET-DISTRIBUTION-202507-v1');
+    expect(p.method.datasetSnapshots.counselling).toContain('DS-INICET-COUNSELLING-202507-v1');
+    expect(p.input.quota).toBe('INI');
+    expect(p.estimate.transfer.mode).toBe('TIER_3_CROWD_PRIOR_PRIMARY');
+    expect(p.estimate.warnings.map((w) => w.code)).toContain('CROWD_SOURCED_PRIOR');
+    expect(p.rank.session).toBe('2025-07');
+    expect(p.rank.rankRange[0]).toBeLessThan(p.rank.rankRange[1]);
+    expect(p.branches.coverage === 'MATCHED' || p.branches.coverage === 'PARTIAL').toBe(true);
+    expect(p.branches.dataCoverage.years).toEqual([202301, 202401, 202407, 202501, 202507]);
+    for (const y of p.branches.years) {
+      expect(y.counts.total).toBeGreaterThanOrEqual(0);
+      expect(y.rows).toBeUndefined(); // paginated endpoint serves rows
+    }
+  });
+
+  it('flags reserved categories with the UR-only-prior caution (§9)', async () => {
+    const cookie = await login();
+    const res = await request(app)
+      .post('/api/predictor/predict')
+      .set('Cookie', cookie)
+      .send({ exam: 'INI_CET', gts: [manualGt(135)], category: 'OBC' });
+    expect(res.status).toBe(201);
+    const codes = res.body.prediction.estimate.warnings.map((w) => w.code);
+    expect(codes).toContain('PRIOR_UR_ONLY');
+  });
+
+  it('paginates INI-CET branch rows by session year (YYYYMM)', async () => {
+    const cookie = await login();
+    const made = await request(app)
+      .post('/api/predictor/predict')
+      .set('Cookie', cookie)
+      .send({ exam: 'INI_CET', gts: [manualGt(125), manualGt(135)], category: 'UR' });
+    const id = made.body.predictionId;
+
+    const res = await request(app)
+      .get(`/api/predictor/predictions/${id}/branches`)
+      .query({ year: 202507, limit: 10 })
+      .set('Cookie', cookie);
+    expect(res.status).toBe(200);
+    expect(res.body.verified).toBe(true);
+    expect(res.body.rows.length).toBeGreaterThan(0);
+    expect(res.body.rows.length).toBeLessThanOrEqual(10);
+    for (const row of res.body.rows) {
+      expect(row.year).toBe(202507);
+      expect(row.session).toBe('2025-07');
+      expect(row.quota).toBe('INI');
+    }
+    const bad = await request(app)
+      .get(`/api/predictor/predictions/${id}/branches`)
+      .query({ year: 2024 })
+      .set('Cookie', cookie);
+    expect(bad.status).toBe(400); // 2024 is a NEET-PG year, not an INI-CET session tag
+  });
+
+  it('stores and retrieves INI-CET predictions with matching integrity', async () => {
+    const cookie = await login();
+    const made = await request(app)
+      .post('/api/predictor/predict')
+      .set('Cookie', cookie)
+      .send({ exam: 'INI_CET', gts: [manualGt(130)], category: 'SC' });
+    const got = await request(app)
+      .get(`/api/predictor/predictions/${made.body.predictionId}`)
+      .set('Cookie', cookie);
+    expect(got.status).toBe(200);
+    expect(got.body.integrity.matches).toBe(true);
+    expect(got.body.prediction.exam).toBe('INI_CET');
+    expect(got.body.prediction.methodVersion).toBe('inicet-branch-p6.v1');
+  });
+});
+
+
+describe('predictor API — outcome capture (§18 Phases 10a+10b)', () => {
   const OutcomeCapture = require('../models/OutcomeCapture');
 
   async function predictFor(cookie, gts = [manualGt(120), manualGt(130)]) {
@@ -465,16 +550,125 @@ describe('predictor API — outcome capture (§18 Phase 10a)', () => {
     }
   });
 
-  it('rejects Phase 10b counselling fields with an explicit M2 message', async () => {
+  it('accepts the Phase 10b counselling outcome alongside the exam result (§15)', async () => {
+    const cookie = await login();
+    const id = await predictFor(cookie);
+
+    const put = await request(app)
+      .put(`/api/predictor/predictions/${id}/outcome`)
+      .set('Cookie', cookie)
+      .send({
+        consent: true,
+        rank: 42000,
+        counselling: {
+          status: 'allotted',
+          allottedInstitute: 'AIIMS New Delhi',
+          allottedBranch: 'Radiodiagnosis',
+          round: 'R2',
+        },
+      });
+    expect(put.status).toBe(200);
+    expect(put.body.counselling).toEqual({
+      status: 'ALLOTTED', // case-normalized
+      allottedInstitute: 'AIIMS New Delhi',
+      allottedBranch: 'Radiodiagnosis',
+      round: 'R2',
+    });
+    expect(put.body.outcome).toEqual({ score: null, percentile: null, rank: 42000 });
+
+    const got = await request(app).get(`/api/predictor/predictions/${id}/outcome`).set('Cookie', cookie);
+    expect(got.status).toBe(200);
+    expect(got.body.recorded).toBe(true);
+    expect(got.body.outcomeRecord.counselling.status).toBe('ALLOTTED');
+    expect(got.body.outcomeRecord.counselling.allottedBranch).toBe('Radiodiagnosis');
+  });
+
+  it('accepts the flat 10a-era alias keys the old API rejected (§20: rejection becomes acceptance)', async () => {
     const cookie = await login();
     const id = await predictFor(cookie);
     const res = await request(app)
       .put(`/api/predictor/predictions/${id}/outcome`)
       .set('Cookie', cookie)
-      .send({ consent: true, rank: 50000, allottedBranch: 'Radiology' });
-    expect(res.status).toBe(400);
-    expect(res.body.code).toBe('OUTCOME_FIELD_NOT_AVAILABLE');
-    expect(res.body.field).toBe('allottedBranch');
+      .send({ consent: true, counsellingOutcome: 'allotted', allottedBranch: 'Radiology' });
+    expect(res.status).toBe(200);
+    expect(res.body.counselling).toEqual({
+      status: 'ALLOTTED',
+      allottedInstitute: null,
+      allottedBranch: 'Radiology',
+      round: null,
+    });
+  });
+
+  it('accepts a counselling-only outcome (10b values alone satisfy the not-empty rule)', async () => {
+    const cookie = await login();
+    const id = await predictFor(cookie);
+    const res = await request(app)
+      .put(`/api/predictor/predictions/${id}/outcome`)
+      .set('Cookie', cookie)
+      .send({ consent: true, counselling: { status: 'NOT_ALLOTTED' } });
+    expect(res.status).toBe(200);
+    expect(res.body.outcome).toEqual({ score: null, percentile: null, rank: null });
+    expect(res.body.counselling).toEqual({
+      status: 'NOT_ALLOTTED',
+      allottedInstitute: null,
+      allottedBranch: null,
+      round: null,
+    });
+  });
+
+  it('a correction without counselling clears it (replace semantics, one record)', async () => {
+    const cookie = await login();
+    const id = await predictFor(cookie);
+    await request(app)
+      .put(`/api/predictor/predictions/${id}/outcome`)
+      .set('Cookie', cookie)
+      .send({ consent: true, rank: 42000, counselling: { status: 'ALLOTTED', allottedBranch: 'Radiology' } });
+
+    const corrected = await request(app)
+      .put(`/api/predictor/predictions/${id}/outcome`)
+      .set('Cookie', cookie)
+      .send({ consent: true, rank: 41000 });
+    expect(corrected.status).toBe(200);
+    expect(corrected.body.counselling).toBeNull();
+
+    const got = await request(app).get(`/api/predictor/predictions/${id}/outcome`).set('Cookie', cookie);
+    expect(got.body.outcomeRecord.counselling).toBeNull();
+    expect(await OutcomeCapture.countDocuments({ predictionId: id })).toBe(1);
+  });
+
+  it('validates the counselling block with field paths', async () => {
+    const cookie = await login();
+    const id = await predictFor(cookie);
+    const cases = [
+      // unknown status value
+      [{ consent: true, counselling: { status: 'maybe' } }, 'counselling.status'],
+      // allotment strings without a status
+      [{ consent: true, counselling: { allottedBranch: 'Radiology' } }, 'counselling.status'],
+      // "not allotted" contradicted by an allotted branch
+      [{ consent: true, counselling: { status: 'NOT_ALLOTTED', allottedBranch: 'Radiology' } }, 'counselling.status'],
+      // too-short allotment string
+      [{ consent: true, counselling: { status: 'ALLOTTED', allottedInstitute: 'A' } }, 'counselling.allottedInstitute'],
+      // non-string institute
+      [{ consent: true, counselling: { status: 'ALLOTTED', allottedInstitute: 42 } }, 'counselling.allottedInstitute'],
+      // unknown key inside the counselling object
+      [{ consent: true, counselling: { status: 'ALLOTTED', city: 'Delhi' } }, 'counselling.city'],
+      // nested object not an object
+      [{ consent: true, counselling: 'allotted' }, 'counselling'],
+      // same target offered twice with different values (alias + nested)
+      [
+        { consent: true, counselling: { status: 'ALLOTTED' }, counsellingOutcome: 'NOT_ALLOTTED' },
+        'counsellingOutcome',
+      ],
+    ];
+    for (const [body, field] of cases) {
+      const res = await request(app)
+        .put(`/api/predictor/predictions/${id}/outcome`)
+        .set('Cookie', cookie)
+        .send(body);
+      expect(res.status).toBe(400);
+      expect(['OUTCOME_INVALID', 'OUTCOME_UNKNOWN_FIELD']).toContain(res.body.code);
+      expect(res.body.field).toBe(field);
+    }
   });
 
   it('rejects unknown fields (minimum-required storage, §15)', async () => {

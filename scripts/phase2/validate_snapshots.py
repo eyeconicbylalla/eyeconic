@@ -95,6 +95,93 @@ def main():
           and row["institute_raw"].startswith("PGIMER, DR. RML Hospital"),
           "counselling 2025: rank-1 row matches official MCC R1 anchor")
 
+    # --- INI-CET (M2 Phase 1): distributions + counselling snapshots --------
+    gi = gold["inicet"]
+    for sess in gi["distributions"]["sessions"]:
+        dist_i = json.loads(
+            (PD / f"distribution/ini-cet-{sess}/v1/rank-percentile.json").read_text(encoding="utf-8"))
+        yy, mm = sess.split("-")
+        check(dist_i["snapshot_id"] == f"DS-INICET-DISTRIBUTION-{yy}{mm}-v1",
+              f"inicet dist {sess}: snapshot id")
+        v = dist_i["validation"]
+        check(v["rows"] == len(dist_i["rows"]), f"inicet dist {sess}: rows field matches array")
+        check(v["first_rank"] == 1 and dist_i["rows"][0][0] == 1,
+              f"inicet dist {sess}: starts at rank 1")
+        check(v["unique_ranks"] and v["percentile_nonincreasing"],
+              f"inicet dist {sess}: unique ranks, non-increasing percentile")
+        check(v["rows"] + v["rank_gaps"] == v["max_rank"],
+              f"inicet dist {sess}: rows + gaps == max_rank (contiguous rank space)")
+        check(dist_i["provenance"].get("sha256"), f"inicet dist {sess}: provenance sha256")
+    gd = gi["distributions"]
+    d75 = json.loads((PD / "distribution/ini-cet-2025-07/v1/rank-percentile.json").read_text(encoding="utf-8"))
+    check(d75["validation"]["rows"] == gd["s2025_07"]["rows"]
+          and d75["validation"]["max_rank"] == gd["s2025_07"]["max_rank"]
+          and d75["validation"]["rank_gaps"] == gd["s2025_07"]["rank_gaps"]
+          and abs(d75["validation"]["min_percentile"] - gd["s2025_07"]["min_pct"]) < 1e-9
+          and d75["rows"][0][1] == 100_000_000,
+          "inicet dist 2025-07: golden counts + rank-1 percentile 100.0")
+    d17 = json.loads((PD / "distribution/ini-cet-2021-07/v1/rank-percentile.json").read_text(encoding="utf-8"))
+    check(d17["validation"]["rows"] == gd["s2021_07"]["rows"]
+          and d17["validation"]["max_rank"] == gd["s2021_07"]["max_rank"],
+          "inicet dist 2021-07: golden counts (old-portal source)")
+
+    for sess, gg in (("2025-07", gi["counselling_2025_07"]), ("2023-01", gi["counselling_2023_01"])):
+        cs = json.loads((PD / f"counselling/ini-cet-{sess}/v1/closing-ranks.json").read_text(encoding="utf-8"))
+        yy, mm = sess.split("-")
+        check(cs["snapshot_id"] == f"DS-INICET-COUNSELLING-{yy}{mm}-v1", f"inicet couns {sess}: snapshot id")
+        check(len(cs["rows"]) == gg["groups"], f"inicet couns {sess}: groups {gg['groups']}")
+        check(len(cs["institutes"]) == gg["institutes"] and len(cs["courses"]) == gg["specialties"],
+              f"inicet couns {sess}: institutes/specialties counts")
+        check(cs["quota_enum"] == ["INI"], f"inicet couns {sess}: single counselling pool")
+        check(set(cs["category_enum"]) == {"UR", "EWS", "OBC", "SC", "ST"},
+              f"inicet couns {sess}: category enum canonical")
+        check(all(len(r) == 8 for r in cs["rows"]), f"inicet couns {sess}: row width 8")
+        check(all(0 <= r[0] < len(cs["institutes"]) and 0 <= r[1] < len(cs["courses"]) for r in cs["rows"]),
+              f"inicet couns {sess}: indices in range")
+        check(all(r[5] >= r[6] and r[7] >= 1 for r in cs["rows"]),
+              f"inicet couns {sess}: closing>=opening, count>=1")
+
+    c75 = json.loads((PD / "counselling/ini-cet-2025-07/v1/closing-ranks.json").read_text(encoding="utf-8"))
+    check(c75["load_stats"]["seats_by_pool"]["GENERAL"] == gi["counselling_2025_07"]["general_pool"],
+          "inicet couns 2025-07: general-pool seat count")
+    anchors = gi["anchors_2025_07"]
+
+    def find_group(cs, inst, spec, cat):
+        for r in cs["rows"]:
+            if cs["institutes"][r[0]] == inst and cs["courses"][r[1]] == spec \
+                    and cs["category_enum"][r[3]] == cat and r[4] == 0:
+                return r
+        return None
+
+    r1 = find_group(c75, "AIIMS NEW DELHI", "GENERAL MEDICINE", "UR")
+    check(r1 is not None and r1[5] == anchors["genmed_aiimsnd_ur"]["closing"]
+          and r1[6] == anchors["genmed_aiimsnd_ur"]["opening"] and r1[7] == anchors["genmed_aiimsnd_ur"]["count"],
+          "inicet couns 2025-07: AIIMS ND GenMed UR anchor (closing 4 / opening 2 / 3 seats — PDF ranks 2-4)")
+    r2 = find_group(c75, "AIIMS NEW DELHI", "RADIODIAGNOSIS", "UR")
+    check(r2 is not None and r2[5] == anchors["radiodiagnosis_aiimsnd_ur"]["closing"],
+          "inicet couns 2025-07: AIIMS ND Radiodiagnosis UR anchor (closing 7)")
+    r3 = find_group(c75, "NIMHANS BENGALURU", "NEUROLOGY [DIRECT 6-YEAR]", "UR")
+    check(r3 is not None and r3[5] == anchors["neurology6_nimhans_ur"]["closing"],
+          "inicet couns 2025-07: NIMHANS DM-Neurology-6yr UR anchor (closing 107; overall rank 1 held this seat)")
+
+    # --- INI-CET crowd prior (Phase 5 weak-step bridge) ----------------------
+    gp = gold.get("inicet_prior")
+    if gp:
+        prior = json.loads((PD / "priors/inicet/v1/hazra-corrects-air.json").read_text(encoding="utf-8"))
+        pts = sorted(prior["runtime_points"], key=lambda p: -p["corrects"])
+        check(prior["snapshot_id"] == gp["prior_id"], "inicet prior: snapshot id")
+        check(prior["source"]["type"] == "crowd-sourced" and prior["source"]["ur_only"] is gp["ur_only"],
+              "inicet prior: crowd-sourced + UR-only provenance")
+        check(len(pts) == gp["points"] and all(pts[i]["air"] < pts[i + 1]["air"] for i in range(len(pts) - 1)),
+              "inicet prior: 7 monotone ladder points")
+        check([pts[-1]["corrects"], pts[0]["corrects"]] == gp["corrects_span"]
+              and [pts[0]["air"], pts[-1]["air"]] == gp["air_span"],
+              "inicet prior: spans pinned")
+        a = gp["anchors"]
+        by_c = {p["corrects"]: p["air"] for p in pts}
+        check(by_c[140] == a["corrects_140"] and by_c[120] == a["corrects_120"],
+              "inicet prior: ladder anchors (140c->1000, 120c->10000)")
+
     print()
     if failures:
         print(f"{len(failures)} FAILURES")

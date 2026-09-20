@@ -20,3 +20,5 @@ pnpm-debug.log*
 .claude/
 # Rank predictor raw data (never commit — re-downloadable)
 data/
+
+docs/

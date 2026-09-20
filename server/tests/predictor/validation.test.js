@@ -45,16 +45,11 @@ describe('predictor validation — exam selection', () => {
     expectInvalid(() => validateRequest({ gts: [manualGt(100)] }), 'exam');
   });
 
-  it('rejects INI-CET as not-yet-available (M2) with the dedicated error code', () => {
-    let err = null;
-    try {
-      validateRequest({ exam: 'INI_CET', gts: [manualGt(100)] });
-    } catch (e) {
-      err = e;
-    }
-    expect(err).toBeInstanceOf(PredictorError);
-    expect(err.code).toBe(CODES.EXAM_NOT_AVAILABLE);
-    expect(err.details.milestone).toBe('M2');
+  it('accepts INI-CET (live since M2) with the single INI pool quota', () => {
+    const v = validateRequest({ exam: 'INI_CET', gts: [manualGt(100)] });
+    expect(v.exam.id).toBe('INI_CET');
+    expect(v.quota).toBe('INI');
+    expect(v.quotaDefaulted).toBe(true); // §3.6: single pool, no quota selection
   });
 });
 

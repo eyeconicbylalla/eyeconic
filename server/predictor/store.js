@@ -86,6 +86,28 @@ function loadNeetPgCounselling(examYear) {
   return loadSnapshot(`counselling/neet-pg-${examYear}/v1/closing-ranks.json`);
 }
 
+/**
+ * INI-CET snapshots (M2 Phase 1 data foundation — official AIIMS sources;
+ * sessions are 'YYYY-MM'). Consumed by the Phase 5 INI-CET strategy; exposed
+ * on the same hash-verified loader so no later code invents its own path.
+ * @param {string} session e.g. '2025-07' ('YYYY-MM')
+ */
+function loadIniCetDistribution(session) {
+  return loadSnapshot(`distribution/ini-cet-${session}/v1/rank-percentile.json`);
+}
+
+function loadIniCetCounselling(session) {
+  return loadSnapshot(`counselling/ini-cet-${session}/v1/closing-ranks.json`);
+}
+
+/**
+ * INI-CET crowd prior (corrects→AIR ladder, UR-only — the §9 weak-step
+ * bridge; hash-verified like every other store file).
+ */
+function loadIniCetPrior() {
+  return loadSnapshot('priors/inicet/v1/hazra-corrects-air.json');
+}
+
 /** Test hook: drop cached parses (hash failures stay rare-path only). */
 function resetCache() {
   cache.clear();
@@ -96,5 +118,8 @@ module.exports = {
   loadSnapshot,
   loadNeetPgDistribution,
   loadNeetPgCounselling,
+  loadIniCetDistribution,
+  loadIniCetCounselling,
+  loadIniCetPrior,
   resetCache,
 };

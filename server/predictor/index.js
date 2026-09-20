@@ -43,6 +43,9 @@ function createPredictorEngine(deps = {}) {
     loadDistribution: snapshotStore.loadNeetPgDistribution,
     loadCounselling: snapshotStore.loadNeetPgCounselling,
     cohortProvider: deps.cohortProvider || null,
+    loadIniCetDistribution: snapshotStore.loadIniCetDistribution,
+    loadIniCetPrior: snapshotStore.loadIniCetPrior,
+    loadIniCetCounselling: snapshotStore.loadIniCetCounselling,
   });
 
   /** Exam list for UI selectors (spec §13) — availability is explicit. */
@@ -99,7 +102,9 @@ function createPredictorEngine(deps = {}) {
       exam: validated.exam.id,
       examLabel: validated.exam.label,
       method: {
-        version: METHOD_VERSION,
+        // per-exam method version (INI-CET Phase 5 carries its own; NEET PG
+        // unchanged) — recorded with every prediction for reproducibility
+        version: strategy.methodVersion || METHOD_VERSION,
         stage: validated.category ? 'BRANCHES' : 'RANK_RANGE', // P6 output when category present
         assumptions: ['no-skip', 'full-length-standard-pattern', 'difficulty-parity'],
         aggregation: {

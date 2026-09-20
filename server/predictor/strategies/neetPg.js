@@ -1,6 +1,6 @@
 'use strict';
 
-const { EXAMS } = require('../config');
+const { EXAMS, METHOD_VERSION } = require('../config');
 const { validateRequest, validateForBranches } = require('../validation');
 const { aggregate } = require('../aggregation');
 const { buildEstimate } = require('../transfer');
@@ -46,6 +46,7 @@ function createNeetPgStrategy({ loadDistribution, loadCounselling, cohortProvide
     label: 'NEET PG',
     available: true,
     milestone: 'M1',
+    methodVersion: METHOD_VERSION,
 
     /** §3.5–§3.6 input validation. Throws PredictorError on any violation. */
     validate(request) {

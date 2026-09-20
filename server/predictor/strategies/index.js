@@ -9,14 +9,28 @@ const { createIniCetStrategy } = require('./iniCet');
  * interface; §19.9: NEET PG and INI-CET strategies stay separate).
  *
  * @param {object} deps
- *   loadDistribution:  () => {snapshotId, data}          — verified snapshot loader
- *   loadCounselling:   (examYear) => {snapshotId, data}  — verified snapshot loader
- *   cohortProvider:    optional (gtId) => null | {size, corrects[]}
+ *   loadDistribution:   () => {snapshotId, data}          — verified snapshot loader (NEET PG)
+ *   loadCounselling:    (examYear) => {snapshotId, data}  — verified snapshot loader (NEET PG)
+ *   cohortProvider:     optional (gtId) => null | {size, corrects[]}
+ *   loadIniCetDistribution: (session) => {snapshotId, data} — INI-CET official distribution
+ *   loadIniCetPrior:    () => {snapshotId, data}          — INI-CET crowd prior (ladder)
+ *   loadIniCetCounselling: (session) => {snapshotId, data} — INI-CET final-state cutoffs
  */
-function buildStrategies({ loadDistribution, loadCounselling, cohortProvider }) {
+function buildStrategies({
+  loadDistribution,
+  loadCounselling,
+  cohortProvider,
+  loadIniCetDistribution,
+  loadIniCetPrior,
+  loadIniCetCounselling,
+}) {
   return {
     [EXAMS.NEET_PG.id]: createNeetPgStrategy({ loadDistribution, loadCounselling, cohortProvider }),
-    [EXAMS.INI_CET.id]: createIniCetStrategy(),
+    [EXAMS.INI_CET.id]: createIniCetStrategy({
+      loadDistribution: loadIniCetDistribution,
+      loadPrior: loadIniCetPrior,
+      loadCounselling: loadIniCetCounselling,
+    }),
   };
 }
 

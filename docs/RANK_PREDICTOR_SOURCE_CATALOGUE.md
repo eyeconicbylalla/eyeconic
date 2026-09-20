@@ -17,7 +17,7 @@
 | 3 | MCC R2/R3 allotment PDFs (official CDN) | NEET PG 2025 | REACHABLE (HTTP 200); download deferred | M1 ingestion (Phase 2) |
 | 4 | crockzo/neet-pg (mirror) | NEET PG 2025 | **VERIFIED** (66,349 rows, 0 monotonicity violations, row-matched vs official) | M1 |
 | 5 | rahuldathu CSVs (mirror) | NEET PG 2024 | **STRUCTURE-VERIFIED**; row-level check vs 2024 official PDFs pending | M1 ingestion (Phase 2 verify) |
-| 6 | AIIMS INI-CET result + allotment PDFs | INI-CET 2021–2026 | Needs verification | **M2** |
+| 6 | AIIMS INI-CET result + allotment PDFs | INI-CET 2021–2026 | **VERIFIED + INGESTED 2026-09-20** (2021–2025 corpus; 2026 SPA-gated — see §5) | **M2** ✓ Phase 1 |
 | 7 | Sartha.in cutoff tables | NEET PG 2024–25 | Cross-check only | M2 |
 | 8 | Kaggle NEET-PG-2019 dataset | NEET PG 2019 | Needs verification (login-gated) | Not scheduled |
 | 9 | Careers360 / Shiksha / GetMyUni tables | — | Cross-check only; GetMyUni avoid | Not scheduled |
@@ -70,6 +70,16 @@
   - `inference_table.csv` — **bonus: precomputed closing ranks** (`college,course,quota,category,min_rank,cutoff_rank`), 23,426 rows. Useful only as a cross-check — we re-derive cutoffs from raw rounds.
 - **⚠ Not yet row-verified:** these are **2024** rows; verifying them requires the 2024 MCC PDFs (not downloaded — out of Phase 0 timebox). A cross-comparison against the 2025 crockzo data was performed and correctly showed ~no row agreement — expected across years, not an error. **Phase 2 must download the 2024 MCC R1 PDF and row-match a sample before this source enters production.**
 - **Naming hazard confirmed:** course naming diverges even within this repo (`M.D. (GENERAL MEDICINE)` in R1 vs `(NBEMS) ANAESTHESIOLOGY` in inference_table) — validates the canonical-dictionary requirement (spec Phase 2).
+
+## 5. AIIMS INI-CET result + allotment PDFs — INI-CET 2021–2025 (OFFICIAL — M2 Phase 1, 2026-09-20)
+
+- **Hosts:** live document host `docs.aiimsexams.ac.in/sites/<file>` (2023–2025 files, HTTP 200 direct); old portal `www.aiimsexams.ac.in/pdf/...` is dead live but preserved in the **Wayback Machine** (2021/2022 files fetched from archived copies). The portal itself is now a JS SPA whose API endpoints are hash-obfuscated — filename enumeration + CDX is the practical path (`scripts/phase2/inicet_enumerate.py`, index at `data/raw/aiims/index.json`).
+- **Ingested corpus (27 PDFs, sha256 in `data/raw/aiims/PROVENANCE.txt`):**
+  - **Result notifications (6 sessions):** Jul-2021, Jan-2022 (wayback), Jul-2023, Jan-2024, Jan-2025, Jul-2025. Columns: `S.No | Roll | Category | Applied-Under | PWBD | Overall Rank | Percentile`. **No marks — AIIMS has never published INI-CET marks** (spec §9). MD/MS and MDS are **separate rank spaces** (MDS restarts at rank 1).
+  - **Seat-allocation rounds (19 files):** Jan-2023 (1st/2nd/open), Jul-2023 (1st/open — 2nd not found anywhere), Jan-2024, Jul-2024, Jan-2025, Jul-2025 (each 1st/2nd/open), plus Jul-2021 (1st only, wayback) and Jan-2022 (1st/2nd, wayback). Columns: `Roll | Overall Rank | Category | PWBD | Specialty | Institute | Category/Roster-Point of allocated seat`. The files list **all qualified candidates rank-wise**; non-allotted rows carry `FCNA`/`NR-NP`/`NSA`/`Seat Allocation Completed` markers with `NA` columns.
+- **Seat-token grammar (derived from data):** `CAT[-PWBD][-roster][/COURSE-TAG]` (e.g. `UR`, `UR-1`, `EWS-10/OPH`, `UR-PWBD`), plus separate pools: `IP-n` sponsored, `INST-n` institute, `OCS` (open-round non-clinical), domicile/preference earmarks (`UR-Karnataka Domicile`, `UR-AIIMS-Preference`), and Foreign-National rows with no seat token. An OBC candidate can hold a UR seat → **cutoffs key on the seat category** (same decision as NEET PG `allotted_category`).
+- **Verification:** parse = **0 unparsed data lines** across all 19 round files (institute-anchored row parser — column gaps are unreliable under `pdftotext -table`); ranks unique per section; percentile non-increasing; official anchors reproduce (Jul-2025: ranks 2–4 = AIIMS ND Medicine UR; rank 5 = AIIMS ND Radiodiagnosis; rank 1 = NIMHANS DM-Neurology-6yr). Snapshot validator: 58 checks green; goldens pin counts + anchors.
+- **⚠ NOT obtainable today (documented gaps):** **2026 sessions (Jan + Jul)** — the files exist behind the new SPA result pages (e.g. `aiimsexams.ac.in/result/68dbf1add6fe8f55c65468ab`) but their `docs` URLs are not enumerable by pattern/CDX; a one-time manual browser grab (open the result page → copy the PDF link) closes this in minutes. Jul-2023 **2nd round** not found live or archived (session excluded from counselling snapshots — final-state would be wrong without it). Jan-2021 exists only as an 8×-seats eligibility list (not a full result). Spot-round ALLOTMENT lists were never published (only vacancy notices).
 
 ---
 

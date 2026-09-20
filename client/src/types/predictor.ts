@@ -50,6 +50,8 @@ export interface BranchRow {
   openingRank: number;
   allottedCount: number;
   year: number;
+  /** INI-CET only: 'YYYY-MM' counselling session. */
+  session?: string;
   round: string;
   category: string;
   quota: string;
@@ -59,6 +61,8 @@ export interface BranchRow {
 export interface BranchYearSummary {
   snapshotId: string;
   year: number;
+  /** INI-CET only: 'YYYY-MM' counselling session (year is its YYYYMM tag). */
+  session?: string;
   state: string;
   counts: Record<string, number> & { total: number };
   coverage?: string;
@@ -156,6 +160,8 @@ export interface PredictionResult {
     beyondLastRecordedRank: number | null;
     coverage: string;
     examYear: number;
+    /** INI-CET only: the official session this rank range resolved against. */
+    session?: string;
   };
   branches: BranchSummary | CategoryRequiredState;
 }
@@ -178,12 +184,20 @@ export interface BranchesResponse {
   verified: boolean;
 }
 
-// ---- Outcome capture (§18 Phase 10a) -------------------------------------------
+// ---- Outcome capture (§18 Phases 10a+10b) --------------------------------------
 
 export interface OutcomeValues {
   score: number | null;
   percentile: number | null;
   rank: number | null;
+}
+
+/** Counselling outcome (Phase 10b, §15) — null until shared. */
+export interface OutcomeCounselling {
+  status: 'ALLOTTED' | 'NOT_ALLOTTED';
+  allottedInstitute: string | null;
+  allottedBranch: string | null;
+  round: string | null;
 }
 
 export interface OutcomeLinkage {
@@ -199,6 +213,7 @@ export interface OutcomeCaptureRecord {
   exam: string;
   consentGivenAt: string;
   outcome: OutcomeValues;
+  counselling: OutcomeCounselling | null;
   linkage: OutcomeLinkage;
   source: string;
   createdAt: string;
@@ -237,4 +252,11 @@ export interface OutcomeSubmission {
   score?: number | null;
   percentile?: number | null;
   rank?: number | null;
+  /** Phase 10b (§15): counselling outcome + allotted branch, if shared. */
+  counselling?: {
+    status: 'ALLOTTED' | 'NOT_ALLOTTED';
+    allottedInstitute?: string | null;
+    allottedBranch?: string | null;
+    round?: string | null;
+  };
 }

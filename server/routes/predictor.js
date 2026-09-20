@@ -37,10 +37,11 @@ const router = express.Router();
  * version + dataset snapshots and verifies the re-derivation against the
  * stored counts.
  *
- * Phase 10a outcome capture (§15): PUT/GET/DELETE /predictions/:id/outcome —
- * the consent-based post-exam self-report (score / percentile / rank) linked
- * to the stored prediction via a capture-time linkage snapshot. 10b fields
- * (counselling/allotment) are rejected, not stored.
+ * Phase 10 outcome capture (§15, 10a+10b): PUT/GET/DELETE
+ * /predictions/:id/outcome — the consent-based post-exam self-report
+ * (score / percentile / rank + counselling outcome / allotted branch) linked
+ * to the stored prediction via a capture-time linkage snapshot. Assembled
+ * into the evaluation dataset by scripts/phase10b/assemble_evaluation_dataset.js.
  */
 
 // Singleton engine. No cohortProvider: GT-cohort stats for Tier 2 would have
@@ -499,13 +500,14 @@ router.get('/predictions/:id/branches', async (req, res) => {
   });
 });
 
-// ---- Outcome capture (§15, §18 Phase 10a) ------------------------------------
+// ---- Outcome capture (§15, §18 Phases 10a+10b) --------------------------------
 //
 // The consent-based post-exam self-report that starts building the paired
-// GT→outcome dataset. 10a captures actual score / percentile / rank ONLY —
-// counselling/allotment fields are Phase 10b (M2) and are REJECTED here,
-// never silently stored. One outcome per prediction (corrections overwrite
-// via PUT; withdrawal is DELETE — consent-based means withdrawable).
+// GT→outcome dataset. 10a captured actual score / percentile / rank; 10b adds
+// the counselling outcome (allotted status + allotted institute/branch +
+// round). One outcome per prediction (corrections overwrite via PUT — a
+// correction that omits counselling clears it; withdrawal is DELETE —
+// consent-based means withdrawable).
 
 class OutcomeValidationError extends Error {
   constructor(code, msg, field) {
@@ -517,19 +519,128 @@ class OutcomeValidationError extends Error {
 }
 
 const OUTCOME_FIELDS = ['score', 'percentile', 'rank'];
-const OUTCOME_ALLOWED_KEYS = new Set(['consent', ...OUTCOME_FIELDS]);
-// Known-later fields get their own message instead of a generic unknown-key one.
-const OUTCOME_10B_KEYS = [
-  'allottedCollege',
-  'allottedInstitute',
-  'allottedBranch',
-  'allottedCourse',
-  'allottedSpecialty',
-  'counsellingOutcome',
-  'counsellingRound',
-];
+const OUTCOME_ALLOWED_KEYS = new Set(['consent', ...OUTCOME_FIELDS, 'counselling']);
+// Phase 10b flat keys — the exact set 10a rejected with an explicit M2
+// message; per §20 that rejection becomes acceptance, so each alias folds
+// into the canonical `counselling` block instead of being dropped.
+const OUTCOME_COUNSELLING_ALIASES = {
+  counsellingOutcome: 'status',
+  counsellingRound: 'round',
+  allottedInstitute: 'allottedInstitute',
+  allottedCollege: 'allottedInstitute',
+  allottedBranch: 'allottedBranch',
+  allottedCourse: 'allottedBranch',
+  allottedSpecialty: 'allottedBranch',
+};
+const COUNSELLING_KEYS = ['status', 'allottedInstitute', 'allottedBranch', 'round'];
+const COUNSELLING_STATUSES = ['ALLOTTED', 'NOT_ALLOTTED'];
+const COUNSELLING_TEXT_MAX = 120;
+const COUNSELLING_ROUND_MAX = 40;
 const OUTCOME_RANK_SANITY_MAX = 1000000;
 const OUTCOME_PERCENTILE_DECIMALS = 4;
+
+/**
+ * Parse the counselling outcome (Phase 10b, §15) out of the submission body:
+ * the canonical nested `counselling` object plus the flat 10a-era alias keys,
+ * merged into ONE canonical block. Returns null when no counselling value was
+ * submitted. Allotment strings are stored as typed (trimmed) — canonical
+ * matching against the counselling dictionaries happens at evaluation-dataset
+ * assembly, so the raw self-report is never overwritten.
+ */
+function parseCounsellingSubmission(body) {
+  const byTarget = new Map(); // counselling target field → { value, from }
+
+  const offer = (target, value, from) => {
+    if (value === undefined || value === null || value === '') return;
+    if (byTarget.has(target) && byTarget.get(target).value !== value) {
+      throw new OutcomeValidationError(
+        'OUTCOME_INVALID',
+        `'${target}' was submitted twice with different values — submit it once.`,
+        from
+      );
+    }
+    byTarget.set(target, { value, from });
+  };
+
+  if (body.counselling !== undefined && body.counselling !== null) {
+    if (typeof body.counselling !== 'object' || Array.isArray(body.counselling)) {
+      throw new OutcomeValidationError(
+        'OUTCOME_INVALID',
+        'counselling must be an object with status and the allotted details.',
+        'counselling'
+      );
+    }
+    for (const key of Object.keys(body.counselling)) {
+      if (!COUNSELLING_KEYS.includes(key)) {
+        throw new OutcomeValidationError(
+          'OUTCOME_UNKNOWN_FIELD',
+          `Unknown counselling field '${key}'. Submit status, allottedInstitute, allottedBranch and round only.`,
+          `counselling.${key}`
+        );
+      }
+      offer(key, body.counselling[key], `counselling.${key}`);
+    }
+  }
+  for (const [alias, target] of Object.entries(OUTCOME_COUNSELLING_ALIASES)) {
+    if (Object.prototype.hasOwnProperty.call(body, alias)) {
+      offer(target, body[alias], alias);
+    }
+  }
+
+  if (byTarget.size === 0) return null;
+
+  const counselling = { status: null, allottedInstitute: null, allottedBranch: null, round: null };
+
+  if (byTarget.has('status')) {
+    const { value, from } = byTarget.get('status');
+    if (typeof value !== 'string' || !COUNSELLING_STATUSES.includes(value.trim().toUpperCase())) {
+      throw new OutcomeValidationError(
+        'OUTCOME_INVALID',
+        'Counselling outcome must be ALLOTTED or NOT_ALLOTTED.',
+        from
+      );
+    }
+    counselling.status = value.trim().toUpperCase();
+  }
+  for (const field of ['allottedInstitute', 'allottedBranch', 'round']) {
+    if (!byTarget.has(field)) continue;
+    const { value, from } = byTarget.get(field);
+    if (typeof value !== 'string') {
+      throw new OutcomeValidationError('OUTCOME_INVALID', `${field} must be text.`, from);
+    }
+    const trimmed = value.trim();
+    const max = field === 'round' ? COUNSELLING_ROUND_MAX : COUNSELLING_TEXT_MAX;
+    if (trimmed.length < 2 || trimmed.length > max) {
+      throw new OutcomeValidationError(
+        'OUTCOME_INVALID',
+        `${field} must be between 2 and ${max} characters.`,
+        from
+      );
+    }
+    counselling[field] = trimmed;
+  }
+
+  if (!counselling.status) {
+    throw new OutcomeValidationError(
+      'OUTCOME_INVALID',
+      'Enter the counselling outcome — allotted or not allotted.',
+      'counselling.status'
+    );
+  }
+  if (
+    counselling.status === 'NOT_ALLOTTED' &&
+    (counselling.allottedInstitute !== null ||
+      counselling.allottedBranch !== null ||
+      counselling.round !== null)
+  ) {
+    throw new OutcomeValidationError(
+      'OUTCOME_INVALID',
+      'You recorded “not allotted” — leave the allotted institute, branch and round empty.',
+      'counselling.status'
+    );
+  }
+  return counselling;
+}
 
 function validateOutcomeSubmission(body, examId) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
@@ -541,16 +652,10 @@ function validateOutcomeSubmission(body, examId) {
   }
   for (const key of Object.keys(body)) {
     if (OUTCOME_ALLOWED_KEYS.has(key)) continue;
-    if (OUTCOME_10B_KEYS.includes(key)) {
-      throw new OutcomeValidationError(
-        'OUTCOME_FIELD_NOT_AVAILABLE',
-        'Counselling outcome capture lands in milestone M2 (Phase 10b) — for now only actual score, percentile and rank are captured.',
-        key
-      );
-    }
+    if (Object.prototype.hasOwnProperty.call(OUTCOME_COUNSELLING_ALIASES, key)) continue;
     throw new OutcomeValidationError(
       'OUTCOME_UNKNOWN_FIELD',
-      `Unknown field '${key}'. Submit consent, score, percentile and rank only.`,
+      `Unknown field '${key}'. Submit consent, score, percentile, rank and counselling only.`,
       key
     );
   }
@@ -604,14 +709,20 @@ function validateOutcomeSubmission(body, examId) {
       parsed.rank = value;
     }
   }
-  if (parsed.score === null && parsed.percentile === null && parsed.rank === null) {
+  const counselling = parseCounsellingSubmission(body);
+  if (
+    parsed.score === null &&
+    parsed.percentile === null &&
+    parsed.rank === null &&
+    counselling === null
+  ) {
     throw new OutcomeValidationError(
       'OUTCOME_EMPTY',
-      'Enter at least one of actual score, percentile or rank.',
+      'Enter at least one value — actual score, percentile, rank or your counselling outcome.',
       'outcome'
     );
   }
-  return parsed;
+  return { outcome: parsed, counselling };
 }
 
 /** Own prediction or null (cast errors on malformed ids count as not-found). */
@@ -648,9 +759,9 @@ router.put('/predictions/:id/outcome', async (req, res) => {
     return res.status(404).json({ msg: 'Prediction not found.', code: 'NOT_FOUND' });
   }
 
-  let outcome;
+  let parsed;
   try {
-    outcome = validateOutcomeSubmission(req.body, prediction.exam);
+    parsed = validateOutcomeSubmission(req.body, prediction.exam);
   } catch (error) {
     if (error instanceof OutcomeValidationError) {
       return res
@@ -675,7 +786,8 @@ router.put('/predictions/:id/outcome', async (req, res) => {
       userId,
       exam: prediction.exam,
       consentGivenAt: new Date(),
-      outcome,
+      outcome: parsed.outcome,
+      counselling: parsed.counselling,
       linkage,
       source: 'self-reported',
     },
@@ -712,6 +824,7 @@ router.put('/predictions/:id/outcome', async (req, res) => {
     created: doc.createdAt.getTime() === doc.updatedAt.getTime(),
     consentGivenAt: doc.consentGivenAt,
     outcome: doc.outcome,
+    counselling: doc.counselling,
     linkage: doc.linkage,
     source: doc.source,
     createdAt: doc.createdAt,
@@ -776,6 +889,9 @@ router.get('/predictions/:id/outcome', async (req, res) => {
       exam: captured.exam,
       consentGivenAt: captured.consentGivenAt,
       outcome: captured.outcome,
+      // Pre-10b captures (lean reads carry no defaults) have no counselling
+      // field at all — normalize to null so the shape stays uniform.
+      counselling: captured.counselling || null,
       linkage: captured.linkage,
       source: captured.source,
       createdAt: captured.createdAt,

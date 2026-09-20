@@ -33,7 +33,7 @@ describe('strategy registry', () => {
     });
     expect(Object.keys(registry).sort()).toEqual(['INI_CET', 'NEET_PG']);
     expect(registry.NEET_PG.available).toBe(true);
-    expect(registry.INI_CET.available).toBe(false);
+    expect(registry.INI_CET.available).toBe(true); // live since the M2 UI step
   });
 });
 
@@ -94,24 +94,52 @@ describe('all interface steps live through Phase 6', () => {
   });
 });
 
-describe('INI-CET scaffold (Phase 5 / M2)', () => {
+describe('INI-CET strategy (implemented in Phases 5+6 / M2)', () => {
   const iniCet = createIniCetStrategy();
 
-  it('is registered but unavailable', () => {
-    expect(iniCet.available).toBe(false);
+  it('is registered and LIVE since the M2 UI step', () => {
+    expect(iniCet.available).toBe(true);
     expect(iniCet.milestone).toBe('M2');
   });
 
-  it('every step throws — nothing half-built is servable', () => {
-    for (const step of ['validate', 'aggregate', 'estimatePercentileRange', 'resolveRankRange', 'resolveBranches']) {
+  it('validate accepts INI-CET requests through the shared §3.5 rules', () => {
+    const v = iniCet.validate({ exam: 'INI_CET', gts: [manual(130)] });
+    expect(v.exam.id).toBe('INI_CET');
+    expect(v.quota).toBe('INI'); // single pool, §3.6
+    expect(() => iniCet.validate({ exam: 'INI_CET', gts: [manual(250)] })).toThrow(PredictorError);
+  });
+
+  it('data-dependent steps refuse loudly without wired loaders (nothing half-built is servable)', () => {
+    // minimal valid-shaped args so the missing-loader guard is what fires
+    const calls = {
+      estimatePercentileRange: { validated: { exam: { pattern: {} }, category: null }, aggregation: { perGt: [] } },
+      resolveRankRange: { estimate: { internal: {}, percentile: { range: [50, 60] } } },
+    };
+    for (const step of Object.keys(calls)) {
       let err = null;
       try {
-        iniCet[step]();
+        iniCet[step](calls[step]);
       } catch (e) {
         err = e;
       }
       expect(err).toBeInstanceOf(PredictorError);
-      expect([CODES.EXAM_NOT_AVAILABLE, CODES.STEP_NOT_IMPLEMENTED]).toContain(err.code);
+      expect(err.code).toBe(CODES.STEP_NOT_IMPLEMENTED);
     }
+  });
+
+  it('branches are implemented (Phase 6 M2) — no step refuses except the loaders', () => {
+    // resolveBranches is live; without a wired counselling loader it still
+    // refuses loudly (nothing half-built is servable)
+    let err = null;
+    try {
+      iniCet.resolveBranches({
+        validated: { exam: { pattern: {} }, category: { value: 'UR', pwd: false }, quota: 'INI', gts: [] },
+        rank: { bestRank: 500, worstRank: 900 },
+      });
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(PredictorError);
+    expect(err.code).toBe(CODES.STEP_NOT_IMPLEMENTED);
   });
 });

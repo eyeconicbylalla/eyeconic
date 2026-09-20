@@ -7,7 +7,7 @@ import { errorField, errorRowIndices, predictorEndpoints, predictorErrorMessage 
 import { useAppAuth } from '../context/AppAuthContext';
 import type {
   BranchBand, BranchesResponse, BranchRow, GtsResponse, GtAttemptInput, OutcomeRecordResponse,
-  OutcomeSubmission, PredictionResult, PredictorExam,
+  OutcomeSubmission, PredictionResult, PredictorExam, PredictorExamId,
 } from '../types/predictor';
 
 /**
@@ -54,7 +54,23 @@ const RANK_COVERAGE_TEXT: Record<string, string> = {
   'above-distribution': 'Above every recorded score in the official result data.',
   'partial-bottom': 'Lower end goes beyond the recorded result data.',
   'below-distribution': 'Below every recorded score in the official result data.',
+  // INI-CET (crowd-prior ladder spans ~110–160 corrects)
+  'above-prior': 'Upper end is beyond the crowd prior’s top — rank 1 territory.',
+  'below-prior': 'Lower end is beyond the crowd prior’s range (≈ below 110 corrects).',
+  'spans-prior': 'Range spans the crowd prior’s entire coverage.',
 };
+
+/** INI-CET session helpers: counselling blocks are tagged YYYYMM. */
+const sessionLabel = (tag: number): string => {
+  const s = String(tag);
+  const month = s.slice(4, 6) === '01' ? 'Jan' : 'Jul';
+  return `${month} ${s.slice(0, 4)}`;
+};
+
+const isSessionTag = (year: number): boolean => year > 200000;
+
+const yearFilterLabel = (year: number): string =>
+  isSessionTag(year) ? sessionLabel(year) : String(year);
 
 interface GtRow {
   key: number;
@@ -109,6 +125,7 @@ const Predictor: React.FC = () => {
   const [exams, setExams] = useState<PredictorExam[]>([
     { id: 'NEET_PG', label: 'NEET PG', available: true, milestone: 'M1', patternVersion: '800-scale (+4/-1)' },
   ]);
+  const [examId, setExamId] = useState<PredictorExamId>('NEET_PG');
   const [rows, setRows] = useState<GtRow[]>([{ key: nextKey(), value: '', origin: 'manual', edited: false }]);
   const [suggestions, setSuggestions] = useState<number[]>([]);
   const [category, setCategory] = useState('');
@@ -238,7 +255,7 @@ const Predictor: React.FC = () => {
           attempts: [{ corrects: Number(row.value), status: 'completed' }],
         };
       });
-      const body: Record<string, unknown> = { exam: 'NEET_PG', gts };
+      const body: Record<string, unknown> = { exam: examId, gts };
       if (category) {
         body.category = category;
         body.pwd = pwd;
@@ -332,11 +349,12 @@ const Predictor: React.FC = () => {
           </h2>
           <p className="text-[#94A3B8] text-sm mt-2">
             {user?.name?.split(' ')[0] || 'There'}, see where your Grand Test performance could
-            land you in NEET PG — as an honest range, not a promise.
+            land you in {examId === 'INI_CET' ? 'INI-CET' : 'NEET PG'} — as an honest range, not a
+            promise.
           </p>
         </div>
 
-        {/* --- exam selector (§13) --- */}
+        {/* --- exam selector (§13: functional, extensible) --- */}
         <div className="bg-[#18222E] border border-white/[0.06] rounded-2xl p-6 mb-6">
           <h3 className="font-semibold text-[#F8FAFC] mb-3">Exam</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -345,18 +363,28 @@ const Predictor: React.FC = () => {
                 key={exam.id}
                 type="button"
                 disabled={!exam.available}
+                onClick={() => setExamId(exam.id)}
+                aria-pressed={examId === exam.id}
                 className={`text-left rounded-xl border p-4 transition ${
-                  exam.available
+                  !exam.available
+                    ? 'border-white/[0.06] bg-[#151E29] opacity-60 cursor-not-allowed'
+                    : examId === exam.id
                     ? 'border-[#18B6A4]/60 bg-[#18B6A4]/10'
-                    : 'border-white/[0.06] bg-[#151E29] opacity-60 cursor-not-allowed'
+                    : 'border-white/[0.08] bg-[#151E29] hover:border-[#18B6A4]/40'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-[#F8FAFC]">{exam.label}</span>
                   {exam.available ? (
-                    <span className="text-[10px] uppercase tracking-wide text-[#4DD7C8] border border-[#18B6A4]/40 rounded-full px-2 py-0.5">
-                      Selected
-                    </span>
+                    examId === exam.id ? (
+                      <span className="text-[10px] uppercase tracking-wide text-[#4DD7C8] border border-[#18B6A4]/40 rounded-full px-2 py-0.5">
+                        Selected
+                      </span>
+                    ) : (
+                      <span className="text-[10px] uppercase tracking-wide text-[#64748B] border border-white/10 rounded-full px-2 py-0.5">
+                        Tap to select
+                      </span>
+                    )
                   ) : (
                     <span className="text-[10px] uppercase tracking-wide text-[#94A3B8] border border-white/10 rounded-full px-2 py-0.5">
                       Coming soon · {exam.milestone}
@@ -369,6 +397,14 @@ const Predictor: React.FC = () => {
               </button>
             ))}
           </div>
+          {examId === 'INI_CET' ? (
+            <p className="mt-3 flex items-start gap-2 text-xs text-[#94A3B8] bg-[#151E29] border border-white/[0.06] rounded-xl p-3">
+              <Info size={14} className="mt-0.5 shrink-0 text-[#4DD7C8]" />
+              AIIMS never publishes INI-CET marks. Your corrects are mapped through a crowd-sourced
+              estimate for the percentile step; the percentile→rank and branch steps are exact
+              official AIIMS data.
+            </p>
+          ) : null}
         </div>
 
         {/* --- GT input (§13: dynamic list, auto-fill, provenance) --- */}
@@ -513,7 +549,9 @@ const Predictor: React.FC = () => {
               </label>
             ) : null}
             <span className="text-[10px] uppercase tracking-wide text-[#94A3B8] border border-white/10 rounded-full px-2.5 py-1">
-              Quota: All India Quota
+              {examId === 'INI_CET'
+                ? 'Single counselling pool (all INIs)'
+                : 'Quota: All India Quota'}
             </span>
           </div>
         </div>
@@ -583,7 +621,14 @@ const ResultView: React.FC<{
   branchState,
 }) => {
   const { estimate, rank, aggregation, method } = result;
+  const isIniCet = result.exam === 'INI_CET';
   const skippedWarning = estimate.warnings.find((w) => w.code === 'NO_SKIP_ASSUMPTION_WEAKENED');
+  // §13/§14: every remaining warning renders inline (INI-CET's crowd-prior
+  // + UR-only cautions, provisional widths, mixed tiers…); LOW_GT_COUNT has
+  // its own dedicated banner.
+  const inlineWarnings = estimate.warnings.filter(
+    (w) => w.code !== 'NO_SKIP_ASSUMPTION_WEAKENED' && w.code !== 'LOW_GT_COUNT'
+  );
 
   return (
     <section className="py-10 md:py-14 bg-[#0A0F14] min-h-screen">
@@ -611,7 +656,10 @@ const ResultView: React.FC<{
           </div>
           <div className="bg-[#18222E] border border-white/[0.06] rounded-2xl p-6">
             <div className="text-[#94A3B8] text-xs uppercase tracking-wide mb-2">
-              Predicted AIR range · NEET PG {rank.examYear}
+              Predicted AIR range ·{' '}
+              {isIniCet
+                ? `INI-CET ${rank.session ? sessionLabel(Number(rank.session.replace('-', ''))) : rank.examYear} session`
+                : `NEET PG ${rank.examYear}`}
             </div>
             <div className="text-2xl md:text-3xl font-bold text-[#F8FAFC]">
               {fmtRank(rank.bestRank, rank.beyondLastRecordedRank)} –{' '}
@@ -639,7 +687,11 @@ const ResultView: React.FC<{
           <span>
             GT spread (SD): {estimate.performance.dispersion.sdCorrects}
           </span>
-          <span>Transfer: Tier 1 (fraction-correct parity)</span>
+          <span>
+            Transfer: {isIniCet
+              ? 'crowd-sourced prior (no official INI-CET marks)'
+              : 'Tier 1 (fraction-correct parity)'}
+          </span>
           {aggregation.lowDataCaution ? (
             <span className="inline-flex items-center gap-1.5">
               <Sparkles size={12} /> {LOW_GT_NOTE}
@@ -652,6 +704,16 @@ const ResultView: React.FC<{
             <AlertTriangle size={14} className="mt-0.5 shrink-0" /> {skippedWarning.note}
           </p>
         ) : null}
+
+        {/* inline warnings (§13/§14): INI-CET crowd-prior + UR-only cautions etc. */}
+        {inlineWarnings.map((w) => (
+          <p
+            key={w.code}
+            className="mb-3 flex items-start gap-2 text-xs text-[#CBD5E1] bg-[#151E29] border border-white/[0.08] rounded-xl p-3"
+          >
+            <Info size={14} className="mt-0.5 shrink-0 text-[#4DD7C8]" /> {w.note}
+          </p>
+        ))}
 
         {/* --- aggregation summary with provenance (§13) --- */}
         <div className="bg-[#18222E] border border-white/[0.06] rounded-2xl p-6 mb-4">
@@ -683,13 +745,17 @@ const ResultView: React.FC<{
         {/* --- data coverage chips next to the numbers (§13 general rules) --- */}
         <div className="flex flex-wrap gap-2 mb-6">
           <span className="text-[10px] uppercase tracking-wide text-[#94A3B8] border border-white/10 rounded-full px-2.5 py-1">
-            Rank mapping: official NEET PG {rank.examYear} results
+            {isIniCet
+              ? `Rank mapping: official AIIMS ${rank.session ? sessionLabel(Number(rank.session.replace('-', ''))) : rank.examYear} results`
+              : `Rank mapping: official NEET PG ${rank.examYear} results`}
           </span>
           <span className="text-[10px] uppercase tracking-wide text-[#94A3B8] border border-white/10 rounded-full px-2.5 py-1">
-            Branches: MCC counselling {method.datasetSnapshots.counselling
-              .map((c) => c.match(/-(\d{4})-/)?.[1])
-              .filter(Boolean)
-              .join(' & ')}
+            {isIniCet
+              ? `Branches: AIIMS counselling ${branchState.summary ? `${branchState.summary.dataCoverage.years.length} sessions (${yearFilterLabel(branchState.summary.dataCoverage.years[0])} – ${yearFilterLabel(branchState.summary.dataCoverage.years[branchState.summary.dataCoverage.years.length - 1])})` : ''}`
+              : `Branches: MCC counselling ${method.datasetSnapshots.counselling
+                  .map((c) => c.match(/-(\d{4})-/)?.[1])
+                  .filter(Boolean)
+                  .join(' & ')}`}
           </span>
         </div>
 
@@ -755,8 +821,11 @@ const BranchSection: React.FC<{ state: BranchState }> = ({ state }) => {
           </h3>
           <p className="text-xs text-[#94A3B8] mt-1">
             {summary.category.value}
-            {summary.category.pwd ? ' · PwD' : ''} · {summary.quota} quota · final-state closing
-            ranks ({years.join(' & ')})
+            {summary.category.pwd ? ' · PwD' : ''} ·{' '}
+            {summary.quota === 'INI'
+              ? 'single INI counselling pool'
+              : `${summary.quota} quota`}{' '}
+            · final-state closing ranks ({years.map(yearFilterLabel).join(' · ')})
           </p>
         </div>
       </div>
@@ -805,10 +874,10 @@ const BranchSection: React.FC<{ state: BranchState }> = ({ state }) => {
           aria-label="Counselling year"
           className="bg-[#151E29] border border-white/[0.1] rounded-full px-3 py-1.5 text-xs text-[#CBD5E1] outline-none"
         >
-          <option value="">All years</option>
+          <option value="">All {years.some(isSessionTag) ? 'sessions' : 'years'}</option>
           {years.map((y) => (
             <option key={y} value={y}>
-              {y}
+              {yearFilterLabel(y)}
             </option>
           ))}
         </select>
@@ -858,9 +927,9 @@ const BranchSection: React.FC<{ state: BranchState }> = ({ state }) => {
                   <span>
                     Closing rank <strong className="text-[#CBD5E1]">{row.closingRank.toLocaleString('en-IN')}</strong>
                   </span>
-                  <span>Year {row.year}</span>
+                  <span>{yearFilterLabel(row.year)}</span>
                   <span>{row.category}</span>
-                  <span>{row.quota}</span>
+                  <span>{row.quota === 'INI' ? 'INI pool' : row.quota}</span>
                 </div>
               </div>
             ))}
@@ -907,32 +976,52 @@ const BranchSection: React.FC<{ state: BranchState }> = ({ state }) => {
   );
 };
 
-// ---- outcome capture (§15, §18 Phase 10a) --------------------------------------
+// ---- outcome capture (§15, §18 Phases 10a+10b) ---------------------------------
 //
 // The consent-based post-exam self-report. Voluntary by design: nothing is
 // required to use the predictor, every submission re-consents, and a recorded
-// outcome can be edited or withdrawn. Only actual score / percentile / rank
-// are captured — counselling outcomes land in M2 (Phase 10b).
+// outcome can be edited or withdrawn. Captures actual score / percentile /
+// rank (10a) plus the counselling outcome and allotted branch, if shared (10b).
 
 const OUTCOME_CONSENT_NOTE =
   'I agree to share this result with Eyeconic to help calibrate the predictor. This is voluntary — I can edit or withdraw it anytime.';
-const OUTCOME_INTRO_NOTE =
-  'Your NEET PG result is out? Pairing your actual score, percentile or rank with this prediction helps make future ranges more accurate for everyone.';
 
-const MAX_SCORE = 800; // 800-scale NEET PG pattern (spec §10)
+const outcomeIntroNote = (exam: string): string =>
+  exam === 'INI_CET'
+    ? 'Your INI-CET result is out? Pairing your actual percentile or rank with this prediction helps make future ranges more accurate for everyone.'
+    : 'Your NEET PG result is out? Pairing your actual score, percentile or rank with this prediction helps make future ranges more accurate for everyone.';
+
+// Score bounds follow the exam's pattern (spec §10) — the server enforces the
+// same bound from the engine's pattern config.
+const OUTCOME_MAX_SCORE: Record<string, number> = { NEET_PG: 800, INI_CET: 200 };
+const COUNSELLING_TEXT_MAX = 120;
+const COUNSELLING_ROUND_MAX = 40;
 
 interface OutcomeFieldErrors {
   score?: string;
   percentile?: string;
   rank?: string;
+  counsellingStatus?: string;
+  allottedInstitute?: string;
+  allottedBranch?: string;
+  round?: string;
 }
 
-function outcomeFieldErrors(score: string, percentile: string, rank: string): OutcomeFieldErrors {
+function outcomeFieldErrors(
+  score: string,
+  percentile: string,
+  rank: string,
+  counsellingStatus: string,
+  allottedInstitute: string,
+  allottedBranch: string,
+  round: string,
+  maxScore: number
+): OutcomeFieldErrors {
   const errors: OutcomeFieldErrors = {};
   if (score !== '') {
     const n = Number(score);
-    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0 || n > MAX_SCORE) {
-      errors.score = `Whole number between 0 and ${MAX_SCORE}`;
+    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0 || n > maxScore) {
+      errors.score = `Whole number between 0 and ${maxScore}`;
     }
   }
   if (percentile !== '') {
@@ -942,6 +1031,21 @@ function outcomeFieldErrors(score: string, percentile: string, rank: string): Ou
   if (rank !== '') {
     const n = Number(rank);
     if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1) errors.rank = 'Whole number, 1 or more';
+  }
+  const hasAllotment = allottedInstitute !== '' || allottedBranch !== '' || round !== '';
+  if (!counsellingStatus && hasAllotment) {
+    errors.counsellingStatus = 'Pick allotted or not allotted first';
+  }
+  if (counsellingStatus === 'ALLOTTED') {
+    if (allottedInstitute !== '' && allottedInstitute.trim().length > COUNSELLING_TEXT_MAX) {
+      errors.allottedInstitute = `Up to ${COUNSELLING_TEXT_MAX} characters`;
+    }
+    if (allottedBranch !== '' && allottedBranch.trim().length > COUNSELLING_TEXT_MAX) {
+      errors.allottedBranch = `Up to ${COUNSELLING_TEXT_MAX} characters`;
+    }
+    if (round !== '' && round.trim().length > COUNSELLING_ROUND_MAX) {
+      errors.round = `Up to ${COUNSELLING_ROUND_MAX} characters`;
+    }
   }
   return errors;
 }
@@ -957,12 +1061,19 @@ const OutcomeSection: React.FC<{ predictionId: string; result: PredictionResult 
   const [score, setScore] = useState('');
   const [percentile, setPercentile] = useState('');
   const [rank, setRank] = useState('');
+  const [counsellingStatus, setCounsellingStatus] = useState<'' | 'ALLOTTED' | 'NOT_ALLOTTED'>('');
+  const [allottedInstitute, setAllottedInstitute] = useState('');
+  const [allottedBranch, setAllottedBranch] = useState('');
+  const [round, setRound] = useState('');
   const [consent, setConsent] = useState(false);
   const [saving, setSaving] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
   const [error, setError] = useState('');
   const [serverField, setServerField] = useState<string | null>(null);
+
+  const isIniCet = result.exam === 'INI_CET';
+  const maxScore = OUTCOME_MAX_SCORE[result.exam] ?? 800;
 
   const load = useCallback(async () => {
     try {
@@ -983,10 +1094,14 @@ const OutcomeSection: React.FC<{ predictionId: string; result: PredictionResult 
   }, [load]);
 
   const fieldErrors = useMemo(
-    () => outcomeFieldErrors(score, percentile, rank),
-    [score, percentile, rank]
+    () =>
+      outcomeFieldErrors(
+        score, percentile, rank, counsellingStatus, allottedInstitute, allottedBranch, round, maxScore
+      ),
+    [score, percentile, rank, counsellingStatus, allottedInstitute, allottedBranch, round, maxScore]
   );
-  const anyValue = score !== '' || percentile !== '' || rank !== '';
+  const anyValue =
+    score !== '' || percentile !== '' || rank !== '' || counsellingStatus !== '';
   const canSubmit =
     consent && anyValue && !saving && Object.keys(fieldErrors).length === 0;
 
@@ -994,6 +1109,18 @@ const OutcomeSection: React.FC<{ predictionId: string; result: PredictionResult 
     setScore(from && from.outcome.score !== null ? String(from.outcome.score) : '');
     setPercentile(from && from.outcome.percentile !== null ? String(from.outcome.percentile) : '');
     setRank(from && from.outcome.rank !== null ? String(from.outcome.rank) : '');
+    setCounsellingStatus(from && from.counselling ? from.counselling.status : '');
+    setAllottedInstitute(
+      from && from.counselling && from.counselling.allottedInstitute
+        ? from.counselling.allottedInstitute
+        : ''
+    );
+    setAllottedBranch(
+      from && from.counselling && from.counselling.allottedBranch
+        ? from.counselling.allottedBranch
+        : ''
+    );
+    setRound(from && from.counselling && from.counselling.round ? from.counselling.round : '');
     setConsent(false); // every submission re-consents (§15)
     setError('');
     setServerField(null);
@@ -1015,7 +1142,7 @@ const OutcomeSection: React.FC<{ predictionId: string; result: PredictionResult 
       return;
     }
     if (!anyValue) {
-      setError('Enter at least one value: actual score, percentile or rank.');
+      setError('Enter at least one value: actual score, percentile, rank or your counselling outcome.');
       return;
     }
     if (Object.keys(fieldErrors).length) {
@@ -1030,6 +1157,15 @@ const OutcomeSection: React.FC<{ predictionId: string; result: PredictionResult 
       if (score !== '') body.score = Number(score);
       if (percentile !== '') body.percentile = Number(percentile);
       if (rank !== '') body.rank = Number(rank);
+      if (counsellingStatus) {
+        const counselling: NonNullable<OutcomeSubmission['counselling']> = { status: counsellingStatus };
+        if (counsellingStatus === 'ALLOTTED') {
+          if (allottedInstitute.trim()) counselling.allottedInstitute = allottedInstitute.trim();
+          if (allottedBranch.trim()) counselling.allottedBranch = allottedBranch.trim();
+          if (round.trim()) counselling.round = round.trim();
+        }
+        body.counselling = counselling;
+      }
       await predictorEndpoints.saveOutcome(predictionId, body);
       closeForm();
       await load();
@@ -1066,23 +1202,23 @@ const OutcomeSection: React.FC<{ predictionId: string; result: PredictionResult 
 
   const renderForm = () => (
     <div className="mt-4 space-y-4">
-      {!editing ? <p className="text-xs text-[#94A3B8]">{OUTCOME_INTRO_NOTE}</p> : null}
+      {!editing ? <p className="text-xs text-[#94A3B8]">{outcomeIntroNote(result.exam)}</p> : null}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label htmlFor="outcome-score" className="block text-xs text-[#94A3B8] mb-1.5">
-            Actual score (/{MAX_SCORE})
+            Actual score (/{maxScore})
           </label>
           <input
             id="outcome-score"
             type="number"
             inputMode="numeric"
             min={0}
-            max={MAX_SCORE}
+            max={maxScore}
             step={1}
             value={score}
             onChange={(e) => setScore(e.target.value)}
             className={fieldClass('score')}
-            placeholder="e.g. 480"
+            placeholder={isIniCet ? 'e.g. 118' : 'e.g. 480'}
           />
           {fieldErrors.score ? (
             <p className="text-xs text-rose-300 mt-1">{fieldErrors.score}</p>
@@ -1125,6 +1261,88 @@ const OutcomeSection: React.FC<{ predictionId: string; result: PredictionResult 
           />
           {fieldErrors.rank ? <p className="text-xs text-rose-300 mt-1">{fieldErrors.rank}</p> : null}
         </div>
+      </div>
+
+      {/* counselling outcome (Phase 10b, §15) — allotted status + branch, if shared */}
+      <div className="bg-[#151E29] border border-white/[0.06] rounded-xl p-4 space-y-3">
+        <div>
+          <label htmlFor="outcome-counselling" className="block text-xs text-[#94A3B8] mb-1.5">
+            Counselling outcome (optional — share whenever you know it)
+          </label>
+          <select
+            id="outcome-counselling"
+            value={counsellingStatus}
+            onChange={(e) => setCounsellingStatus(e.target.value as '' | 'ALLOTTED' | 'NOT_ALLOTTED')}
+            className={fieldClass('counsellingStatus')}
+          >
+            <option value="">Not sharing / don&apos;t know yet</option>
+            <option value="ALLOTTED">Allotted a seat</option>
+            <option value="NOT_ALLOTTED">Not allotted</option>
+          </select>
+          {fieldErrors.counsellingStatus ? (
+            <p className="text-xs text-rose-300 mt-1">{fieldErrors.counsellingStatus}</p>
+          ) : null}
+        </div>
+        {counsellingStatus === 'ALLOTTED' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label htmlFor="outcome-institute" className="block text-xs text-[#94A3B8] mb-1.5">
+                Allotted college / institute
+              </label>
+              <input
+                id="outcome-institute"
+                type="text"
+                value={allottedInstitute}
+                maxLength={COUNSELLING_TEXT_MAX}
+                onChange={(e) => setAllottedInstitute(e.target.value)}
+                className={fieldClass('allottedInstitute')}
+                placeholder="e.g. AIIMS New Delhi"
+              />
+              {fieldErrors.allottedInstitute ? (
+                <p className="text-xs text-rose-300 mt-1">{fieldErrors.allottedInstitute}</p>
+              ) : null}
+            </div>
+            <div>
+              <label htmlFor="outcome-branch" className="block text-xs text-[#94A3B8] mb-1.5">
+                Allotted branch / specialty
+              </label>
+              <input
+                id="outcome-branch"
+                type="text"
+                value={allottedBranch}
+                maxLength={COUNSELLING_TEXT_MAX}
+                onChange={(e) => setAllottedBranch(e.target.value)}
+                className={fieldClass('allottedBranch')}
+                placeholder="e.g. Radiodiagnosis"
+              />
+              {fieldErrors.allottedBranch ? (
+                <p className="text-xs text-rose-300 mt-1">{fieldErrors.allottedBranch}</p>
+              ) : null}
+            </div>
+            <div>
+              <label htmlFor="outcome-round" className="block text-xs text-[#94A3B8] mb-1.5">
+                Round
+              </label>
+              <input
+                id="outcome-round"
+                type="text"
+                value={round}
+                maxLength={COUNSELLING_ROUND_MAX}
+                onChange={(e) => setRound(e.target.value)}
+                className={fieldClass('round')}
+                placeholder="e.g. R2 / mop-up"
+              />
+              {fieldErrors.round ? (
+                <p className="text-xs text-rose-300 mt-1">{fieldErrors.round}</p>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+        {counsellingStatus === 'NOT_ALLOTTED' ? (
+          <p className="text-[11px] text-[#64748B]">
+            A “not allotted” outcome is just as useful for calibration — nothing else needed.
+          </p>
+        ) : null}
       </div>
 
       <label className="flex items-start gap-2.5 text-xs text-[#CBD5E1] cursor-pointer bg-[#151E29] border border-white/[0.06] rounded-xl p-3">
@@ -1175,18 +1393,37 @@ const OutcomeSection: React.FC<{ predictionId: string; result: PredictionResult 
   // Recorded view: values + honest predicted-vs-actual context + edit/withdraw.
   if (record && !formOpen) {
     const o = record.outcome;
+    const c = record.counselling;
     return (
       <div className="bg-[#18222E] border border-[#18B6A4]/25 rounded-2xl p-6 mt-6">
         <h3 className="font-semibold text-[#F8FAFC] flex items-center gap-2">
           <CheckCircle2 size={16} className="text-[#4DD7C8]" /> Your actual result — recorded, thank you
         </h3>
         <div className="flex flex-wrap gap-x-6 gap-y-2 mt-3 text-sm text-[#F8FAFC]">
-          {o.score !== null ? <span>Score <strong>{o.score}</strong>/{MAX_SCORE}</span> : null}
+          {o.score !== null ? <span>Score <strong>{o.score}</strong>/{maxScore}</span> : null}
           {o.percentile !== null ? <span>Percentile <strong>{o.percentile}</strong></span> : null}
           {o.rank !== null ? (
             <span>AIR <strong>{o.rank.toLocaleString('en-IN')}</strong></span>
           ) : null}
         </div>
+        {c ? (
+          <div className="mt-3 pt-3 border-t border-white/[0.06]">
+            <div className="text-[10px] uppercase tracking-wide text-[#94A3B8] mb-1">
+              Counselling outcome
+            </div>
+            <p className="text-sm text-[#F8FAFC]">
+              {c.status === 'ALLOTTED'
+                ? c.allottedBranch
+                  ? <>Allotted — <strong>{c.allottedBranch}</strong></>
+                  : 'Allotted a seat'
+                : 'Not allotted'}
+              {c.round ? <span className="text-[#94A3B8] font-normal"> · {c.round}</span> : null}
+            </p>
+            {c.allottedInstitute ? (
+              <p className="text-xs text-[#94A3B8] mt-0.5">{c.allottedInstitute}</p>
+            ) : null}
+          </div>
+        ) : null}
         {o.rank !== null && result.rank ? (
           <p className="text-xs text-[#94A3B8] mt-2">
             This prediction said AIR {fmtRank(result.rank.bestRank, result.rank.beyondLastRecordedRank)}{' '}
@@ -1252,7 +1489,7 @@ const OutcomeSection: React.FC<{ predictionId: string; result: PredictionResult 
       <h3 className="font-semibold text-[#F8FAFC] flex items-center gap-2">
         <CheckCircle2 size={16} className="text-[#4DD7C8]" /> Result out? Make the next prediction better
       </h3>
-      <p className="text-xs text-[#94A3B8] mt-2 mb-4">{OUTCOME_INTRO_NOTE}</p>
+      <p className="text-xs text-[#94A3B8] mt-2 mb-4">{outcomeIntroNote(result.exam)}</p>
       <button type="button" onClick={() => openForm()} className="btn btn-outline text-sm px-4 py-2">
         <Plus size={14} className="mr-1.5" /> Add my actual result
       </button>
