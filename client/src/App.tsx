@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import Home from './pages/Home';
@@ -9,7 +9,7 @@ import TestDetail from './pages/TestDetail';
 import TestAttempt from './pages/TestAttempt';
 import TestResults from './pages/TestResults';
 import AppLink from './pages/AppLink';
-import GtPredictor from './pages/GtPredictor';
+import Predictor from './pages/Predictor';
 import Admin from './pages/Admin';
 import Blogs from './pages/Blogs';
 import BlogPost from './pages/BlogPost';
@@ -60,7 +60,10 @@ function App() {
               <Route path="/tests/:quizId" element={<RequireAuth><TestDetail /></RequireAuth>} />
               <Route path="/tests/:quizId/attempt" element={<RequireAuth><TestAttempt /></RequireAuth>} />
               <Route path="/tests/:quizId/results/:attemptId" element={<RequireAuth><TestResults /></RequireAuth>} />
-              <Route path="/gt-predictor" element={<GtPredictor />} />
+              <Route path="/predictor" element={<RequireAuth><Predictor /></RequireAuth>} />
+              {/* Legacy GT predictor retired at Phase 8 (spec §1/§18): exactly
+                  one predictor is ever live — old links land on the new one. */}
+              <Route path="/gt-predictor" element={<Navigate to="/predictor" replace />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/blogs" element={<Blogs />} />
               <Route path="/blogs/search" element={<Blogs />} />

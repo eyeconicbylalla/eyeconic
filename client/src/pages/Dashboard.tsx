@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Activity, BookOpen, LogOut, RefreshCw, TrendingUp, Trophy } from 'lucide-react';
+import { AlertTriangle, Activity, BookOpen, LogOut, RefreshCw, Target, TrendingUp, Trophy } from 'lucide-react';
 import { appErrorMessage, appQuizApi, isAppUnavailable } from '../lib/appClient';
 import { useAppAuth } from '../context/AppAuthContext';
 import type { AnalyticsMe } from '../types/app';
@@ -65,6 +65,9 @@ const Dashboard: React.FC = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <Link to="/predictor" className="btn btn-primary text-sm px-4 py-2">
+              <Target size={14} className="mr-2" /> Rank Predictor
+            </Link>
             <OpenInAppButton destination={{ screen: 'dashboard' }} />
             <button onClick={load} className="btn btn-outline text-sm px-4 py-2" aria-label="Refresh">
               <RefreshCw size={14} className="mr-2" /> Refresh

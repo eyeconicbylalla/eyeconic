@@ -1,0 +1,84 @@
+{
+ "version": "golden-v1",
+ "created": "2026-09-20",
+ "note": "pinned expected values; any change must be explained by a re-verified source",
+ "checks": {
+  "distribution_2025": {
+   "total_rows": 242493,
+   "numeric_pairs": 230096,
+   "absent_rows": 12379,
+   "withheld_rows": 18,
+   "max_score": 707,
+   "max_score_band": [
+    1,
+    1,
+    1
+   ],
+   "band_695": [
+    5,
+    6,
+    2
+   ],
+   "rank1_score": 707,
+   "oracle_exact": 66348,
+   "oracle_checked": 66349,
+   "oracle_exception_rank": 143757
+  },
+  "counselling_2025": {
+   "final_rows": 41695,
+   "groups": 23886,
+   "quota_enum": [
+    "AFMS",
+    "AIQ",
+    "AMU",
+    "BHU",
+    "DNB",
+    "DU",
+    "IP",
+    "JM",
+    "MM",
+    "NRI",
+    "SFMS"
+   ],
+   "category_enum": [
+    "EWS",
+    "OBC",
+    "SC",
+    "ST",
+    "UR"
+   ],
+   "rank1_official_row": {
+    "rank": 1,
+    "round_listed": 1,
+    "institute": "PGIMER, DR. RML Hospital, Cannaught Place, New Delhi,ABVIMS, DR. RML Hospital, Baba Kharak Singh Marg, Cannaught Place, New Delhi",
+    "course": "M.D. (GENERAL MEDICINE)",
+    "quota": "AIQ",
+    "allotted_category": "UR",
+    "candidate_category": "UR"
+   }
+  },
+  "counselling_2024": {
+   "final_rows": 36391,
+   "groups": 21341
+  },
+  "phase4_anchors": {
+   "note": "Official NEET-PG 2025 qualifying scores by category percentile (NBEMS result notification dated 19.08.2025). Values sourced from secondary reports of the notice on 2026-09-20 and verified to agree EXACTLY with the primary-source distribution (DS-NEETPG-DISTRIBUTION-2025-v1): scoreForRank((1-p/100)*230096) reproduces each score. Upgrade path: fetch the official notice PDF and re-pin as primary-source.",
+   "ur_ews_50th": 276,
+   "ur_pwd_45th": 255,
+   "sc_st_obc_40th": 235
+  },
+  "dictionaries": {
+   "AD": "DNB",
+   "AM": "AMU",
+   "GNYes": {
+    "category": "UR",
+    "pwd": true
+   },
+   "Self- Financed Merit Seat": "SFMS",
+   "Open\rPwD": {
+    "category": "UR",
+    "pwd": true
+   }
+  }
+ }
+}

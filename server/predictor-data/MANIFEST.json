@@ -1,0 +1,50 @@
+{
+ "created": "2026-09-20",
+ "store": "server/predictor-data (committed, versioned JSON dataset snapshots \u2014 approved D1)",
+ "layers": {
+  "raw (gitignored, re-downloadable)": "data/raw/* with PROVENANCE.txt per source",
+  "parsed/normalized/validated (gitignored)": "data/parsed, data/normalized, data/validated",
+  "snapshots (committed)": "this store"
+ },
+ "snapshots": [
+  {
+   "id": "DS-NEETPG-DISTRIBUTION-2025-v1",
+   "file": "distribution/neet-pg-2025/v1/score-rank-bands.json",
+   "kind": "score_to_rank_distribution",
+   "source": "official NBEMS Notice Board PDF (sha256 6d9d3ecd...feb5db)",
+   "rows": 242493,
+   "numeric_pairs": 230096
+  },
+  {
+   "id": "DS-NEETPG-COUNSELLING-2025-v1",
+   "file": "counselling/neet-pg-2025/v1/closing-ranks.json",
+   "kind": "counselling_closing_ranks_FINAL_STATE",
+   "source": "mirror:crockzo@4c2a796 (official MCC R1-R3 2025)",
+   "final_rows": 41695,
+   "groups": 23886
+  },
+  {
+   "id": "DS-NEETPG-COUNSELLING-2024-v1",
+   "file": "counselling/neet-pg-2024/v1/closing-ranks.json",
+   "kind": "counselling_closing_ranks_FINAL_STATE",
+   "source": "mirror:rahuldathu@b5c0824 (official MCC 2024)",
+   "final_rows": 36391,
+   "groups": 21341
+  }
+ ],
+ "file_hashes": {
+  "counselling/neet-pg-2024/v1/closing-ranks.json": "f52d4cff3009767c964441336332ca781ef9726ddb9ea3b8a7d6b6b925e87232",
+  "counselling/neet-pg-2025/v1/closing-ranks.json": "ed846617e22844aaf0bc5c7a92312272efc0a4fa4825571444323cdd099773fd",
+  "dictionaries/v1/category.json": "e234d517c5815e4cb4e8c9a38f410c72a7da38055b5ef9e0c3f469ee3aebf70f",
+  "dictionaries/v1/name-normalization.json": "8d152e86f79ac89d3a0f08a046acbc400c386e48c023d7e526e3db5ee7ba183a",
+  "dictionaries/v1/quota.json": "cd8eaa61a1b5b0f5d6ac358966b363ed19fae5bb5f69f7ce00ab4e8dda9a75e4",
+  "distribution/neet-pg-2025/v1/score-rank-bands.json": "cab1e8e6dc39a9136cb48cf42cb14c309a45f2ce244831b9e2bfbc66910ff813",
+  "golden/v1/goldens.json": "8c80bd3b356aef018dbb0da3d270121f440282c0941800f2efcb3b8fc9484eb6"
+ },
+ "golden_version": "golden-v1",
+ "dictionaries": [
+  "quota-v1",
+  "category-v1",
+  "name-normalization-v1"
+ ]
+}

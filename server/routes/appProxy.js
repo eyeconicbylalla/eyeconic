@@ -2,6 +2,7 @@ const express = require('express');
 const { callAppApi, AppApiError } = require('../config/appApi');
 const { clearSessionCookie } = require('../services/appSession');
 const requireAppSession = require('../middleware/appSession');
+const { sameOriginGuard } = require('../middleware/sameOrigin');
 
 const router = express.Router();
 
@@ -84,26 +85,12 @@ function sendAppError(res, error, requestId) {
   return res.status(500).json({ msg: 'Server error', code: 'SERVER_ERROR' });
 }
 
-/**
- * CSRF defence-in-depth for state-changing routes: the session cookie is
- * SameSite=Lax (which already blocks cross-site POSTs), and we additionally
- * require — when the browser sends an Origin header — that it matches this
- * request's own host.
- */
-function sameOriginGuard(req, res, next) {
-  const origin = req.header('Origin');
-  if (!origin) return next(); // non-browser client
-  const requestHost = req.header('X-Forwarded-Host') || req.header('Host');
-  try {
-    const originHost = new URL(origin).host;
-    if (!requestHost || originHost !== requestHost) {
-      return res.status(403).json({ msg: 'Cross-origin request rejected.', code: 'CSRF_REJECTED' });
-    }
-  } catch {
-    return res.status(403).json({ msg: 'Cross-origin request rejected.', code: 'CSRF_REJECTED' });
-  }
-  return next();
-}
+// CSRF defence-in-depth for state-changing routes now lives in
+// middleware/sameOrigin.js: the browser's Origin must be one of the site's
+// ALLOWED ORIGINS (localhost in development). Comparing Origin to the Host
+// header — the previous approach — rejected the site's own traffic behind
+// rewriting proxies (Vite dev proxy in development, Vercel's /api rewrite in
+// production).
 
 router.use(requireAppSession);
 router.use((req, res, next) => {

@@ -9,6 +9,8 @@ const authRoutes = require('./routes/auth');
 const blogRoutes = require('./routes/blogs');
 const appAuthRoutes = require('./routes/appAuth');
 const appProxyRoutes = require('./routes/appProxy');
+const predictorRoutes = require('./routes/predictor');
+const { resolveAllowedOrigins } = require('./middleware/sameOrigin');
 const { isIntegrationConfigured } = require('./config/appApi');
 
 // Fail fast with a clear message when required secrets are missing — only
@@ -37,22 +39,12 @@ app.use(helmet());
 
 // --- CORS allowlist -------------------------------------------------------
 // Production only trusts the configured origins (default: the live website).
-// Local development additionally allows localhost on any port.
-const DEFAULT_PRODUCTION_ORIGINS = [
-  'https://www.eyeconicneetpg.com',
-  'https://eyeconicneetpg.com',
-];
+// Local development additionally allows localhost on any port. The allowlist
+// lives in middleware/sameOrigin.js and is shared with the CSRF origin guard.
 const LOCAL_DEV_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
 const isProduction = process.env.NODE_ENV === 'production';
 
-const allowedOrigins = new Set(
-  (process.env.ALLOWED_ORIGINS || '')
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean).length
-    ? (process.env.ALLOWED_ORIGINS || '').split(',').map((value) => value.trim()).filter(Boolean)
-    : DEFAULT_PRODUCTION_ORIGINS
-);
+const allowedOrigins = resolveAllowedOrigins();
 
 function corsOriginDelegate(origin, callback) {
   // Non-browser clients (curl, server-to-server) send no Origin header.
@@ -89,6 +81,11 @@ app.use('/api/blogs', blogRoutes);
 // blog/CRM deployments keep working without the new variables.
 app.use('/api/app-auth', appAuthRoutes);
 app.use('/api/app', appProxyRoutes);
+
+// Rank & Branch Predictor — Phase 7 API over the Phase 3–6 engine, with
+// every served prediction persisted (Phase 9 built in). Authed by the same
+// App student session as the proxy surface; needs Mongo for persistence.
+app.use('/api/predictor', predictorRoutes);
 if (!isIntegrationConfigured()) {
   console.warn(
     'App integration not configured — set APP_API_BASE_URL, APP_INTEGRATION_TOKEN and SESSION_SECRET to enable student sign-in and quizzes.'

@@ -1,0 +1,27 @@
+{
+  "version": "name-normalization-v1",
+  "created": "2026-09-19",
+  "notes": "Rules-based normalization for institute and course/specialty strings. MCC-derived mirrors share identical upstream strings across 2024/2025, so the JOIN KEY is the normalized full raw string — no risky name splitting for M1. Display names stay raw (improved display aliases are a later refinement). Raw strings always preserved.",
+  "institute": {
+    "key_algorithm": [
+      "trim",
+      "collapse internal whitespace to single space",
+      "casefold"
+    ],
+    "display": "raw string unchanged for M1",
+    "known_issue": "MCC strings concatenate two campus names (e.g. 'PGIMER, DR. RML Hospital...,ABVIMS, DR. RML Hospital,...') — kept intact as the join key; splitting is deferred and would require its own verification pass"
+  },
+  "course": {
+    "key_algorithm": [
+      "trim",
+      "collapse internal whitespace to single space",
+      "casefold"
+    ],
+    "display": "raw string unchanged for M1",
+    "aliases": {}
+  },
+  "round": {
+    "mappings": { "1": "R1", "2": "R2", "3": "R3" },
+    "notes": "crockzo file-of-origin defines the round; remarks like 'Fresh Allotted in 3nd Round' (source typo) are consistent with this and kept raw."
+  }
+}

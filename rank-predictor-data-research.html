@@ -1,0 +1,601 @@
+<title>Rank Predictor Data Feasibility</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --bg:#F7F5F0; --surface:#FFFFFF; --surface2:#EFEBE2; --ink:#1C2430; --muted:#5C6675;
+    --accent:#0E7A67; --accent-soft:#E2EFEA; --navy:#2C4A6E; --navy-soft:#E4EAF2;
+    --warn:#96591B; --warn-soft:#F6EBDA; --bad:#9E3A2B; --bad-soft:#F5E4E0;
+    --line:#DDD7CB; --line-strong:#C9C2B2;
+    --shadow:0 1px 2px rgba(28,36,48,.06),0 4px 14px rgba(28,36,48,.05);
+    --f-display:"Source Serif 4",Georgia,serif;
+    --f-body:"IBM Plex Sans",-apple-system,"Segoe UI",sans-serif;
+    --f-mono:"IBM Plex Mono","Consolas",monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0E141B; --surface:#161F29; --surface2:#1D2833; --ink:#E9EEF3; --muted:#9AA9B7;
+      --accent:#3CC4AC; --accent-soft:#12332E; --navy:#8FB4DC; --navy-soft:#182736;
+      --warn:#DCA35C; --warn-soft:#33270F; --bad:#E08B79; --bad-soft:#381E19;
+      --line:#28343F; --line-strong:#374553;
+      --shadow:0 1px 2px rgba(0,0,0,.35),0 4px 14px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0E141B; --surface:#161F29; --surface2:#1D2833; --ink:#E9EEF3; --muted:#9AA9B7;
+    --accent:#3CC4AC; --accent-soft:#12332E; --navy:#8FB4DC; --navy-soft:#182736;
+    --warn:#DCA35C; --warn-soft:#33270F; --bad:#E08B79; --bad-soft:#381E19;
+    --line:#28343F; --line-strong:#374553;
+    --shadow:0 1px 2px rgba(0,0,0,.35),0 4px 14px rgba(0,0,0,.3);
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6;margin:0;padding:0 16px}
+  .wrap{max-width:960px;margin:0 auto}
+  p{margin:.5em 0 1em}
+  a{color:var(--accent);text-underline-offset:2px}
+  strong{font-weight:600}
+  .topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--line);margin:0 -16px;padding:10px 16px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .topbar .t{font-family:var(--f-display);font-weight:700;font-size:15px}
+  .topbar .d{color:var(--muted);font-size:12.5px;font-family:var(--f-mono)}
+  .topbar .spacer{flex:1}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.04em;padding:2px 8px;border-radius:99px;border:1px solid var(--line-strong);color:var(--muted);white-space:nowrap}
+  .chip.on{color:var(--accent);border-color:var(--accent)}
+  .chip.na{color:var(--bad);border-color:var(--bad)}
+  header.hero{padding:44px 0 24px;border-bottom:2px solid var(--ink);margin-bottom:28px}
+  .eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+  h1{font-family:var(--f-display);font-size:clamp(28px,5.5vw,42px);line-height:1.12;margin:0 0 14px;font-weight:700;text-wrap:balance}
+  .sub{font-size:16.5px;color:var(--muted);max-width:70ch}
+  .meta-row{display:flex;gap:18px;flex-wrap:wrap;font-family:var(--f-mono);font-size:12px;color:var(--muted);margin-top:18px}
+  .verdict{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:18px 20px;margin:26px 0;box-shadow:var(--shadow)}
+  .verdict h2{margin:0 0 10px;font-size:15px;font-family:var(--f-body);font-weight:600;letter-spacing:.01em}
+  .verdict ol{margin:0;padding-left:20px}
+  .verdict li{margin:.45em 0}
+  section{margin:44px 0}
+  h2.part{font-family:var(--f-display);font-size:24px;font-weight:700;margin:0 0 4px;text-wrap:balance}
+  .part-no{font-family:var(--f-mono);font-size:11px;letter-spacing:.14em;color:var(--accent);text-transform:uppercase;margin-bottom:6px}
+  .part-lede{color:var(--muted);margin:6px 0 18px;max-width:75ch}
+  h3{font-size:16.5px;font-weight:600;margin:26px 0 8px}
+  h4{font-size:14px;font-weight:600;margin:18px 0 6px}
+  .scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:var(--shadow)}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:10px 12px;border-bottom:2px solid var(--line-strong);background:var(--surface2);white-space:nowrap;vertical-align:bottom}
+  td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.5}
+  tr:last-child td{border-bottom:none}
+  td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .req{color:var(--accent);font-weight:600;white-space:nowrap}
+  .opt{color:var(--muted);white-space:nowrap}
+  .tag{display:inline-block;font-family:var(--f-mono);font-size:10px;letter-spacing:.05em;padding:1px 7px;border-radius:99px;margin:1px 2px 1px 0;white-space:nowrap}
+  .tag-off{background:var(--navy-soft);color:var(--navy)}
+  .tag-ver{background:var(--accent-soft);color:var(--accent)}
+  .tag-est{background:var(--warn-soft);color:var(--warn)}
+  .tag-blk{background:var(--bad-soft);color:var(--bad)}
+  .box{border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin:16px 0;background:var(--surface)}
+  .box h4{margin-top:0}
+  .box.good{border-left:4px solid var(--accent)}
+  .box.warn{border-left:4px solid var(--warn)}
+  .box.bad{border-left:4px solid var(--bad)}
+  .box .bt{font-weight:600;font-size:13.5px;margin-bottom:6px}
+  code,.mono{font-family:var(--f-mono);font-size:12.5px;background:var(--surface2);padding:1px 5px;border-radius:4px}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+  .rel-card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px;box-shadow:var(--shadow)}
+  .rel-card h4{margin:0 0 4px;font-size:14.5px}
+  .rel-card .formula{font-family:var(--f-mono);font-size:12px;color:var(--muted);margin-bottom:10px}
+  .conf{font-family:var(--f-mono);font-size:11px;letter-spacing:.05em;padding:2px 8px;border-radius:99px;display:inline-block;margin-bottom:8px}
+  .conf-hi{background:var(--accent-soft);color:var(--accent)}
+  .conf-md{background:var(--warn-soft);color:var(--warn)}
+  .conf-lo{background:var(--bad-soft);color:var(--bad)}
+  .meter-row{display:grid;grid-template-columns:minmax(150px,1.1fr) minmax(120px,1fr) 44px;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)}
+  .meter-row:last-child{border-bottom:none}
+  .meter-name{font-size:13px}
+  .meter-name .src-kind{display:block;font-family:var(--f-mono);font-size:10.5px;color:var(--muted)}
+  .meter{height:8px;border-radius:99px;background:var(--surface2);position:relative;overflow:hidden}
+  .meter>i{position:absolute;inset:0 auto 0 0;border-radius:99px;background:var(--accent)}
+  .meter-val{font-family:var(--f-mono);font-size:12.5px;text-align:right;font-variant-numeric:tabular-nums}
+  ul.tight{margin:8px 0;padding-left:20px}
+  ul.tight li{margin:.3em 0}
+  .qa{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 20px;margin:14px 0;box-shadow:var(--shadow)}
+  .qa .q{font-weight:600;font-size:14px;margin-bottom:6px}
+  .qa .ans-no{font-family:var(--f-display);font-size:22px;font-weight:700;color:var(--bad);letter-spacing:.02em}
+  .qa .ans-yes{font-family:var(--f-display);font-size:22px;font-weight:700;color:var(--warn);letter-spacing:.02em}
+  .src{font-size:12px;color:var(--muted)}
+  .footnote{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);margin-top:48px;padding-top:16px}
+  .mermaid{background:#FDFCF9;border:1px solid #C9C2B2;border-radius:10px;padding:12px;margin:16px 0;overflow-x:auto;text-align:center;color:#1C2430}
+  .kbd{white-space:nowrap}
+  details{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 16px;margin:10px 0}
+  summary{cursor:pointer;font-weight:600;font-size:13.5px}
+  details[open]{padding-bottom:14px}
+  @media (max-width:560px){
+    body{font-size:14px}
+    .topbar .d{display:none}
+    td,th{padding:8px 9px}
+  }
+</style>
+
+<div class="topbar">
+  <span class="t">Rank Predictor Data Feasibility</span>
+  <span class="d">research report · 2026-09-18</span>
+  <span class="spacer"></span>
+  <div class="chips">
+    <span class="chip on">NEET PG</span><span class="chip on">INI-CET</span><span class="chip na">FMGE (pass/fail)</span><span class="chip na">UPSC CMS (no branch)</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">Eyeconic · Rank &amp; Branch Predictor · Data-source investigation</div>
+  <h1>Where the historical data actually comes from — and where it doesn't exist</h1>
+  <p class="sub">A four-agent verification sweep of public datasets, official exam bodies, third-party cutoff databases and Dr&nbsp;Mayukh Hazra's YouTube channel, with a minimum viable dataset and a 3-day execution plan.</p>
+  <div class="meta-row">
+    <span>Evidence graded: <span class="tag tag-off">OFFICIAL</span> <span class="tag tag-ver">VERIFIED</span> <span class="tag tag-est">ESTIMATE</span> <span class="tag tag-blk">BLOCKED / N/A</span></span>
+  </div>
+  <div class="verdict">
+    <h2>Executive verdict</h2>
+    <ol>
+      <li><strong>No single dataset exists</strong> — but ~80% of the production dataset is obtainable from official PDFs plus two verified GitHub mirrors, mostly bulk-downloadable. You do not need to build this from scratch by hand.</li>
+      <li><strong>FMGE and UPSC CMS are not rank-&amp;-branch exams.</strong> FMGE is pass/fail (150/300, no ranks, no counselling); UPSC CMS recruits to posts, not branches. They need <em>different features</em> (pass-probability / selection-probability), not the same predictor with different data. This must be confirmed with the product owner.</li>
+      <li><strong>NEET PG is launchable now</strong>: the complete official score↔rank distribution for 2025 (242,493 candidates, score + rank) is a single downloadable PDF, and machine-readable 2024+2025 counselling allotments already exist on GitHub.</li>
+      <li><strong>The GT→exam-score link (relationship A) has no public ground truth anywhere</strong> — no coaching institute publishes GT calibration data. It can only be built from Eyeconic's own cohort: GT attempts are already captured; post-exam outcome capture is the missing piece to build.</li>
+      <li><strong>Do NOT start bulk manual extraction of Dr Mayukh Hazra's videos.</strong> Answer: <strong>NO</strong> (one narrow exception for 3–5 INI-CET "corrects vs AIR" videos, only if INI-CET score-based prediction is in MVP scope). Full reasoning in Part 11.</li>
+    </ol>
+  </div>
+</header>
+
+<!-- ============ PART 1 ============ -->
+<section id="p1">
+  <div class="part-no">Part 1</div>
+  <h2 class="part">The exact data we need</h2>
+  <p class="part-lede">Derived from the three relationships the predictor must compute (GT → score, score → rank, rank → branch), not from "what sounds useful". Variables with no obtainable source or no modeling role are explicitly excluded at the end.</p>
+
+  <div class="scroll">
+  <table>
+    <tr><th style="min-width:150px">Variable</th><th>Why we need it</th><th>Req?</th><th>Exam(s)</th><th style="min-width:160px">Ideal source</th><th style="min-width:130px">Realistically obtainable?</th></tr>
+    <tr><td><strong>exam_id</strong></td><td>Methodology differs per exam (see verdict). Segmentation key for every table.</td><td class="req">Required</td><td>All</td><td>Config</td><td class="req">Yes (trivial)</td></tr>
+    <tr><td><strong>exam_year / session</strong></td><td>Distributions and cutoffs shift yearly; INI-CET runs two sessions/year; NEET PG scale broke 800→720 in 2026.</td><td class="req">Required</td><td>All</td><td>MCC / AIIMS / NBEMS / UPSC files</td><td class="req">Yes</td></tr>
+    <tr><td><strong>exam scale</strong> (max marks, #questions, negative marking)</td><td>Normalizing across years. NEET PG: 200Q ×4/−1 (max 800) through 2025, <strong>720-scale in 2026</strong> <span class="tag tag-est">ESTIMATE (portal-reported)</span>; INI-CET: 200Q +1/−⅓; FMGE: 300Q, pass 150; UPSC CMS: 500 written + 100 interview.</td><td class="req">Required</td><td>All</td><td>Official information bulletins</td><td class="req">Yes</td></tr>
+    <tr><td><strong>score</strong> (actual exam)</td><td>Input to the score→rank quantile mapping (relationship B).</td><td class="req">Required</td><td>NEET PG, UPSC (partial)</td><td>NBEMS Notice-Board PDF (full cohort); UPSC marks-of-recommended</td><td class="req">Yes for NEET PG <span class="tag tag-off">OFFICIAL</span>; <span class="tag tag-blk">NEVER for INI-CET</span> (AIIMS publishes rank/percentile only)</td></tr>
+    <tr><td><strong>rank</strong> (AIR)</td><td>The core key linking B → C. Every allotment and result record carries it.</td><td class="req">Required</td><td>All except FMGE (N/A — no ranks)</td><td>NBEMS / AIIMS result PDFs; MCC allotment PDFs; UPSC recommended list</td><td class="req">Yes <span class="tag tag-off">OFFICIAL</span></td></tr>
+    <tr><td><strong>percentile</strong></td><td>Year-normalized alternative to raw score; the only continuous scale INI-CET publishes.</td><td class="opt">Optional</td><td>INI-CET esp.</td><td>AIIMS result PDFs</td><td class="req">Yes</td></tr>
+    <tr><td><strong>category</strong> (UR/OBC/SC/ST/EWS, PwD)</td><td>Closing ranks differ 2–10× by category; a UR-only predictor misleads every reserved-category user.</td><td class="req">Required</td><td>NEET PG, INI-CET, UPSC</td><td>MCC / AIIMS allotment PDFs; UPSC cutoff PDFs</td><td class="req">Yes <span class="tag tag-off">OFFICIAL</span> (third-party tables usually UR-only)</td></tr>
+    <tr><td><strong>quota</strong> (AIQ / state / deemed / central / DNB)</td><td>Allotment pools are separate; closing ranks differ per pool.</td><td class="req">Required</td><td>NEET PG (INI-CET is a single pool)</td><td>MCC + state counselling authorities</td><td>AIQ/deemed/central/DNB: <span class="tag tag-off">OFFICIAL</span>; states: per-state effort (TN example verified)</td></tr>
+    <tr><td><strong>counselling round</strong></td><td>Closing rank drifts across R1→R3/mop-up; needs a round field or an explicit "last round" convention.</td><td class="req">Required</td><td>NEET PG, INI-CET</td><td>MCC / AIIMS round files</td><td class="req">Yes</td></tr>
+    <tr><td><strong>institute</strong></td><td>Granularity for college-level output; branch-level MVP can aggregate.</td><td class="opt">Optional (MVP) / Required (production)</td><td>NEET PG, INI-CET</td><td>MCC / AIIMS allotments</td><td class="req">Yes</td></tr>
+    <tr><td><strong>course / specialty (branch)</strong></td><td>The prediction target of relationship C.</td><td class="req">Required</td><td>NEET PG, INI-CET</td><td>MCC / AIIMS allotments</td><td class="req">Yes</td></tr>
+    <tr><td><strong>closing_rank</strong> <span class="src">(derived)</span></td><td><em>The</em> rank→branch dataset: max AIR per institute × course × category × quota × round. Neither MCC nor AIIMS publishes precomputed closing ranks — derived by aggregation from candidate-level PDFs (pipeline already exists on GitHub).</td><td class="req">Required</td><td>NEET PG, INI-CET</td><td>Derived from official allotments; prebuilt 2024+2025 on GitHub</td><td class="req">Yes <span class="tag tag-ver">VERIFIED</span></td></tr>
+    <tr><td><strong>opening_rank</strong></td><td>Cosmetic range display only; adds no predictive power over closing rank.</td><td class="opt">Optional</td><td>NEET PG, INI-CET</td><td>Same derivation (min AIR)</td><td>Yes</td></tr>
+    <tr><td><strong>seats</strong> (seat matrix)</td><td>Explains cutoff shifts when intake changes; production refinement, not MVP blocker.</td><td class="opt">Optional</td><td>NEET PG</td><td>MCC matrices 2021–2025 <span class="tag tag-ver">VERIFIED</span></td><td>Yes</td></tr>
+    <tr><td><strong>GT attempt fields</strong> (corrects, total Qs, cohort percentile, platform, date)</td><td>Inputs of relationship A. Cohort percentile is the transferable quantity — raw corrects are not comparable across platforms/tests.</td><td class="req">Required (product input)</td><td>All</td><td><strong>Eyeconic's own app</strong> (quiz attempts already recorded)</td><td class="req">Yes — our data only</td></tr>
+    <tr><td><strong>user exam outcome</strong> (final score/rank, self-reported)</td><td>Calibrates relationship A. Without it, GT→score is forever a heuristic.</td><td class="req">Required (calibration)</td><td>All</td><td>Eyeconic instrumentation — <strong>must be built</strong></td><td>Not yet — missing piece</td></tr>
+    <tr><td><strong>FMGE pass rate</strong> (per session; university-wise where possible)</td><td>Only meaningful FMGE "prediction" is pass probability; needs base rates for context.</td><td class="req">Required (if FMGE in scope)</td><td>FMGE</td><td>NBEMS notices; Performance Reports 2015–2019 <span class="tag tag-off">OFFICIAL</span></td><td>Partial — compilations conflict; must cross-check against official PDFs</td></tr>
+    <tr><td><strong>UPSC cutoffs</strong> (written /500, final /600, by category)</td><td>Selection threshold; UPSC predictor = "are you above the historical line", not branch mapping.</td><td class="req">Required (if UPSC in scope)</td><td>UPSC CMS</td><td>upsc.gov.in cutoff PDFs 2013–2025 <span class="tag tag-off">OFFICIAL</span></td><td class="req">Yes <span class="tag tag-ver">VERIFIED live</span></td></tr>
+    <tr><td><strong>exam difficulty</strong></td><td><em>Excluded.</em> No public, comparable difficulty metric exists for any of these exams. Proxy it with year-level normalization anchors (the official per-year distributions), not a fabricated variable.</td><td class="opt">Excluded</td><td>—</td><td>—</td><td>No</td></tr>
+    <tr><td><strong>candidate name / roll</strong></td><td><em>Excluded.</em> No modeling role; privacy liability. Drop at ETL.</td><td class="opt">Excluded</td><td>—</td><td>—</td><td>—</td></tr>
+    <tr><td><strong>"time to exam" horizon</strong></td><td><em>Excluded from the dataset.</em> It is a product parameter of the improvement assumption (Part 7), not a historical variable.</td><td class="opt">Excluded</td><td>—</td><td>—</td><td>—</td></tr>
+  </table>
+  </div>
+</section>
+
+<!-- ============ PART 2 ============ -->
+<section id="p2">
+  <div class="part-no">Part 2</div>
+  <h2 class="part">Ready-made datasets — what actually exists</h2>
+  <p class="part-lede">Kaggle + GitHub + dataset search, verified by opening raw data files where possible. Kaggle pages are captcha-blocked to automation and downloads need a login; GitHub raw files were opened directly.</p>
+
+  <div class="scroll">
+  <table>
+    <tr><th style="min-width:170px">Source</th><th>Data available</th><th>Exams</th><th>Years</th><th>Structured?</th><th>Reliability</th><th>Completeness</th><th>Access</th><th>Suitable?</th></tr>
+    <tr>
+      <td><a href="https://github.com/crockzo/neet-pg">crockzo/neet-pg</a> <span class="tag tag-ver">VERIFIED</span></td>
+      <td>MCC allotments R1–R3: <span class="mono">sno, rank, score, quota, institute, state, course, allottedCategory, candidateCategory, remarks</span>. ~66,000 rows (26,889 + 20,787 + 18,673). <strong>Includes both rank AND score.</strong></td>
+      <td>NEET PG</td><td>2025</td><td>JS arrays → trivially convertible to JSON</td><td>High — mirrors MCC allotment PDFs + NBEMS result for rank→score join</td><td>Full AIQ counselling year</td><td>Direct raw download, no login</td>
+      <td class="req">YES — the single best starting asset</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/rahuldathu/NEET-PG-College-Predictor-2025">rahuldathu/NEET-PG-College-Predictor</a> <span class="tag tag-ver">VERIFIED</span></td>
+      <td>Six CSVs ≈38 MB: <span class="mono">rank, allotted_quota, allotted_institute, course, allotted_category, candidate_category, round, remarks</span> + final allocation + inference table. No score column.</td>
+      <td>NEET PG (AI/DU/IP/DNB/BHU/AMU quotas)</td><td>2024 (repo updated Aug 2025)</td><td>CSV</td><td>High — official-derived</td><td>Full counselling year, all rounds</td><td>Direct download</td>
+      <td class="req">YES — year-2 of the rank→branch table</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/SaranDS/NEET_PG-TN-2025-Allotment-Chat-Summary-">SaranDS/NEET_PG-TN-2025</a> <span class="tag tag-ver">VERIFIED</span></td>
+      <td>SQLite: <span class="mono">APP_NO, COMMUNITY, NEET_score, NEET_rank, ALLOTTED_COLLEGE, ALLOTTED_DEPARTMENT</span> — score + rank + branch together.</td>
+      <td>NEET PG (Tamil Nadu state quota)</td><td>2025–26</td><td>SQLite</td><td>High (official-derived)</td><td>All rounds, govt + govt-quota private</td><td>Direct download</td>
+      <td>YES — template for state-quota expansion</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/harshitgupta1337/neetpg-seat-allotment">harshitgupta1337/neetpg-seat-allotment</a> <span class="tag tag-ver">VERIFIED</span></td>
+      <td><span class="mono">rank, final_institute, final_course, allotted_category</span>; Camelot PDF-extraction scripts (proves the MCC-PDF pipeline).</td>
+      <td>NEET PG</td><td>Unstated</td><td>JSON 5.4 MB</td><td>Medium</td><td>Final-resolved allotments</td><td>Direct download</td>
+      <td>Marginally — scripts more useful than data</td>
+    </tr>
+    <tr>
+      <td><a href="https://www.kaggle.com/datasets/amitaa/neet-pg-2019-score-rank-data">Kaggle: neet-pg-2019-score-rank</a> <span class="tag tag-ver">EXISTS</span></td>
+      <td>"NEET PG 2019 Score Rank data" (~38 MB). Columns not visible without login.</td>
+      <td>NEET PG</td><td>2019</td><td>Unknown (likely CSV)</td><td>Unknown</td><td>Unknown</td><td>Kaggle login required · CC0</td>
+      <td>Worth one manual download to check — extends B by one pre-break year</td>
+    </tr>
+    <tr>
+      <td><a href="https://www.kaggle.com/datasets/raghunandanbalasub/in-cet-data-files-and-pbix-files">Kaggle: in-cet-data-files</a> <span class="tag tag-est">UNVERIFIED</span></td>
+      <td>Title suggests INI-CET Power-BI project; no description/tags — may not even be the medical INI-CET.</td>
+      <td>INI-CET?</td><td>?</td><td>Unknown</td><td>Unknown</td><td>Unknown</td><td>Kaggle login · MIT</td>
+      <td>No — do not plan around it</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/rajesvariparasa/data-scraping-neet-ss">data-scraping-neet-ss</a> <span class="tag tag-ver">VERIFIED</span></td>
+      <td>Jupyter notebook extracting/cleaning MCC counselling PDFs (NEET SS).</td>
+      <td>NEET SS</td><td>—</td><td>ipynb</td><td>—</td><td>Methodology only</td><td>Direct</td>
+      <td>YES — as an ETL template, not data</td>
+    </tr>
+    <tr>
+      <td><a href="https://rankercentral.in/data/neetpg/">RankerCentral</a> <span class="tag tag-est">PARTIAL</span></td>
+      <td>"1.2M+ allotments" behind web tables.</td>
+      <td>NEET UG/PG</td><td>Multi</td><td>Web app only — no CSV/API</td><td>Unknown</td><td>Commercial</td><td>Free/paid login</td>
+      <td>No — not a dataset</td>
+    </tr>
+  </table>
+  </div>
+
+  <div class="box warn">
+    <div class="bt">Confirmed negative results (valuable — these close off dead ends)</div>
+    <ul class="tight">
+      <li><strong>Kaggle:</strong> zero datasets for "fmge", "upsc cms", "neet cutoff". Medical counselling equivalents of JoSAA/JEE datasets <em>do not exist</em>.</li>
+      <li><strong>GitHub INI-CET:</strong> 16 repos reviewed — all planner/MCQ apps, zero data.</li>
+      <li><strong>GitHub FMGE:</strong> prep decks only. <strong>UPSC CMS:</strong> one question-paper archive, no cutoff datasets.</li>
+      <li><strong>Licensing note:</strong> the two workhorse repos carry no explicit license — unofficial republication of MCC/NBEMS public records. Fine for an internal feature; add attribution.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ PART 3 ============ -->
+<section id="p3">
+  <div class="part-no">Part 3</div>
+  <h2 class="part">Official sources — the primary evidence</h2>
+  <p class="part-lede">Verified by live download/parse where tooling allowed. Gov sites 403-block many automated fetchers; the workaround noted per source is real and tested.</p>
+
+  <h3>NEET PG · MCC counselling — <span class="tag tag-off">OFFICIAL</span> <span class="tag tag-ver">VERIFIED</span></h3>
+  <ul class="tight">
+    <li><strong>Archive 2020–2025</strong>: <a href="https://mcc.nic.in/archive-pg/">mcc.nic.in/archive-pg</a> (497 documents parsed; current cycle at <a href="https://mcc.nic.in/pg-medical/">/pg-medical</a>; partial mirror at intramcc.nic.in). <strong>2019 and earlier: not on MCC's estate</strong> — Wayback only. So "7 years of counselling data" is not even obtainable officially.</li>
+    <li><strong>Round-wise allotment PDFs</strong> per round (R1/R2/R3/mop-up/stray), e.g. <a href="https://cdnbbsr.s3waas.gov.in/s3e0f7a4d0ef9b84b83b693bbf3feb8e6e/uploads/2024/11/2024112085.pdf">Final Allotment R1 2024</a>: <span class="mono">SNo | AIR | Quota | Institute | Course | Allotted Category | Candidate Category | Remarks</span>. Text-extractable (not scanned), 2–10 MB, thousands of rows. <strong>No marks, no precomputed closing ranks</strong> — derived by aggregation.</li>
+    <li><strong>Seat matrices</strong> 2021–2025 per quota; admitted-candidate lists (e.g. <a href="https://cdnbbsr.s3waas.gov.in/s3e0f7a4d0ef9b84b83b693bbf3feb8e6e/uploads/2025/02/2025020759.pdf">2024 admitted list</a>).</li>
+    <li><strong>Bulk download: realistic</strong> — static HTML index + direct CDN PDFs + an incidental WordPress REST API for machine harvesting.</li>
+  </ul>
+
+  <h3>NEET PG results · NBEMS — <span class="tag tag-off">OFFICIAL</span> <span class="tag tag-ver">VERIFIED LIVE</span></h3>
+  <ul class="tight">
+    <li><strong>The single most valuable file found in this investigation:</strong> <a href="https://natboard.edu.in/natboard-data/pdf/NEETPG2025RESULT/NEET-PG%202025%20Notice%20Board%20Result%20-%2019.08.2025%20-%20DS.pdf">NEET PG 2025 Notice Board Result</a> — 4,850 pages, <strong>all 242,493 candidates</strong> with <span class="mono">Total Score /800 + NEET-PG Rank</span>. This <em>is</em> the complete empirical score→rank distribution. No model needed — a lookup.</li>
+    <li>2021–2024 equivalents existed (2024 mirrored on Scribd with percentile+rank) but their URLs are tokenized behind the site's Turnstile gate — retrievable via a real browser session or Wayback CDX; direct-PDF URLs still download despite the gate (verified).</li>
+    <li>Category cutoff notices per year (e.g. 2025: Gen 276 → revised to 103 in Jan 2026) — official anchor points.</li>
+    <li><strong>FMGE (NBEMS)</strong>: pass mark 150/300; Performance Reports (country/institute-wise) verified only for 2015–2019 via Wayback; per-session results are login+captcha lookups; <strong>no candidate-level score distribution is published, ever</strong>.</li>
+  </ul>
+
+  <h3>INI-CET · AIIMS — <span class="tag tag-off">OFFICIAL</span> <span class="tag tag-ver">VERIFIED</span></h3>
+  <ul class="tight">
+    <li><strong>Result PDFs</strong> per session (e.g. INICET_July_23_Result-NET.pdf, 606 pp): all qualified candidates, <span class="mono">Roll | Category | PwBD | Overall Rank | Percentile</span>. Naming pattern covers sessions back to 2021 (INI-CET's first year). <strong>No marks — AIIMS has never published INI-CET marks.</strong></li>
+    <li><strong>Counselling allotment PDFs</strong> per session × round (mock/1st/2nd/open/spot), e.g. RESULT_OPEN_ROUND_INICET_JAN_2025: <span class="mono">Roll | Overall Rank | Category | PwBD | Allotted Specialty | Allotted Institute | Roster point</span>, all INIs (AIIMS×N, JIPMER, PGIMER, NIMHANS, SCTIMST). Verified live for Jan 2022, 2023, 2025, Jul 2025 sessions. <strong>Jan 2021 → Jul 2026 coverage.</strong></li>
+    <li>Access quirk: the portal is now a JS SPA; but the document host <span class="mono">docs.aiimsexams.ac.in</span> serves PDFs directly (verified HTTP 200 for 2023–2025 files). Filename enumeration via Wayback CDX.</li>
+  </ul>
+
+  <h3>UPSC CMS — <span class="tag tag-off">OFFICIAL</span> <span class="tag tag-ver">VERIFIED — cleanest source of all four</span></h3>
+  <ul class="tight">
+    <li><strong>Cutoff PDFs, 13 consecutive years (2013–2025)</strong>, category-wise, written (/500) and final (/600): e.g. <a href="https://www.upsc.gov.in/sites/default/files/CMSE_2025_CutOffMks_Eng_26122025.pdf">CMSE 2025</a>, <a href="https://www.upsc.gov.in/sites/default/files/CutOff-CMSE-24-Engl-211124.pdf">CMSE 2024</a>. Index: <a href="https://www.upsc.gov.in/examinations/cutoff-marks--">upsc.gov.in/examinations/cutoff-marks</a>.</li>
+    <li><strong>Marks of recommended candidates</strong> (2021/2022/2024/2025 verified): rank-ordered <span class="mono">Written | PT | Final | Community | PwBD</span> — partial marks→selection data (recommended candidates only).</li>
+    <li>No bot-gate; stable direct URLs; trivial bulk download.</li>
+  </ul>
+
+  <h3>Official vs third-party — do not blend these</h3>
+  <div class="scroll">
+  <table>
+    <tr><th>Relationship</th><th>Official / primary evidence</th><th>Third-party estimates (usable only as cross-checks)</th></tr>
+    <tr><td>score→rank (NEET PG)</td><td class="req">NBEMS Notice-Board PDFs — full cohort, empirical</td><td>Careers360/Shiksha point tables (crowd-sourced, non-monotonic); PrepLadder blog (claims NBEMS-derived, unverifiable); MedAdmit (disclosed methodology, claimed 0.4% median error)</td></tr>
+    <tr><td>score→rank (INI-CET)</td><td class="opt"><span class="tag tag-blk">NONE EXISTS</span> — AIIMS publishes rank/percentile only</td><td>Hazra's crowd-sourced corrects→AIR ladders (Reddit/Telegram compilations, by his own statement)</td></tr>
+    <tr><td>rank→branch (NEET PG)</td><td class="req">MCC allotment PDFs 2020–2025 (derive closing ranks)</td><td>Sartha cutoff DB (explicitly MCC-derived, 2024–25); PW/Shiksha (estimated ranges)</td></tr>
+    <tr><td>rank→branch (INI-CET)</td><td class="req">AIIMS round PDFs 2021–2026 (derive closing ranks)</td><td>ReflexPrep institute-wise 2025 (UR only); Sartha Jan-2026 table (44 branches × 5 categories)</td></tr>
+    <tr><td>UPSC selection line</td><td class="req">UPSC cutoff PDFs 2013–2025</td><td>Careers360 compilation (faithful mirror)</td></tr>
+    <tr><td>FMGE pass rates</td><td class="req">NBEMS result notices (session totals); Perf. Reports 2015–19</td><td>fmgeprep / iambbs / Careers360 — <strong>mutually conflicting</strong> on several sessions</td></tr>
+  </table>
+  </div>
+</section>
+
+<!-- ============ PART 4 ============ -->
+<section id="p4">
+  <div class="part-no">Part 4</div>
+  <h2 class="part">Dr Mayukh Hazra's channel — sampled, not assumed</h2>
+  <p class="part-lede">Six videos sampled across 2023–2026 with full transcripts; all 242 video titles catalogued. Channel stats verified from About-page data: 43.2K subscribers, 193 long-form videos + 48 Shorts, joined 2017 — <strong>but data-bearing videos effectively start 2024</strong> (uploads: 2021:3, 2022:8, 2023:9, 2024:~44, 2025:~58, 2026:~71).</p>
+
+  <div class="scroll">
+  <table>
+    <tr><th style="min-width:200px">Sampled video</th><th>What it actually contains</th><th>Usable points</th><th>Where the data lives</th></tr>
+    <tr><td>"INICET 2025 No of Corrects VS Rank" (2025-05-25)</td><td>Spoken corrects→AIR ladder: 160c→top-10 · 150c→top-100 · 140c→~1,000 · 135c→~2,500 · 130c→~4,000 · 120c→~10,000 · 110c→~28,000; worked examples of +1/−⅓ scoring</td><td class="num">~10–12</td><td>Audio only; description = zero data</td></tr>
+    <tr><td>"NEET PG 2025 Strategy According to No. of GT Corrects" (2025-06-08)</td><td>GT-corrects→rank <strong>bands</strong> (170+→&lt;100 … &lt;100→30k+); then undercuts the mapping with counterexamples ("150+ corrects… got 10,000–15,000 rank in NEET PG 2024")</td><td class="num">~7–10 (coarse)</td><td>Audio only</td></tr>
+    <tr><td>"NEET PG 2025 Round 1 Cut Off MD/DNB/Diploma Branch &amp; Category-wise" (2025-11-27)</td><td>Densest sample: ~60 branch→closing-rank values (UR only): e.g. Dermatology 2,725 · Radiology 2,920 · Medicine 3,822 · Surgery 11,000 · Anaesthesia 19,000 · Anatomy 110,000. Category-wise version <em>deliberately gated to his Instagram</em></td><td class="num">~60</td><td>Audio; full tables off-platform</td></tr>
+    <tr><td>"INICET May 2026 Round 2 Branch &amp; Category-wise Cut Off" (2026-09-11)</td><td>~30 closing ranks (Medicine 194 · RadDiag 202 · Derma 273 · Peds 425 · Surgery 537 …). <strong>Verified ASR corruption</strong>: "Biochemistry 684" ≈ 6,840; "Ophthalmology 191" ≈ 1,191</td><td class="num">~30</td><td>Audio; categories on his Telegram</td></tr>
+    <tr><td>"INICET Cut Off Trends / Marks vs AIR" (2026-05-19)</td><td>Two-session marks→AIR ladders (Nov 2025: AIR-1=150 marks … AIR-20,000≈80) + May-25 vs Nov-25 corrects pairs. <strong>Provenance, in his words:</strong> "compiled from Reddit, Telegram… because officially nothing has been revealed by AIIMS". Also: prediction accuracy "10% chances"</td><td class="num">~20</td><td>Audio only</td></tr>
+    <tr><td>"NEET PG 23 Topper's GT Performance" (2023-04-18)</td><td>Single anecdote (n=1): own Marrow GT ranks → 692/800 → AIR 29</td><td class="num">1</td><td>Audio only</td></tr>
+  </table>
+  </div>
+
+  <div class="grid2">
+    <div class="box good">
+      <h4>What the channel IS good for</h4>
+      <ul class="tight">
+        <li><strong>INI-CET corrects→AIR ladders 2025–26</strong> — the only structured marks-ish data that exists for INI-CET, because AIIMS publishes none (his own statement confirms the gap).</li>
+        <li>Sanity-checking derived closing ranks (his ~60-point UR lists cross-check well against MCC-derived tables).</li>
+        <li>GT-band priors as a starting heuristic for relationship A.</li>
+        <li>Estimated total: ~25–30 data videos × 30–60 points ≈ <strong>600–1,000 spoken data points</strong>, 2024–2026.</li>
+      </ul>
+    </div>
+    <div class="box bad">
+      <h4>Why it cannot anchor the predictor</h4>
+      <ul class="tight">
+        <li><strong>No 7-year history exists</strong> — data coverage starts 2024. Systematic only 2025–26.</li>
+        <li><strong>Descriptions contain zero numbers</strong> (marketing boilerplate + ads). Everything is spoken or on-screen.</li>
+        <li><strong>Transcripts are ASR-only and numerically corrupt</strong> (verified dropped-thousands and transposition errors); all raw transcript endpoints are PO-token/Cloudflare-blocked in 2026.</li>
+        <li><strong>UR-only on YouTube</strong>; category tables deliberately pushed to Instagram/Telegram (audience capture).</li>
+        <li><strong>Crowd-sourced provenance</strong> (Reddit/Telegram recall), self-disclaimed accuracy; the author himself calls cutoff prediction "guessing".</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PART 5 ============ -->
+<section id="p5">
+  <div class="part-no">Part 5</div>
+  <h2 class="part">Three relationships, three different data realities</h2>
+  <p class="part-lede">These are not one problem. Each link has its own data availability, confidence and methodology — and one of them (A) has no public ground truth at all.</p>
+
+  <div class="mermaid">
+flowchart LR
+  A["GT inputs\ncorrects · cohort %ile"] -->|"A · GT → score\nno public ground truth\nown-cohort only"| B["expected score"]
+  B -->|"B · score → rank\nNEET PG: official full cohort\nINI-CET: crowd-sourced only"| C["predicted rank\n(range)"]
+  C -->|"C · rank → branch\nofficial closing ranks\n2020-2025 / 2021-2026"| D["branch / specialty\npossibilities"]
+  style A fill:#E2EFEA,color:#0E3D33,stroke:#0E7A67
+  style B fill:#E4EAF2,color:#22384F,stroke:#2C4A6E
+  style C fill:#E4EAF2,color:#22384F,stroke:#2C4A6E
+  style D fill:#E2EFEA,color:#0E3D33,stroke:#0E7A67
+  </div>
+
+  <div class="grid2">
+    <div class="rel-card">
+      <h4>A — GT corrects → expected exam score</h4>
+      <div class="formula">gt_percentile → exam_percentile → exam_score</div>
+      <span class="conf conf-lo">CONFIDENCE: LOW (until our cohort data accrues)</span>
+      <ul class="tight">
+        <li><strong>Required:</strong> paired data — same student's GT attempts + actual exam outcome.</li>
+        <li><strong>Available publicly:</strong> none. No coaching platform publishes GT calibration. Hazra's bands are coarse, anecdotal and self-disclaimed.</li>
+        <li><strong>Best source:</strong> Eyeconic's own app (GT attempts already recorded) + an outcome-capture form we must build.</li>
+        <li><strong>Methodology:</strong> start with a <em>percentile-transfer prior</em> (a student's percentile within a GT cohort ≈ their exam percentile, resolved to a score/rank via the official distribution), then recalibrate empirically as paired outcomes accumulate. Show wide intervals; label as estimate.</li>
+      </ul>
+    </div>
+    <div class="rel-card">
+      <h4>B — exam score → predicted rank</h4>
+      <div class="formula">empirical quantile lookup on official distribution</div>
+      <span class="conf conf-hi">NEET PG: HIGH · </span><span class="conf conf-md">UPSC: MEDIUM · </span><span class="conf conf-lo">INI-CET: LOW-MED</span>
+      <ul class="tight">
+        <li><strong>NEET PG:</strong> solved — the Notice-Board PDF (242,493 rows, 2025) <em>is</em> the mapping; older years retrievable. Handle the 800→720 scale break with per-year anchors.</li>
+        <li><strong>INI-CET:</strong> marks never published (official). Only rank+percentile. Use crowd-sourced corrects→AIR ladders (Hazra) as an explicitly-labeled estimate, or make rank/percentile the primary input.</li>
+        <li><strong>UPSC CMS:</strong> cutoffs + recommended-candidates marks give a partial distribution — selection-probability framing, not a rank curve.</li>
+        <li><strong>Methodology:</strong> monotonic empirical-quantile interpolation per exam-year; no parametric fitting needed at n=242k.</li>
+      </ul>
+    </div>
+    <div class="rel-card">
+      <h4>C — predicted rank → possible branches</h4>
+      <div class="formula">closing-rank threshold table per year × round × quota × category</div>
+      <span class="conf conf-hi">CONFIDENCE: HIGH</span>
+      <ul class="tight">
+        <li><strong>Required:</strong> closing rank per institute × course × category × quota × round.</li>
+        <li><strong>Available:</strong> official allotment PDFs (MCC 2020–25; AIIMS 2021–26) — derivable by aggregation; prebuilt 2024+2025 CSVs on GitHub for day one.</li>
+        <li><strong>Methodology:</strong> threshold lookup with year-over-year range (min–max across available years), filtered by user category; output "safe / likely / reach" bands rather than a single branch list.</li>
+        <li><strong>Reverse direction (Desired Branch Predictor):</strong> same table inverted — branch → historical closing-rank range → required rank → required score (via B) → required GT performance (via A). Free feature once C+B exist.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PART 6 ============ -->
+<section id="p6">
+  <div class="part-no">Part 6</div>
+  <h2 class="part">The "recent 3 GTs" ambiguity — options, not a decision</h2>
+  <p class="part-lede">The spoken discussion (min of recent 3) and the written spec (3–5 GTs, averaged/weighted) conflict. This is a product-owner decision; below is what each option requires and how defensible it is.</p>
+
+  <div class="scroll">
+  <table>
+    <tr><th style="min-width:180px">Methodology</th><th>Logic</th><th>Historical data it requires</th><th>Statistical defensibility</th></tr>
+    <tr><td><strong>Min of last 3 GTs</strong></td><td>Pessimistic floor — "assume you'll perform like your worst recent day"</td><td>Validation that the min predicts final scores better than the mean — i.e. paired GT/outcome data <span class="tag tag-blk">we do not have</span></td><td>Weak as an estimator (uses 1 of 3 observations, discards information); defensible only as a displayed <em>conservative scenario</em></td></tr>
+    <tr><td><strong>Mean of last 3–5</strong></td><td>Standard noise reduction across test instances</td><td>None to deploy; paired data to validate</td><td><strong>Strongest default</strong> — averaging repeated measurements is textbook psychometrics; robust to one bad test day</td></tr>
+    <tr><td><strong>Weighted / exponential decay</strong></td><td>Recent GTs matter more (improvement trend)</td><td>Enough per-student GT history to fit decay — our app accumulates this</td><td>Defensible refinement once ≥5 GTs per student exist; premature now</td></tr>
+    <tr><td><strong>Trend extrapolation</strong></td><td>Fit a line through the GT sequence, project forward to exam date</td><td>≥5 points per student + outcome data to validate extrapolation</td><td>Riskiest — extrapolation amplifies noise; overlaps the "With Eyeconic" uplift claim (Part 7)</td></tr>
+    <tr><td><strong>Percentile-normalized aggregation</strong></td><td>Convert each GT to its cohort percentile first, then average — comparable across different GTs/platforms</td><td>Per-GT cohort statistics (attempts distribution) — <span class="tag tag-ver">our app already records every attempt</span></td><td>Best practice when GTs differ in difficulty; combines cleanly with mean or weighting</td></tr>
+  </table>
+  </div>
+
+  <div class="box warn">
+    <div class="bt">Ask the product owner (blocking questions)</div>
+    <ul class="tight">
+      <li>Min, mean, or <em>both displayed as scenarios</em> (recommended framing: "likely / conservative")?</li>
+      <li>3 or 5 GTs as the input window? Are GTs from different platforms (Marrow/PrepLadder/ours) mixable, or Eyeconic-only?</li>
+      <li>If a student has fewer than 3 GTs — refuse prediction, or widen intervals?</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ PART 7 ============ -->
+<section id="p7">
+  <div class="part-no">Part 7</div>
+  <h2 class="part">"With Eyeconic" vs "Without" — what would make it defensible</h2>
+  <p class="part-lede">The claim "With Eyeconic your predicted score improves by X%" is a causal claim. Causal claims need a measured cohort.</p>
+
+  <div class="box warn">
+    <h4>What exists today (verified in this repo)</h4>
+    <p>The legacy page <span class="mono">client/src/pages/GtPredictor.tsx</span> already implements this as <span class="mono">GT_SCORE_TABLE</span> — hardcoded multipliers from +15% to +150% by band and time-to-exam, capped at 180 corrects. <strong>These numbers have no data behind them</strong> — they are a product assumption expressed in code. That is legitimate for marketing <em>if labeled as such</em>, but it is not a prediction.</p>
+  </div>
+
+  <ul class="tight">
+    <li><strong>To be scientifically defensible</strong> you need: students' GT trajectory while using Eyeconic + their actual exam outcome + a baseline/control (non-users or pre-usage GTs), enough to isolate the program's effect from natural improvement. <strong>We have none of this.</strong> Neither does anyone else — no public dataset contains mentorship-program uplift.</li>
+    <li><strong>Can we legitimately compute an improvement factor today?</strong> No. Any percentage would be invented. (Instructed not to invent one; we won't.)</li>
+    <li><strong>Correct MVP posture:</strong> keep it a <strong>configurable product assumption</strong> — admin-editable multipliers, visually labeled "illustrative", not "predicted".</li>
+    <li><strong>The path to making it real</strong> (cheap to start now): the app already records GT attempts. Add (1) a post-exam outcome form ("what was your final score/rank?") and (2) program-start GT baseline per student. Within 1–2 exam cycles, measured uplift replaces the table — the same dataset that calibrates relationship A.</li>
+  </ul>
+</section>
+
+<!-- ============ PART 8 ============ -->
+<section id="p8">
+  <div class="part-no">Part 8</div>
+  <h2 class="part">Source scoring — weighted, evidence-based</h2>
+  <p class="part-lede">Analyst ratings on verified evidence (not measurements). Weights sum to 100: reliability 20, officialness 10, completeness 10, historical coverage 10, granularity 10, ML suitability 10, ease of extraction 10, consistency 5, automation 5, cost 5, maintenance 5.</p>
+
+  <div class="box">
+    <div class="meter-row"><div class="meter-name">NBEMS Notice-Board PDF<span class="src-kind">official · NEET PG score↔rank · full cohort</span></div><div class="meter"><i style="width:86%"></i></div><div class="meter-val">8.6</div></div>
+    <div class="meter-row"><div class="meter-name">MCC allotment archive<span class="src-kind">official · rank→branch · 2020–2025</span></div><div class="meter"><i style="width:88%"></i></div><div class="meter-val">8.8</div></div>
+    <div class="meter-row"><div class="meter-name">UPSC cutoff + marks PDFs<span class="src-kind">official · 2013–2025 · cleanest access</span></div><div class="meter"><i style="width:84%"></i></div><div class="meter-val">8.4</div></div>
+    <div class="meter-row"><div class="meter-name">AIIMS INI-CET round PDFs<span class="src-kind">official · 2021–2026 · no marks</span></div><div class="meter"><i style="width:80%"></i></div><div class="meter-val">8.0</div></div>
+    <div class="meter-row"><div class="meter-name">crockzo/neet-pg<span class="src-kind">community mirror · 2025 · rank+score · zero scraping</span></div><div class="meter"><i style="width:78%"></i></div><div class="meter-val">7.8</div></div>
+    <div class="meter-row"><div class="meter-name">rahuldathu CSVs<span class="src-kind">community mirror · 2024 · rank only</span></div><div class="meter"><i style="width:72%"></i></div><div class="meter-val">7.2</div></div>
+    <div class="meter-row"><div class="meter-name">Sartha cutoff database<span class="src-kind">third-party · MCC-derived · 2024–25 · 29 states</span></div><div class="meter"><i style="width:66%"></i></div><div class="meter-val">6.6</div></div>
+    <div class="meter-row"><div class="meter-name">MedAdmit predictor data<span class="src-kind">third-party · disclosed method · unverifiable</span></div><div class="meter"><i style="width:58%"></i></div><div class="meter-val">5.8</div></div>
+    <div class="meter-row"><div class="meter-name">Careers360 / Shiksha tables<span class="src-kind">third-party · crowd-sourced marks↔rank</span></div><div class="meter"><i style="width:54%"></i></div><div class="meter-val">5.4</div></div>
+    <div class="meter-row"><div class="meter-name">Mayukh Hazra channel<span class="src-kind">crowd-sourced · ASR-corrupt · 2024–26 only</span></div><div class="meter"><i style="width:42%"></i></div><div class="meter-val">4.2</div></div>
+    <div class="meter-row"><div class="meter-name">GetMyUni<span class="src-kind">third-party · recycles 2022 table as 2024</span></div><div class="meter"><i style="width:32%"></i></div><div class="meter-val">3.2</div></div>
+  </div>
+  <p class="src">Pattern: the four highest scores are all official primary sources; community mirrors buy you speed (zero scraping) at the cost of license clarity and single-year coverage; crowd-sourced compilations rank last for modeling but retain value as priors and cross-checks.</p>
+</section>
+
+<!-- ============ PART 9 ============ -->
+<section id="p9">
+  <div class="part-no">Part 9</div>
+  <h2 class="part">Minimum viable dataset vs production dataset</h2>
+  <p class="part-lede">Based on actual availability and statistical need — not a guess. Key statistical fact: relationship B needs only <em>one</em> full-cohort distribution per exam-year (n=242,493 for NEET PG 2025) for a precise quantile mapping; additional years buy drift detection, not precision. Relationship C is where year-count matters, because closing ranks shift with seat matrices and exam difficulty.</p>
+
+  <div class="scroll">
+  <table>
+    <tr><th style="min-width:150px">Component</th><th>MVP (launch)</th><th>Production</th><th>Why / tradeoff</th></tr>
+    <tr><td>NEET PG score→rank</td><td><strong>1 year</strong> — 2025 Notice-Board PDF (single download, done in an hour)</td><td>2021–2025 (browser/Wayback retrieval) + 2026 720-scale re-anchor</td><td>One year is statistically sufficient for a quantile curve; multiple years expose drift and enable the scale-break correction</td></tr>
+    <tr><td>NEET PG rank→branch</td><td><strong>2 years</strong> — 2024 + 2025 (GitHub CSVs, available today, zero scraping)</td><td>2020–2025 via MCC archive ETL; state quotas state-by-state; seat matrices for shift explanations</td><td>2 years gives a min–max closing-rank band; &gt;=3 stabilizes it; pre-2020 data doesn't exist officially anyway</td></tr>
+    <tr><td>INI-CET</td><td>Latest 2–3 sessions: Jan-2026 category-wise table (Sartha) + 2025 institute-wise (ReflexPrep) + Hazra corrects→AIR ladders as labeled estimates</td><td>All sessions 2021–2026 from docs.aiimsexams.ac.in (PDF enumeration via Wayback CDX)</td><td>MVP ships rank-input UX (AIIMS's own scale); marks-based UX waits on crowd-sourced priors or our own INI-CET cohort</td></tr>
+    <tr><td>UPSC CMS</td><td>Cutoffs 2022–2025 (already compiled by Careers360 from official PDFs)</td><td>2013–2025 direct from upsc.gov.in + marks-of-recommended</td><td>Selection-probability feature; cheap and fully official</td></tr>
+    <tr><td>FMGE</td><td>Session pass-rate table (cross-checked across 3 compilers against official notices)</td><td>Official NBEMS session notices + university-wise rates (2015–19 official window)</td><td>Pass-probability framing only; sources conflict — cross-validation is mandatory, not optional</td></tr>
+    <tr><td>GT→score calibration</td><td>Percentile-transfer prior + Hazra bands, wide intervals, "estimate" label</td><td>Own-cohort paired data (GT history + outcome capture) — starts accruing day one of launch</td><td>The only relationship that cannot be bought, scraped or watched — it must be grown</td></tr>
+  </table>
+  </div>
+
+  <div class="box bad">
+    <div class="bt">Do we need 7 years? No — and mostly we can't have them.</div>
+    <p style="margin:6px 0 0">Official counselling coverage starts 2020 (MCC) and 2021 (INI-CET); Hazra's data starts 2024; the exam itself changed materially (pattern change ~2024, the 2025 normalization controversy, the 800→720 scale break in 2026) making pre-2021 years less representative, not more. <strong>Recommended: 2–3 recent cycles for MVP, backfill to 2020/2021 for production. Seven years is neither available nor statistically necessary.</strong></p>
+  </div>
+</section>
+
+<!-- ============ PART 10 ============ -->
+<section id="p10">
+  <div class="part-no">Part 10</div>
+  <h2 class="part">Combined acquisition strategy — which field comes from where</h2>
+  <div class="scroll">
+  <table>
+    <tr><th style="min-width:190px">Field</th><th>Source (priority order)</th><th>Join key</th></tr>
+    <tr><td>score ↔ rank (NEET PG, per year)</td><td>1. NBEMS Notice-Board PDF <span class="tag tag-off">OFFICIAL</span> · 2. crockzo 2025 (rank+score per allotment row) <span class="tag tag-ver">VERIFIED</span> · 3. Kaggle 2019 (check once)</td><td rowspan="5"><span class="mono">exam · year/session · round · quota · category · institute · course</span><br><br>Relationships join at <strong>rank</strong>: A produces a rank distribution → C's threshold table consumes ranks. User-level join: <span class="mono">student_id → gt_attempts → predicted_rank → branch_matches</span></td></tr>
+    <tr><td>closing_rank per institute×course×category×round (NEET PG)</td><td>1. Derived from MCC PDFs 2020–25 <span class="tag tag-off">OFFICIAL</span> · 2. crockzo 2025 + rahuldathu 2024 prebuilt <span class="tag tag-ver">VERIFIED</span> · 3. Sartha as cross-check</td></tr>
+    <tr><td>INI-CET rank→branch + percentiles</td><td>1. AIIMS docs PDFs 2021–26 <span class="tag tag-off">OFFICIAL</span> · 2. Sartha Jan-26 / ReflexPrep 2025 · 3. Hazra videos (UR, priors)</td></tr>
+    <tr><td>INI-CET corrects→AIR (marks proxy)</td><td>1. Hazra ladder videos (labeled crowd-sourced) — the only source that exists · 2. future: own cohort</td></tr>
+    <tr><td>UPSC cutoffs · FMGE pass rates</td><td>1. upsc.gov.in PDFs <span class="tag tag-off">OFFICIAL</span> · 2. NBEMS notices; third-party compilers cross-checked against each other</td></tr>
+    <tr><td>GT attempts + outcomes (relationship A)</td><td>Eyeconic app only. GT attempts: already recorded. Outcomes: <strong>build the capture form</strong></td><td><span class="mono">student_id · exam_cycle</span></td></tr>
+  </table>
+  </div>
+  <p class="src">ETL shape: PDF → <span class="mono">pdftotext</span> → parser (Camelot/pdftotext pipelines proven in the harshitgupta1337 and data-scraping-neet-ss repos) → canonical tables → closing-rank aggregation. All PDFs verified text-extractable, none scanned.</p>
+</section>
+
+<!-- ============ PART 11 ============ -->
+<section id="p11">
+  <div class="part-no">Part 11</div>
+  <h2 class="part">Final answers</h2>
+
+  <div class="qa">
+    <div class="q">1 · Best currently available source for each variable?</div>
+    <ul class="tight">
+      <li><strong>NEET PG score→rank:</strong> NBEMS Notice-Board PDF (full cohort, official) — <a href="https://natboard.edu.in/natboard-data/pdf/NEETPG2025RESULT/NEET-PG%202025%20Notice%20Board%20Result%20-%2019.08.2025%20-%20DS.pdf">2025 file verified live</a>.</li>
+      <li><strong>NEET PG rank→branch:</strong> crockzo 2025 + rahuldathu 2024 GitHub datasets now; MCC archive 2020–25 ETL for production.</li>
+      <li><strong>INI-CET rank→branch:</strong> AIIMS round PDFs (2021–26); Sartha Jan-2026 table for day one.</li>
+      <li><strong>INI-CET marks proxy:</strong> Hazra ladder videos (crowd-sourced — the only thing that exists).</li>
+      <li><strong>UPSC CMS:</strong> upsc.gov.in cutoff PDFs 2013–2025.</li>
+      <li><strong>FMGE:</strong> NBEMS notices, cross-checked against the three compilers (they conflict).</li>
+      <li><strong>GT→score:</strong> nobody's — Eyeconic's own cohort instrumentation.</li>
+    </ul>
+  </div>
+
+  <div class="qa">
+    <div class="q">2 · Is Dr Mayukh Hazra's channel actually useful?</div>
+    <p style="margin:4px 0 0">Yes, but narrowly: a <strong>secondary seed corpus</strong> — strongest for branch closing ranks 2024–26 (which official data covers better anyway) and uniquely for INI-CET corrects→AIR ladders (which cover a gap AIIMS itself leaves). It cannot anchor the predictor: no depth before 2024, UR-only on YouTube, ASR-corrupted numbers, crowd-sourced provenance, and the author disclaims its predictive reliability on camera.</p>
+  </div>
+
+  <div class="qa">
+    <div class="q">3 · Should you start manually extracting his videos now?</div>
+    <p class="ans-no">NO</p>
+    <p style="margin:4px 0 0">Reasons: (a) descriptions carry zero data — extraction means transcript-correcting ASR-corrupted numbers by ear, per video; (b) his strongest content (NEET PG branch cutoffs) is dominated by official MCC PDFs that are <em>cheaper to parse and authoritative</em>; (c) no 7-year depth exists to harvest; (d) UR-only, while official PDFs carry every category. <strong>One exception:</strong> if INI-CET score-based prediction is in MVP scope, manually extract just the 3–5 "corrects vs AIR / marks vs AIR" ladder videos (~30–60 minutes total) as labeled priors — that data exists nowhere else.</p>
+  </div>
+
+  <div class="qa">
+    <div class="q">4 · If extracting that INI-CET subset — exact schema</div>
+    <div class="scroll">
+    <table>
+      <tr><th>Column</th><th>Type</th><th>Example</th></tr>
+      <tr><td><span class="mono">exam</span></td><td>text</td><td>INI-CET</td></tr>
+      <tr><td><span class="mono">session</span></td><td>text (YYYY-MM)</td><td>2025-11</td></tr>
+      <tr><td><span class="mono">record_type</span></td><td>enum</td><td>corrects_to_air | branch_cutoff</td></tr>
+      <tr><td><span class="mono">corrects</span> / <span class="mono">incorrects</span></td><td>int, nullable</td><td>162 / 34</td></tr>
+      <tr><td><span class="mono">marks</span></td><td>float, nullable</td><td>150.0</td></tr>
+      <tr><td><span class="mono">air</span></td><td>int, nullable</td><td>1</td></tr>
+      <tr><td><span class="mono">branch</span> / <span class="mono">category</span> / <span class="mono">round</span></td><td>text, nullable</td><td>MD Radiodiagnosis / UR / R2</td></tr>
+      <tr><td><span class="mono">source_video_id</span></td><td>text</td><td>3Tbyz1Tig3E</td></tr>
+      <tr><td><span class="mono">provenance</span></td><td>enum</td><td>crowd_sourced — <strong>always</strong> this value for his data</td></tr>
+      <tr><td><span class="mono">extracted_at</span> / <span class="mono">notes</span></td><td>date / text</td><td>2026-09-18 / "ASR said 684; corrected to 6,840 by monotonicity check"</td></tr>
+    </table>
+    </div>
+  </div>
+
+  <div class="qa">
+    <div class="q">5 · If NO — what to use instead</div>
+    <p style="margin:4px 0 0">The stack in Part 10: GitHub mirrors (2024–25) → NBEMS Notice-Board PDF (2025 distribution) → MCC archive (backfill) → AIIMS docs host (INI-CET) → UPSC PDFs → Sartha/ReflexPrep as cross-checks. All verified reachable; ~90% of it machine-parseable.</p>
+  </div>
+
+  <div class="qa">
+    <div class="q">6 · What to build in the app while data is collected</div>
+    <ul class="tight">
+      <li><strong>Canonical DB tables + seed script</strong> matching Part 1's schema, with a <span class="mono">provenance</span> column on every row (official / derived / community / crowd_sourced).</li>
+      <li><strong>Pluggable predictor service:</strong> (A) percentile-transfer prior module, (B) quantile-lookup module, (C) threshold-table module — each independently testable against held-out data.</li>
+      <li><strong>Uncertainty-first UI:</strong> ranges + confidence labels, never naked point predictions; provenance badge on every number shown.</li>
+      <li><strong>Outcome-capture form</strong> (post-exam "what was your actual score/rank?") + GT-history linkage — the calibration flywheel for A and Part 7. <strong>Highest-leverage item in the whole plan.</strong></li>
+      <li><strong>Admin-editable config:</strong> GT aggregation rule, improvement multipliers ("With Eyeconic" as labeled assumption), per-exam methodology flags.</li>
+    </ul>
+  </div>
+
+  <div class="qa">
+    <div class="q">7 · What to confirm with your boss before implementing the algorithm</div>
+    <ul class="tight">
+      <li><strong>Exam scope &amp; methodology sign-off:</strong> FMGE = pass-probability, UPSC CMS = selection-probability, NEET PG/INI-CET = rank→branch. Confirm, or de-scope MVP to NEET PG + INI-CET.</li>
+      <li><strong>GT aggregation:</strong> min vs mean vs both-scenarios; 3 vs 5 GTs; cross-platform GTs allowed?</li>
+      <li><strong>Category &amp; quota granularity at launch:</strong> UR-only MVP vs all categories; AIQ-only vs states/deemed/DNB.</li>
+      <li><strong>INI-CET input UX:</strong> rank/percentile-first (defensible) vs corrects-based (crowd-sourced prior, labeled estimate)?</li>
+      <li><strong>"With Eyeconic" uplift:</strong> confirm it ships as a labeled, configurable assumption — and who owns the numbers.</li>
+      <li><strong>Display policy:</strong> ranges + confidence labels as the default output — sign-off that we never show false-precision point values.</li>
+      <li><strong>Outcome capture approval:</strong> asking students for their final results (this is what eventually makes the product data-driven).</li>
+      <li><strong>Provenance policy:</strong> comfort using community mirrors (attribution) vs official-PDF-only pipeline.</li>
+    </ul>
+  </div>
+
+  <div class="qa">
+    <div class="q">8 · Execution plan — next 2–3 days</div>
+    <ul class="tight">
+      <li><strong>Day 1 AM:</strong> clone crockzo + rahuldathu; normalize to canonical schema; derive closing-rank tables (rank→branch for 2024+2025, all categories, AIQ).</li>
+      <li><strong>Day 1 PM:</strong> download the NBEMS 2025 Notice-Board PDF (direct URL works despite the Turnstile gate); build the score→rank quantile lookup; sanity-check against crockzo's rank+score columns.</li>
+      <li><strong>Day 2 AM:</strong> MCC archive harvest for 2022–2023 backfill (WordPress REST + CDN PDFs); run the pdftotext parser; aggregate closing ranks.</li>
+      <li><strong>Day 2 PM:</strong> INI-CET: pull 2–3 session allotment PDFs from docs.aiimsexams.ac.in (Jan/Jul 2025 + Jan 2026); optionally extract the 3–5 Hazra ladder videos into the Part-11.4 table; load UPSC 2022–25 cutoffs and cross-checked FMGE rates as static tables.</li>
+      <li><strong>Day 3:</strong> implement — seed script, three predictor modules, API endpoints, uncertainty UI with provenance badges, admin config (GT rule + uplift multipliers), and the outcome-capture form. Write the boss-question list (11.7) into the spec doc.</li>
+    </ul>
+  </div>
+
+  <div class="footnote">
+    Compiled 2026-09-18 by four parallel verification agents (datasets · official sources · third-party databases · channel probe) plus direct repo inspection.
+    Evidence grading: <span class="tag tag-off">OFFICIAL</span> = primary government/institute source, opened and parsed · <span class="tag tag-ver">VERIFIED</span> = opened by us, contents seen · <span class="tag tag-est">ESTIMATE</span> = secondary/crowd-sourced or search-snippet only · <span class="tag tag-blk">BLOCKED/N-A</span> = inaccessible to automation or structurally inapplicable.
+    Repo evidence: <span class="mono">client/src/pages/GtPredictor.tsx</span> (legacy hardcoded uplift table), <span class="mono">server/routes/auth.js</span> (single-snapshot gtScore storage), quiz-attempt system (GT history pipeline).
+    Analyst scores in Part 8 are judgments over verified facts, not measurements.
+  </div>
+</section>
+
+</div>

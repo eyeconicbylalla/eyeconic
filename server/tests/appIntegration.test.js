@@ -566,4 +566,33 @@ describe('GET /api/app/* proxy', () => {
       .send({});
     expect(response.status).toBe(404);
   });
+
+  it('accepts the site’s own origins on state-changing routes behind rewriting proxies', async () => {
+    const cookie = await loginStudent();
+    // Dev shape: page on :5173, server behind the Vite proxy (Host rewritten).
+    // (The proxy normalizes the upstream 201 to 200 — what matters is: not 403.)
+    const dev = await request(app)
+      .post('/api/app/quizzes/507f1f77bcf86cd799439022/start')
+      .set('Cookie', cookie)
+      .set('Origin', 'http://localhost:5173')
+      .send({});
+    expect(dev.status).toBe(200);
+
+    // Production shape: website origin behind the Vercel /api rewrite.
+    const prod = await request(app)
+      .post('/api/app/quizzes/507f1f77bcf86cd799439022/start')
+      .set('Cookie', cookie)
+      .set('Origin', 'https://www.eyeconicneetpg.com')
+      .send({});
+    expect(prod.status).toBe(200);
+
+    // Foreign origins are still rejected.
+    const evil = await request(app)
+      .post('/api/app/quizzes/507f1f77bcf86cd799439022/start')
+      .set('Cookie', cookie)
+      .set('Origin', 'https://evil.example.com')
+      .send({});
+    expect(evil.status).toBe(403);
+    expect(evil.body.code).toBe('CSRF_REJECTED');
+  });
 });

@@ -32,7 +32,7 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose, onSignupSucc
       localStorage.setItem('token', res.data.token); // Save token
       onSignupSuccess(res.data.token);
       onClose();
-      window.location.href = '/gt-predictor'; // Legacy visitor area
+      window.location.href = '/'; // Legacy visitor area retired (Phase 8) — the Rank Predictor now lives at /predictor with App sign-in
     } catch (err) {
       if (axios.isAxiosError(err)) {
         setError(err.response?.data?.msg || 'Signup failed');

@@ -1,0 +1,28 @@
+{
+  "version": "category-v1",
+  "created": "2026-09-19",
+  "notes": "Maps raw category strings (MCC legend: GN=Open, BC=OBC-NCL, EW=EWS, SC, ST; PwD suffix or separate PwD column) to canonical {category, pwd}. Applied to BOTH allotted_category (used for closing-rank grouping) and candidate_category (informational). Raw values preserved (raw_allotted_category / raw_candidate_category).",
+  "canonical_categories": ["UR", "EWS", "OBC", "SC", "ST"],
+  "mappings": {
+    "Open":            { "category": "UR",  "pwd": false },
+    "Open PwD":        { "category": "UR",  "pwd": true },
+    "Open\rPwD":       { "category": "UR",  "pwd": true, "_note": "rahuldathu CSV carriage-return artifact" },
+    "General":         { "category": "UR",  "pwd": false },
+    "General PwD":     { "category": "UR",  "pwd": true },
+    "GN":              { "category": "UR",  "pwd": false },
+    "GNYes":           { "category": "UR",  "pwd": true, "_note": "mirror concatenation of GN + PwD-column 'Yes' (110 rows, crockzo candidate_category only); documented assumption — does not affect closing ranks (allotted category only)" },
+    "OBC":             { "category": "OBC", "pwd": false },
+    "OBC PwD":         { "category": "OBC", "pwd": true },
+    "OBC\rPwD":        { "category": "OBC", "pwd": true, "_note": "rahuldathu CSV carriage-return artifact" },
+    "BC":              { "category": "OBC", "pwd": false },
+    "EWS":             { "category": "EWS", "pwd": false },
+    "EWS PwD":         { "category": "EWS", "pwd": true },
+    "EWS\rPwD":        { "category": "EWS", "pwd": true, "_note": "rahuldathu CSV carriage-return artifact" },
+    "EW":              { "category": "EWS", "pwd": false },
+    "SC":              { "category": "SC",  "pwd": false },
+    "SC PwD":          { "category": "SC",  "pwd": true },
+    "ST":              { "category": "ST",  "pwd": false },
+    "ST PwD":          { "category": "ST",  "pwd": true }
+  },
+  "unmapped_policy": "QUARANTINE — preserve raw value, exclude from production cutoff tables, count in validation report"
+}

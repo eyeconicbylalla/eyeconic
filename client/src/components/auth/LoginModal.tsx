@@ -25,7 +25,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
       localStorage.setItem('token', res.data.token); // Save token
       onLoginSuccess(res.data.token);
       onClose();
-      window.location.href = '/gt-predictor'; // Legacy visitor area
+      window.location.href = '/'; // Legacy visitor area retired (Phase 8) — the Rank Predictor now lives at /predictor with App sign-in
     } catch (err) {
       if (axios.isAxiosError(err)) {
         setError(err.response?.data?.msg || 'Login failed');
