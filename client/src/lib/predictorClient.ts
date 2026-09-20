@@ -1,7 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import { API_BASE_URL } from '../config/api';
 import type {
-  BranchesResponse, BranchBand, GtsResponse, OutcomeGetResponse, OutcomePutResponse,
+  BranchesResponse, BranchBand, GtsResponse, OutcomePutResponse, OutcomeStatusResponse,
   OutcomeSubmission, PredictResponse, PredictorExam,
 } from '../types/predictor';
 
@@ -80,7 +80,7 @@ export const predictorEndpoints = {
       .then((r) => r.data),
   outcome: (predictionId: string) =>
     predictorApi
-      .get<OutcomeGetResponse>(`/predictions/${predictionId}/outcome`)
+      .get<OutcomeStatusResponse>(`/predictions/${predictionId}/outcome`)
       .then((r) => r.data),
   saveOutcome: (predictionId: string, body: OutcomeSubmission) =>
     predictorApi

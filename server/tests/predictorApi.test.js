@@ -391,9 +391,10 @@ describe('predictor API — outcome capture (§18 Phase 10a)', () => {
 
     const got = await request(app).get(`/api/predictor/predictions/${id}/outcome`).set('Cookie', cookie);
     expect(got.status).toBe(200);
-    expect(got.body.linkageCheck.matches).toBe(true);
-    expect(got.body.outcome.percentile).toBe(81.2);
-    expect(got.body.source).toBe('self-reported');
+    expect(got.body.recorded).toBe(true);
+    expect(got.body.outcomeRecord.linkageCheck.matches).toBe(true);
+    expect(got.body.outcomeRecord.outcome.percentile).toBe(81.2);
+    expect(got.body.outcomeRecord.source).toBe('self-reported');
     expect(got.body.predictionSummary.methodVersion).toBe('neetpg-branch-p6.v1');
     expect(got.body.predictionSummary.rankRange[0]).toBeLessThan(got.body.predictionSummary.rankRange[1]);
     expect(got.body.predictionSummary.gtsUsed).toBe(2);
@@ -416,7 +417,8 @@ describe('predictor API — outcome capture (§18 Phase 10a)', () => {
     expect(await OutcomeCapture.countDocuments({ predictionId: id })).toBe(1);
 
     const got = await request(app).get(`/api/predictor/predictions/${id}/outcome`).set('Cookie', cookie);
-    expect(got.body.outcome).toEqual({ score: null, percentile: null, rank: 41000 });
+    expect(got.body.recorded).toBe(true);
+    expect(got.body.outcomeRecord.outcome).toEqual({ score: null, percentile: null, rank: 41000 });
   });
 
   it('rejects submission without consent (consent-based, §15)', async () => {
@@ -514,12 +516,15 @@ describe('predictor API — outcome capture (§18 Phase 10a)', () => {
     expect(put.body.code).toBe('NOT_FOUND');
   });
 
-  it('GET with no stored outcome is 404 OUTCOME_NOT_FOUND (the empty state)', async () => {
+  it('empty state is a routine 200, not an error (no console noise on result pages)', async () => {
     const cookie = await login();
     const id = await predictFor(cookie);
     const res = await request(app).get(`/api/predictor/predictions/${id}/outcome`).set('Cookie', cookie);
-    expect(res.status).toBe(404);
-    expect(res.body.code).toBe('OUTCOME_NOT_FOUND');
+    expect(res.status).toBe(200);
+    expect(res.body.recorded).toBe(false);
+    expect(res.body.outcomeRecord).toBeNull();
+    // Context is still served so the UI can show predicted-vs-actual anywhere.
+    expect(res.body.predictionSummary.rankRange[0]).toBeLessThan(res.body.predictionSummary.rankRange[1]);
   });
 
   it('withdrawal deletes the outcome entirely (consent-based = withdrawable)', async () => {
@@ -533,9 +538,13 @@ describe('predictor API — outcome capture (§18 Phase 10a)', () => {
     const del = await request(app).delete(`/api/predictor/predictions/${id}/outcome`).set('Cookie', cookie);
     expect(del.status).toBe(200);
     expect(del.body.deleted).toBe(true);
-    expect(
-      (await request(app).get(`/api/predictor/predictions/${id}/outcome`).set('Cookie', cookie)).status
-    ).toBe(404);
+    // Back to the routine empty state — a 200, not an error.
+    const after = await request(app)
+      .get(`/api/predictor/predictions/${id}/outcome`)
+      .set('Cookie', cookie);
+    expect(after.status).toBe(200);
+    expect(after.body.recorded).toBe(false);
+    // Deleting nothing IS an error.
     expect(
       (await request(app).delete(`/api/predictor/predictions/${id}/outcome`).set('Cookie', cookie)).status
     ).toBe(404);
@@ -556,7 +565,8 @@ describe('predictor API — outcome capture (§18 Phase 10a)', () => {
 
     const got = await request(app).get(`/api/predictor/predictions/${id}/outcome`).set('Cookie', cookie);
     expect(got.status).toBe(200);
-    expect(got.body.linkageCheck.matches).toBe(false);
+    expect(got.body.recorded).toBe(true);
+    expect(got.body.outcomeRecord.linkageCheck.matches).toBe(false);
   });
 });
 

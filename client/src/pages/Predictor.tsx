@@ -6,7 +6,7 @@ import {
 import { errorField, errorRowIndices, predictorEndpoints, predictorErrorMessage } from '../lib/predictorClient';
 import { useAppAuth } from '../context/AppAuthContext';
 import type {
-  BranchBand, BranchesResponse, BranchRow, GtsResponse, GtAttemptInput, OutcomeGetResponse,
+  BranchBand, BranchesResponse, BranchRow, GtsResponse, GtAttemptInput, OutcomeRecordResponse,
   OutcomeSubmission, PredictionResult, PredictorExam,
 } from '../types/predictor';
 
@@ -705,7 +705,7 @@ const ResultView: React.FC<{
         <BranchSection state={branchState} />
 
         {/* §18 Phase 10a: consent-based outcome capture, reachable from the result */}
-        {predictionId ? <OutcomeSection predictionId={predictionId} /> : null}
+        {predictionId ? <OutcomeSection predictionId={predictionId} result={result} /> : null}
       </div>
     </section>
   );
@@ -946,8 +946,11 @@ function outcomeFieldErrors(score: string, percentile: string, rank: string): Ou
   return errors;
 }
 
-const OutcomeSection: React.FC<{ predictionId: string }> = ({ predictionId }) => {
-  const [record, setRecord] = useState<OutcomeGetResponse | null>(null);
+const OutcomeSection: React.FC<{ predictionId: string; result: PredictionResult }> = ({
+  predictionId,
+  result,
+}) => {
+  const [record, setRecord] = useState<OutcomeRecordResponse | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -963,9 +966,10 @@ const OutcomeSection: React.FC<{ predictionId: string }> = ({ predictionId }) =>
 
   const load = useCallback(async () => {
     try {
-      setRecord(await predictorEndpoints.outcome(predictionId));
+      const data = await predictorEndpoints.outcome(predictionId);
+      setRecord(data.recorded ? data.outcomeRecord : null);
     } catch {
-      setRecord(null); // none recorded (or transient) — the card is optional
+      setRecord(null); // transient — the card is optional and must never block
     } finally {
       setLoaded(true);
     }
@@ -986,7 +990,7 @@ const OutcomeSection: React.FC<{ predictionId: string }> = ({ predictionId }) =>
   const canSubmit =
     consent && anyValue && !saving && Object.keys(fieldErrors).length === 0;
 
-  const openForm = (from?: OutcomeGetResponse) => {
+  const openForm = (from?: OutcomeRecordResponse) => {
     setScore(from && from.outcome.score !== null ? String(from.outcome.score) : '');
     setPercentile(from && from.outcome.percentile !== null ? String(from.outcome.percentile) : '');
     setRank(from && from.outcome.rank !== null ? String(from.outcome.rank) : '');
@@ -1171,7 +1175,6 @@ const OutcomeSection: React.FC<{ predictionId: string }> = ({ predictionId }) =>
   // Recorded view: values + honest predicted-vs-actual context + edit/withdraw.
   if (record && !formOpen) {
     const o = record.outcome;
-    const summary = record.predictionSummary;
     return (
       <div className="bg-[#18222E] border border-[#18B6A4]/25 rounded-2xl p-6 mt-6">
         <h3 className="font-semibold text-[#F8FAFC] flex items-center gap-2">
@@ -1184,10 +1187,11 @@ const OutcomeSection: React.FC<{ predictionId: string }> = ({ predictionId }) =>
             <span>AIR <strong>{o.rank.toLocaleString('en-IN')}</strong></span>
           ) : null}
         </div>
-        {o.rank !== null && summary.rankRange ? (
+        {o.rank !== null && result.rank ? (
           <p className="text-xs text-[#94A3B8] mt-2">
-            This prediction said AIR {fmtRank(summary.rankRange[0])} – {fmtRank(summary.rankRange[1])}{' '}
-            · your pair is saved to calibrate future ranges.
+            This prediction said AIR {fmtRank(result.rank.bestRank, result.rank.beyondLastRecordedRank)}{' '}
+            – {fmtRank(result.rank.worstRank, result.rank.beyondLastRecordedRank)} · your pair is saved
+            to calibrate future ranges.
           </p>
         ) : (
           <p className="text-xs text-[#94A3B8] mt-2">

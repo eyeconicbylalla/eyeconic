@@ -734,10 +734,29 @@ router.get('/predictions/:id/outcome', async (req, res) => {
   } catch {
     captured = null;
   }
+
+  // Side-by-side context for the student (and honest predicted-vs-actual).
+  const predictionSummary = {
+    methodVersion: prediction.methodVersion,
+    percentileRange:
+      prediction.estimate && prediction.estimate.percentile
+        ? prediction.estimate.percentile.range
+        : null,
+    rankRange: prediction.rank ? prediction.rank.rankRange : null,
+    gtsUsed: prediction.aggregation ? prediction.aggregation.n : null,
+  };
+
+  // "Nothing recorded yet" is the ROUTINE state (every result page until the
+  // student shares an outcome) — it must be a 200, not a 404: browsers log
+  // every non-2xx XHR to the console, so a 404 here would put a red error on
+  // every student's screen for the normal case. Real 404s (unknown or
+  // not-owned prediction) are handled above.
   if (!captured) {
-    return res.status(404).json({
-      msg: 'No outcome recorded for this prediction yet.',
-      code: 'OUTCOME_NOT_FOUND',
+    return res.json({
+      predictionId: prediction._id,
+      recorded: false,
+      outcomeRecord: null,
+      predictionSummary,
     });
   }
 
@@ -751,25 +770,19 @@ router.get('/predictions/:id/outcome', async (req, res) => {
 
   return res.json({
     predictionId: prediction._id,
-    outcomeId: captured._id,
-    exam: captured.exam,
-    consentGivenAt: captured.consentGivenAt,
-    outcome: captured.outcome,
-    linkage: captured.linkage,
-    source: captured.source,
-    createdAt: captured.createdAt,
-    updatedAt: captured.updatedAt,
-    linkageCheck: { matches: linkageMatches },
-    // Side-by-side context for the student (and honest predicted-vs-actual).
-    predictionSummary: {
-      methodVersion: prediction.methodVersion,
-      percentileRange:
-        prediction.estimate && prediction.estimate.percentile
-          ? prediction.estimate.percentile.range
-          : null,
-      rankRange: prediction.rank ? prediction.rank.rankRange : null,
-      gtsUsed: prediction.aggregation ? prediction.aggregation.n : null,
+    recorded: true,
+    outcomeRecord: {
+      outcomeId: captured._id,
+      exam: captured.exam,
+      consentGivenAt: captured.consentGivenAt,
+      outcome: captured.outcome,
+      linkage: captured.linkage,
+      source: captured.source,
+      createdAt: captured.createdAt,
+      updatedAt: captured.updatedAt,
+      linkageCheck: { matches: linkageMatches },
     },
+    predictionSummary,
   });
 });
 

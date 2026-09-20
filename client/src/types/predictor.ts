@@ -209,14 +209,27 @@ export interface OutcomePutResponse extends OutcomeCaptureRecord {
   created: boolean;
 }
 
-export interface OutcomeGetResponse extends OutcomeCaptureRecord {
+export interface OutcomeRecordResponse extends OutcomeCaptureRecord {
   linkageCheck: { matches: boolean };
-  predictionSummary: {
-    methodVersion: string;
-    percentileRange: [number, number] | null;
-    rankRange: [number | null, number | null] | null;
-    gtsUsed: number | null;
-  };
+}
+
+export interface OutcomePredictionSummary {
+  methodVersion: string;
+  percentileRange: [number, number] | null;
+  rankRange: [number | null, number | null] | null;
+  gtsUsed: number | null;
+}
+
+/**
+ * GET /predictions/:id/outcome — "nothing recorded yet" is the routine state
+ * on every result page, so it is a 200 (recorded: false), never a 404:
+ * browsers log every non-2xx XHR to the console.
+ */
+export interface OutcomeStatusResponse {
+  predictionId: string;
+  recorded: boolean;
+  outcomeRecord: OutcomeRecordResponse | null;
+  predictionSummary: OutcomePredictionSummary;
 }
 
 export interface OutcomeSubmission {

@@ -28,7 +28,7 @@ One document per prediction (**unique index on `predictionId`** — corrections 
 | Endpoint | Behaviour |
 |---|---|
 | `PUT /predictions/:id/outcome` | create-or-correct, own-only (prediction must be the caller's); consent `true` required (`CONSENT_REQUIRED`); ≥1 of score/percentile/rank (`OUTCOME_EMPTY`); score = integer 0–800 (bounds derived from the engine's 800-scale pattern config, not a stale route constant); percentile 0–100 (stored to 4 dp); rank = integer ≥1 with a 10⁶ sanity bound; Phase 10b counselling fields → `OUTCOME_FIELD_NOT_AVAILABLE`; any other unknown key → `OUTCOME_UNKNOWN_FIELD` (minimum-storage rule). Rate-limited 30/hour/user (fails open like predict). Upsert with unique-index race recovery (11000 → update). |
-| `GET /predictions/:id/outcome` | the stored outcome + **`linkageCheck.matches`** (capture-time linkage copy re-verified against the live prediction — mirrors the Phase 9 `resultHash` verification) + `predictionSummary` (predicted percentile/rank ranges, method version, GT count) for honest predicted-vs-actual display. `404 OUTCOME_NOT_FOUND` is the "nothing recorded yet" state. |
+| `GET /predictions/:id/outcome` | the stored outcome + **`linkageCheck.matches`** (capture-time linkage copy re-verified against the live prediction — mirrors the Phase 9 `resultHash` verification) + `predictionSummary` (predicted percentile/rank ranges, method version, GT count) for honest predicted-vs-actual display. "Nothing recorded yet" is the routine state → **200 `{recorded: false, outcomeRecord: null}`** (see post-release fix below); genuine 404s only for unknown/not-owned predictions. |
 | `DELETE /predictions/:id/outcome` | **withdrawal** removes the document entirely — consent-based means withdrawable. |
 
 Validation errors always carry a `field` path, matching the predictor API convention.
@@ -48,7 +48,7 @@ Every recorded outcome is a paired observation `GT performance → actual exam o
 
 | Check | Command | Result |
 |---|---|---|
-| Outcome API suite (13 new tests in `tests/predictorApi.test.js`): create + linkage copy, GET + linkage check, correction-overwrite (one doc), consent gate, empty gate, bounds/field-path errors (5 cases), 10b rejection, unknown-field rejection, own-only (PUT/GET/DELETE cross-user 404), unknown/malformed id 404, empty-state 404, withdrawal, **linkage drift detection** (tampered prediction → `matches: false`) | `cd server && npx jest tests/predictorApi.test.js` | ✅ 34/34 |
+| Outcome API suite (13 new tests in `tests/predictorApi.test.js`): create + linkage copy, GET + linkage check, correction-overwrite (one doc), consent gate, empty gate, bounds/field-path errors (5 cases), 10b rejection, unknown-field rejection, own-only (PUT/GET/DELETE cross-user 404), unknown/malformed id 404, empty-state **routine 200**, withdrawal, **linkage drift detection** (tampered prediction → `matches: false`) | `cd server && npx jest tests/predictorApi.test.js` | ✅ 34/34 |
 | Full server suite | `cd server && npm test` | ✅ **198/198** (15 suites) |
 | Client type-check (predictor files) + eslint | `npx tsc -b tsconfig.app.json` / `npx eslint <files>` | ✅ clean (pre-existing admin-component tsc errors at HEAD unchanged) |
 | Client build | `cd client && npm run build` | ✅ (pre-existing chunk-size warnings only) |
@@ -71,3 +71,16 @@ Every recorded outcome is a paired observation `GT performance → actual exam o
 ## Where the project stands
 
 **M1 COMPLETE** — the launchable NEET PG vertical slice end to end, including the outcome-capture loop. **Next: M2** per the milestone plan (§18): AIIMS source enumeration + INI-CET ingestion (Phase 2 extension) → Phase 5 INI-CET strategy → Phase 6 INI-CET branch matching → INI-CET UI → Phase 10b full capture. True calibration analysis stays gated on ~100+ captured pairs (§16).
+
+## Post-release fix (2026-09-20, from live user testing)
+
+**Symptom:** every visit to a prediction result page logged a red console error — `GET /api/predictor/predictions/:id/outcome 404 (Not Found)` — even though the page rendered correctly.
+
+**Root cause (established by probing the running dev server):** the response body was `OUTCOME_NOT_FOUND`, i.e. the route was live and working — the 404 was the **routine "nothing recorded yet" state**, which had been modeled as an HTTP error. Browsers log every non-2xx XHR to the console regardless of how the app handles it, so the *normal* case (no outcome shared yet — true for every student until they share one) put an error in every console.
+
+**Fix (contract change, before any deploy):** the empty state is a success, not an error —
+- `GET /predictions/:id/outcome` now returns **200 `{ recorded: false, outcomeRecord: null, predictionSummary }`** when nothing is stored, and 200 `{ recorded: true, outcomeRecord: { …, linkageCheck } , predictionSummary }` when recorded (payload restructured: the record nests under `outcomeRecord`, `linkageCheck` rides on it).
+- 404 remains only for genuine errors: unknown/not-owned prediction (`NOT_FOUND`) and DELETE of nothing (`OUTCOME_NOT_FOUND`).
+- Client types/`OutcomeSection` updated to the new shape; predicted-vs-actual now reads the already-available prediction `result` instead of a duplicated server summary.
+
+**Verification:** empty-state test rewritten to pin the routine 200 (suite 198/198); withdrawal test asserts GET-after-delete is 200 `recorded:false` while DELETE-of-nothing stays 404; live probe against the running dev server (nodemon auto-restarted) returned **STATUS 200** `{"recorded":false,…}` for the exact URL from the bug report. No console noise remains on result pages.
