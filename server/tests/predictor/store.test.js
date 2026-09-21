@@ -18,14 +18,16 @@ describe('predictor snapshot store', () => {
   beforeAll(() => store.resetCache());
   afterAll(() => store.resetCache());
 
-  it('lists exactly the Phase 2 + M2 files (7 NEET PG + 11 INI-CET + 1 prior)', () => {
-    // alphabetical — mirrors Object.keys().sort()
+  it('lists exactly the Phase 2 + M2 files (7 NEET PG + 13 INI-CET + 1 prior)', () => {
+    // alphabetical — mirrors Object.keys().sort(). 2026-01 distribution +
+    // counselling added 2026-09-21 (manual-grab session; anchor remains 2025-07).
     expect(Object.keys(manifest.file_hashes).sort()).toEqual([
       'counselling/ini-cet-2023-01/v1/closing-ranks.json',
       'counselling/ini-cet-2024-01/v1/closing-ranks.json',
       'counselling/ini-cet-2024-07/v1/closing-ranks.json',
       'counselling/ini-cet-2025-01/v1/closing-ranks.json',
       'counselling/ini-cet-2025-07/v1/closing-ranks.json',
+      'counselling/ini-cet-2026-01/v1/closing-ranks.json',
       'counselling/neet-pg-2024/v1/closing-ranks.json',
       'counselling/neet-pg-2025/v1/closing-ranks.json',
       'dictionaries/v1/category.json',
@@ -37,6 +39,7 @@ describe('predictor snapshot store', () => {
       'distribution/ini-cet-2024-01/v1/rank-percentile.json',
       'distribution/ini-cet-2025-01/v1/rank-percentile.json',
       'distribution/ini-cet-2025-07/v1/rank-percentile.json',
+      'distribution/ini-cet-2026-01/v1/rank-percentile.json',
       'distribution/neet-pg-2025/v1/score-rank-bands.json',
       'golden/v1/goldens.json',
       'priors/inicet/v1/hazra-corrects-air.json',

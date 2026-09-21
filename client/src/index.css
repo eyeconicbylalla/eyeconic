@@ -1626,3 +1626,67 @@
     color: #0d6e63 !important;
   }
 }
+
+/* ============================================================================
+   Predictor product surface — scoped motion + accessibility utilities.
+   Everything is namespaced under .ec-predictor so nothing leaks into the
+   marketing pages. Palette unchanged (brand teal on the dark slate stack).
+   P2: entrance/stagger motion (reuses the global fadeInUp keyframes).
+   P4: visible keyboard focus + horizontal filter rows without scrollbars.
+   ========================================================================== */
+.ec-predictor [data-anim='fade-up'] {
+  animation: fadeInUp 0.45s ease-out both;
+}
+
+.ec-predictor [data-anim='fade'] {
+  animation: ecFadeIn 0.3s ease-out both;
+}
+
+.ec-predictor [data-stagger] > * {
+  animation: fadeInUp 0.45s ease-out both;
+}
+
+.ec-predictor [data-stagger] > *:nth-child(1) { animation-delay: 0ms; }
+.ec-predictor [data-stagger] > *:nth-child(2) { animation-delay: 60ms; }
+.ec-predictor [data-stagger] > *:nth-child(3) { animation-delay: 120ms; }
+.ec-predictor [data-stagger] > *:nth-child(4) { animation-delay: 180ms; }
+.ec-predictor [data-stagger] > *:nth-child(5) { animation-delay: 240ms; }
+.ec-predictor [data-stagger] > *:nth-child(6) { animation-delay: 300ms; }
+.ec-predictor [data-stagger] > *:nth-child(7) { animation-delay: 360ms; }
+.ec-predictor [data-stagger] > *:nth-child(8) { animation-delay: 420ms; }
+
+@keyframes ecFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* P4: keyboard focus must be visible everywhere on the predictor (the brand
+   teal outline); touch/pointer users never see it. */
+.ec-predictor :focus-visible {
+  outline: 2px solid #4dd7c8;
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+/* Horizontal filter rows: scrollable without a visible scrollbar. */
+.ec-predictor .no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.ec-predictor .no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* P2: respect reduced-motion — entrance animations off (spinners/status
+   text still communicate progress). */
+@media (prefers-reduced-motion: reduce) {
+  .ec-predictor [data-anim],
+  .ec-predictor [data-stagger] > * {
+    animation: none !important;
+  }
+
+  .ec-predictor [data-fade] {
+    transition: none !important;
+  }
+}

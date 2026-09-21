@@ -88,7 +88,8 @@
      "2023-07",
      "2024-01",
      "2025-01",
-     "2025-07"
+     "2025-07",
+     "2026-01"
     ],
     "s2025_07": {
      "rows": 46884,
@@ -102,17 +103,29 @@
      "rows": 31680,
      "max_rank": 33445,
      "rank_gaps": 1765
+    },
+    "s2026_01": {
+     "rows": 30071,
+     "max_rank": 31511,
+     "rank_gaps": 1440,
+     "min_pct": 45.4610698,
+     "first_pct": 100.0,
+     "first_rank": 1,
+     "source": "manual browser grab 2026-09-21 (Notification 250/2025); page-1 anchors pinned below",
+     "anchor_rank226_micros": 99625403,
+     "anchor_rank1525_micros": 97353312
     }
    },
    "counselling_2025_07": {
-    "groups": 944,
-    "final_rows": 2276,
-    "general_pool": 1901,
+    "groups": 947,
+    "final_rows": 2286,
+    "general_pool": 1908,
     "institutes": 22,
-    "specialties": 63
+    "specialties": 63,
+    "note": "refreshed 2026-09-21: flex institute regex recovered 10 silently-dropped AIIMS-ND rows (3 new PwD groups; anchors unchanged)"
    },
    "counselling_2023_01": {
-    "groups": 808,
+    "groups": 813,
     "institutes": 19,
     "specialties": 58
    },
@@ -127,6 +140,35 @@
     },
     "neurology6_nimhans_ur": {
      "closing": 107
+    }
+   },
+   "counselling_2026_01": {
+    "groups": 1116,
+    "final_rows": 2618,
+    "general_pool": 2218,
+    "institutes": 23,
+    "specialties": 52,
+    "rows_from": {
+     "1st": 1611,
+     "2nd": 1274,
+     "open": 754
+    },
+    "source": "manual browser grab 2026-09-21 (Notifications 327/2025, 02/2026, 69/2026)",
+    "anchor_note": "pinned against Result Notification 327/2025 page 1: rank 1 = JIPMER GenMed UR-37, rank 2 = AIIMS ND Radiodiagnosis UR-1, ranks 3/5/6 = AIIMS ND Medicine UR"
+   },
+   "anchors_2026_01": {
+    "genmed_aiimsnd_ur": {
+     "closing": 6,
+     "opening": 3,
+     "count": 3
+    },
+    "radiodiagnosis_aiimsnd_ur": {
+     "closing": 2
+    },
+    "genmed_jipmer_ur": {
+     "closing": 60,
+     "opening": 1,
+     "count": 4
     }
    }
   },

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
@@ -9,8 +9,6 @@ import TestDetail from './pages/TestDetail';
 import TestAttempt from './pages/TestAttempt';
 import TestResults from './pages/TestResults';
 import AppLink from './pages/AppLink';
-import Predictor from './pages/Predictor';
-import Admin from './pages/Admin';
 import Blogs from './pages/Blogs';
 import BlogPost from './pages/BlogPost';
 import Disclaimer from './pages/Disclaimer';
@@ -21,6 +19,22 @@ import NotFound from './pages/NotFound';
 import RequireAuth from './components/app/RequireAuth';
 import { AppAuthProvider } from './context/AppAuthContext';
 import waIcon from './assets/WA Icon.png';
+
+// P4 route-level code splitting: the predictor surfaces are self-contained
+// and heavy (table + animations + outcome capture) — they ship only when
+// their routes are visited, keeping the initial bundle lean.
+const Predictor = lazy(() => import('./pages/Predictor'));
+const PredictorHistory = lazy(() => import('./pages/PredictorHistory'));
+const SignInGate = lazy(() => import('./pages/predictor/SignInGate'));
+// The admin console pulls in xlsx + a rich-text editor — visitors never need
+// it on first paint, so it ships only when /admin is opened.
+const Admin = lazy(() => import('./pages/Admin'));
+
+const RouteFallback = () => (
+  <div className="min-h-[60vh] flex items-center justify-center" role="status" aria-label="Loading">
+    <div className="w-8 h-8 rounded-full border-2 border-[#18B6A4] border-t-transparent animate-spin" />
+  </div>
+);
 
 function ScrollToHash() {
   const location = useLocation();
@@ -60,11 +74,47 @@ function App() {
               <Route path="/tests/:quizId" element={<RequireAuth><TestDetail /></RequireAuth>} />
               <Route path="/tests/:quizId/attempt" element={<RequireAuth><TestAttempt /></RequireAuth>} />
               <Route path="/tests/:quizId/results/:attemptId" element={<RequireAuth><TestResults /></RequireAuth>} />
-              <Route path="/predictor" element={<RequireAuth><Predictor /></RequireAuth>} />
+              <Route
+                path="/predictor"
+                element={
+                  <Suspense fallback={<RouteFallback />}>
+                    <RequireAuth intercept={<SignInGate />}>
+                      <Predictor />
+                    </RequireAuth>
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/predictor/history"
+                element={
+                  <Suspense fallback={<RouteFallback />}>
+                    <RequireAuth intercept={<SignInGate />}>
+                      <PredictorHistory />
+                    </RequireAuth>
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/predictor/history/:id"
+                element={
+                  <Suspense fallback={<RouteFallback />}>
+                    <RequireAuth intercept={<SignInGate />}>
+                      <PredictorHistory />
+                    </RequireAuth>
+                  </Suspense>
+                }
+              />
               {/* Legacy GT predictor retired at Phase 8 (spec §1/§18): exactly
                   one predictor is ever live — old links land on the new one. */}
               <Route path="/gt-predictor" element={<Navigate to="/predictor" replace />} />
-              <Route path="/admin" element={<Admin />} />
+              <Route
+                path="/admin"
+                element={
+                  <Suspense fallback={<RouteFallback />}>
+                    <Admin />
+                  </Suspense>
+                }
+              />
               <Route path="/blogs" element={<Blogs />} />
               <Route path="/blogs/search" element={<Blogs />} />
               <Route path="/blogs/category/:categorySlug" element={<Blogs />} />

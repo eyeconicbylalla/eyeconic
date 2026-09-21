@@ -77,11 +77,15 @@ const EXAMS = {
       // Final-state closing ranks per session (M2 Phase 1; complete round
       // sets only). Sessions are the counselling "years" for INI-CET — the
       // shared matcher tags them YYYYMM so Jan/Jul stay distinct.
+      // 2026-01 added 2026-09-21 (manual-grab round set, Notifications
+      // 327/2025 + 02/2026 + 69/2026). The distribution ANCHOR stays
+      // 2025-07 (Option A) — only the branch-matching coverage extends.
       { session: '2023-01', snapshotId: 'DS-INICET-COUNSELLING-202301-v1', examYear: 2023 },
       { session: '2024-01', snapshotId: 'DS-INICET-COUNSELLING-202401-v1', examYear: 2024 },
       { session: '2024-07', snapshotId: 'DS-INICET-COUNSELLING-202407-v1', examYear: 2024 },
       { session: '2025-01', snapshotId: 'DS-INICET-COUNSELLING-202501-v1', examYear: 2025 },
       { session: '2025-07', snapshotId: 'DS-INICET-COUNSELLING-202507-v1', examYear: 2025 },
+      { session: '2026-01', snapshotId: 'DS-INICET-COUNSELLING-202601-v1', examYear: 2026 },
     ],
     prior: {
       id: 'PR-INICET-HAZRA-CORRECTS-AIR-v1',
@@ -228,6 +232,46 @@ const LOW_GT_COUNT = Object.freeze({
   note: 'Based on few Grand Tests. Add more GTs for a narrower, more reliable estimate.',
 });
 
+/**
+ * Desired Branch Predictor (Feature 02 — docs/DESIRED_BRANCH_PREDICTOR.md).
+ * Reverse-direction constants. Decisions D1–D7 APPROVED 2026-09-21.
+ *
+ * Method versions are separate from the forward feature's: the reverse
+ * pipeline (branch → historical closing range → required corrects) must be
+ * independently versioned so a stored reverse query can be re-derived exactly,
+ * the same way forward predictions are.
+ */
+const DESIRED_BRANCH = Object.freeze({
+  METHOD_VERSION_NEET_PG: 'desired-neetpg-v1',
+  METHOD_VERSION_INI_CET: 'desired-inicet-v1',
+  /**
+   * Rule ids for the reverse rank→required-corrects step (versioned like the
+   * tier rule ids in TRANSFER — part of every stored reverse result).
+   */
+  RULES: Object.freeze({
+    NEET_PG_REQUIRED: 'neetpg-required-strict-tie-band-v1',
+    INI_CET_REQUIRED: 'inicet-required-inverse-ladder-v1',
+  }),
+  /**
+   * HIGH_VARIABILITY_RATIO flags target ranges whose loosest historical
+   * closing is ≥ this multiple of the tightest (D1: ranges stay range-based;
+   * this only drives an emphasis flag, never a state rule — see the D7
+   * normative rules in the DBP spec).
+   *
+   * PROVISIONAL: with D2 (branch-only V1) the range spans the branch's
+   * institutes as well as years, so institute spread dominates; 2× means the
+   * two ends imply materially different required-corrects targets (the
+   * matched-group year-drift evidence — p75 0.324, BRANCH_BANDS above — is
+   * per-institute-group and much tighter than a branch-wide spread).
+   * Recalibrate when institute scoping lands or with real outcome data;
+   * never tune for presentation reasons (spec §18 discipline).
+   */
+  HIGH_VARIABILITY_RATIO: 2,
+  HIGH_VARIABILITY_RATIO_PROVISIONAL: true,
+  HIGH_VARIABILITY_NOTE:
+    'The historical closing-rank range for this branch is wide (loosest closing is at least twice the tightest): the two ends imply materially different required-corrects targets. Scope expectations accordingly.',
+});
+
 /** Assumption + methodology note strings (spec §3.4, §13, §14) — engine-echoed, rendered by Phase 8 UI. */
 const NOTES = Object.freeze({
   NO_SKIP:
@@ -255,5 +299,6 @@ module.exports = {
   WIDTH_MODEL,
   BRANCH_BANDS,
   LOW_GT_COUNT,
+  DESIRED_BRANCH,
   NOTES,
 };

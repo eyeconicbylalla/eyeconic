@@ -372,7 +372,7 @@ describe('predictor API — INI-CET predictions (M2: live end-to-end)', () => {
     expect(p.rank.session).toBe('2025-07');
     expect(p.rank.rankRange[0]).toBeLessThan(p.rank.rankRange[1]);
     expect(p.branches.coverage === 'MATCHED' || p.branches.coverage === 'PARTIAL').toBe(true);
-    expect(p.branches.dataCoverage.years).toEqual([202301, 202401, 202407, 202501, 202507]);
+    expect(p.branches.dataCoverage.years).toEqual([202301, 202401, 202407, 202501, 202507, 202601]);
     for (const y of p.branches.years) {
       expect(y.counts.total).toBeGreaterThanOrEqual(0);
       expect(y.rows).toBeUndefined(); // paginated endpoint serves rows

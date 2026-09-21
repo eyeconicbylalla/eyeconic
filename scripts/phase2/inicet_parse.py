@@ -98,8 +98,16 @@ AIIMS_CITIES = (
     "JAMMU|JODHPUR|KALYANI|MANGALAGIRI|NAGPUR|PATNA|RAEBARELI|RAIPUR|RAJKOT|"
     "RISHIKESH|BATHINDA"
 )
+# Institute names can render with doubled internal spaces on some pages of
+# some round PDFs (a pdftotext -table quirk: "AIIMS  NEW  DELHI"). Make the
+# name components whitespace-flexible so those rows anchor correctly — the
+# parsed value is still canonicalized to single spaces by institute_canonical.
+# Found while ingesting Jan-2026: the strict form had been silently dropping
+# a handful of AIIMS-ND rows in 11 historical round files (12-28 rows each);
+# the flex form is strictly additive (verified: zero removals/modifications).
+_CITIES_FLEX = AIIMS_CITIES.replace(" ", r"\s+")
 INSTITUTE_RE = re.compile(
-    rf"(?:AIIMS\s*,?\s*(?:{AIIMS_CITIES})"
+    rf"(?:AIIMS\s*,?\s*(?:{_CITIES_FLEX})"
     rf"|JIPMER\s*,?\s*PUDUCHERRY"
     rf"|PGIMER\s*,?\s*CHANDIGARH"
     rf"|NIMHANS\s*,?\s*BENGALURU"
@@ -249,8 +257,12 @@ def parse_result(pdf: Path, session: str):
         if section is None:
             continue
         # S.No Roll [Category] [Applied-Under] [PWBD] Rank Percentile
+        # 2026-01 publishes percentiles with up to 7 decimals (77.9197591);
+        # every earlier session used <= 6. {1,7} matches both — verified:
+        # it leaves all historical parses byte-identical and yields 0 bad
+        # lines on the 2026-01 file (32,374 rows).
         m = re.match(
-            r"^\s*(\d{1,6})\s+(\d{6,10})\s+((?:[A-Za-z*./-]+\s+){0,3}?)(\d{1,6})\s+(\d{1,3}\.\d{1,6})\s*$",
+            r"^\s*(\d{1,6})\s+(\d{6,10})\s+((?:[A-Za-z*./-]+\s+){0,3}?)(\d{1,6})\s+(\d{1,3}\.\d{1,7})\s*$",
             line,
         )
         if not m:
@@ -312,6 +324,13 @@ SESSIONS = {
     "2024-07": {"rounds": {"1st": "round-1st.pdf", "2nd": "round-2nd.pdf", "open": "round-open.pdf"}},
     "2025-01": {"result": "result.pdf", "rounds": {"1st": "round-1st.pdf", "2nd": "round-2nd.pdf", "open": "round-open.pdf"}},
     "2025-07": {"result": "result.pdf", "rounds": {"1st": "round-1st.pdf", "2nd": "round-2nd.pdf", "open": "round-open.pdf"}},
+    # January 2026 session (complete manual-grab set, 2026-09-21):
+    # result = Notification 250/2025 (15-11-2025); rounds = Notifications
+    # 327/2025 (1st, 18-12-2025), 02/2026 (2nd, 09-01-2026), 69/2026
+    # (open, 21-02-2026). 1st + 2nd + open = the complete online-counselling
+    # round set, so this session's counselling snapshot can be built.
+    "2026-01": {"result": "result.pdf",
+                "rounds": {"1st": "round-1st.pdf", "2nd": "round-2nd.pdf", "open": "round-open.pdf"}},
 }
 
 # Old-portal wayback round files for 2021/2022 (renamed in place by this run):

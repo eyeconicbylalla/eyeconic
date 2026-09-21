@@ -260,3 +260,37 @@ export interface OutcomeSubmission {
     round?: string | null;
   };
 }
+
+// ---- Prediction history (§18 Phase 9: stored AND retrievable) -------------------
+
+export interface PredictionHistoryItem {
+  id: string;
+  exam: string;
+  methodVersion: string;
+  createdAt: string;
+  gtsUsed?: number;
+  percentileRange?: [number, number];
+  rankRange?: [number | null, number | null];
+  branchesCoverage?: string;
+}
+
+export interface PredictionsListResponse {
+  predictions: PredictionHistoryItem[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
+/**
+ * The full stored prediction record (GET /predictions/:id) — the same six
+ * stages the engine served, minus the response-only `examLabel` (the history
+ * UI derives it from `exam`).
+ */
+export type StoredPredictionRecord = Omit<PredictionResult, 'examLabel'> & {
+  request: Record<string, unknown>;
+  createdAt: string;
+};
+
+export interface StoredPredictionResponse {
+  predictionId: string;
+  integrity: { resultHash: string; recomputedHash: string; matches: boolean };
+  prediction: StoredPredictionRecord;
+}

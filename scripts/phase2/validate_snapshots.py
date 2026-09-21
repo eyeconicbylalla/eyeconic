@@ -124,8 +124,23 @@ def main():
     check(d17["validation"]["rows"] == gd["s2021_07"]["rows"]
           and d17["validation"]["max_rank"] == gd["s2021_07"]["max_rank"],
           "inicet dist 2021-07: golden counts (old-portal source)")
+    # 2026-01: manual-browser-grab session (Notification 250/2025) — counts +
+    # page-1 anchors reproduce exactly (rank 226 / 1525 straight off the PDF).
+    d26 = json.loads((PD / "distribution/ini-cet-2026-01/v1/rank-percentile.json").read_text(encoding="utf-8"))
+    g26 = gd["s2026_01"]
+    by_rank = {r[0]: r[1] for r in d26["rows"]}
+    check(d26["validation"]["rows"] == g26["rows"]
+          and d26["validation"]["max_rank"] == g26["max_rank"]
+          and d26["validation"]["rank_gaps"] == g26["rank_gaps"]
+          and abs(d26["validation"]["min_percentile"] - g26["min_pct"]) < 1e-9
+          and d26["rows"][0][1] == 100_000_000,
+          "inicet dist 2026-01: golden counts + rank-1 percentile 100.0")
+    check(by_rank.get(226) == g26["anchor_rank226_micros"]
+          and by_rank.get(1525) == g26["anchor_rank1525_micros"],
+          "inicet dist 2026-01: official page-1 anchors (rank 226 -> 99.6254026, rank 1525 -> 97.3533118)")
 
-    for sess, gg in (("2025-07", gi["counselling_2025_07"]), ("2023-01", gi["counselling_2023_01"])):
+    for sess, gg in (("2025-07", gi["counselling_2025_07"]), ("2023-01", gi["counselling_2023_01"]),
+                     ("2026-01", gi["counselling_2026_01"])):
         cs = json.loads((PD / f"counselling/ini-cet-{sess}/v1/closing-ranks.json").read_text(encoding="utf-8"))
         yy, mm = sess.split("-")
         check(cs["snapshot_id"] == f"DS-INICET-COUNSELLING-{yy}{mm}-v1", f"inicet couns {sess}: snapshot id")
@@ -144,6 +159,17 @@ def main():
     c75 = json.loads((PD / "counselling/ini-cet-2025-07/v1/closing-ranks.json").read_text(encoding="utf-8"))
     check(c75["load_stats"]["seats_by_pool"]["GENERAL"] == gi["counselling_2025_07"]["general_pool"],
           "inicet couns 2025-07: general-pool seat count")
+    # 2026-01 (complete manual-grab round set): final-state merge pins
+    c26 = json.loads((PD / "counselling/ini-cet-2026-01/v1/closing-ranks.json").read_text(encoding="utf-8"))
+    g26c = gi["counselling_2026_01"]
+    check(c26["load_stats"]["final_rows"] == g26c["final_rows"]
+          and c26["load_stats"]["rows_from"] == g26c["rows_from"]
+          and c26["load_stats"]["seats_by_pool"]["GENERAL"] == g26c["general_pool"]
+          and len(c26["institutes"]) == g26c["institutes"]
+          and len(c26["courses"]) == g26c["specialties"],
+          "inicet couns 2026-01: final-state merge pins (2618 from 1611/1274/754, 2218 general-pool)")
+    check(max(r[5] for r in c26["rows"]) <= 31511,
+          "inicet couns 2026-01: closing ranks within the qualified rank space (max <= 31511)")
     anchors = gi["anchors_2025_07"]
 
     def find_group(cs, inst, spec, cat):
@@ -163,6 +189,20 @@ def main():
     r3 = find_group(c75, "NIMHANS BENGALURU", "NEUROLOGY [DIRECT 6-YEAR]", "UR")
     check(r3 is not None and r3[5] == anchors["neurology6_nimhans_ur"]["closing"],
           "inicet couns 2025-07: NIMHANS DM-Neurology-6yr UR anchor (closing 107; overall rank 1 held this seat)")
+
+    # 2026-01 official anchors (Notification 327/2025 page 1: rank 1 = JIPMER
+    # GenMed UR-37, rank 2 = AIIMS ND Radiodiagnosis, ranks 3/5/6 = AIIMS ND Medicine)
+    a26 = gi["anchors_2026_01"]
+    r26 = find_group(c26, "AIIMS NEW DELHI", "GENERAL MEDICINE", "UR")
+    check(r26 is not None and r26[5] == a26["genmed_aiimsnd_ur"]["closing"]
+          and r26[6] == a26["genmed_aiimsnd_ur"]["opening"] and r26[7] == a26["genmed_aiimsnd_ur"]["count"],
+          "inicet couns 2026-01: AIIMS ND GenMed UR anchor (closing 6 / opening 3 / 3 seats)")
+    r27 = find_group(c26, "AIIMS NEW DELHI", "RADIODIAGNOSIS", "UR")
+    check(r27 is not None and r27[5] == a26["radiodiagnosis_aiimsnd_ur"]["closing"],
+          "inicet couns 2026-01: AIIMS ND Radiodiagnosis UR anchor (closing 2 — overall rank 2)")
+    r28 = find_group(c26, "JIPMER PUDUCHERRY", "GENERAL MEDICINE", "UR")
+    check(r28 is not None and r28[5] == a26["genmed_jipmer_ur"]["closing"] and r28[6] == a26["genmed_jipmer_ur"]["opening"],
+          "inicet couns 2026-01: JIPMER GenMed UR anchor (opening 1 — overall rank 1 held this seat)")
 
     # --- INI-CET crowd prior (Phase 5 weak-step bridge) ----------------------
     gp = gold.get("inicet_prior")

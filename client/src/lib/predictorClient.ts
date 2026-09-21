@@ -1,8 +1,9 @@
 import axios, { AxiosError } from 'axios';
 import { API_BASE_URL } from '../config/api';
 import type {
-  BranchesResponse, BranchBand, GtsResponse, OutcomePutResponse, OutcomeStatusResponse,
-  OutcomeSubmission, PredictResponse, PredictorExam,
+  BranchesResponse, BranchBand, GtInput, GtsResponse, OutcomePutResponse, OutcomeStatusResponse,
+  OutcomeSubmission, PredictResponse, PredictionsListResponse,
+  PredictorExam, StoredPredictionResponse,
 } from '../types/predictor';
 
 /**
@@ -62,15 +63,19 @@ export function errorField(error: unknown): string | null {
   return null;
 }
 
+/** The engine's request contract (typed end to end — no `as never` casts). */
+export interface PredictRequestBody {
+  exam: string;
+  gts: GtInput[];
+  category?: string;
+  pwd?: boolean;
+}
+
 export const predictorEndpoints = {
   exams: () => predictorApi.get<{ exams: PredictorExam[] }>('/exams').then((r) => r.data.exams),
   gts: () => predictorApi.get<GtsResponse>('/gts').then((r) => r.data),
-  predict: (body: {
-    exam: string;
-    gts: Array<{ gtId?: string | null; provenance: string; attempts: Array<Record<string, unknown>> }>;
-    category?: string;
-    pwd?: boolean;
-  }) => predictorApi.post<PredictResponse>('/predict', body).then((r) => r.data),
+  predict: (body: PredictRequestBody) =>
+    predictorApi.post<PredictResponse>('/predict', body).then((r) => r.data),
   branches: (
     predictionId: string,
     params: { band?: BranchBand; year?: number; page?: number; limit?: number }
@@ -78,6 +83,12 @@ export const predictorEndpoints = {
     predictorApi
       .get<BranchesResponse>(`/predictions/${predictionId}/branches`, { params })
       .then((r) => r.data),
+  history: (page = 1, limit = 10) =>
+    predictorApi
+      .get<PredictionsListResponse>('/predictions', { params: { page, limit } })
+      .then((r) => r.data),
+  historyItem: (predictionId: string) =>
+    predictorApi.get<StoredPredictionResponse>(`/predictions/${predictionId}`).then((r) => r.data),
   outcome: (predictionId: string) =>
     predictorApi
       .get<OutcomeStatusResponse>(`/predictions/${predictionId}/outcome`)

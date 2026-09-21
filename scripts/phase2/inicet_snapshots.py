@@ -27,9 +27,10 @@ PARSED = ROOT / "data" / "parsed" / "aiims"
 RAWLOG = ROOT / "data" / "raw" / "aiims" / "download-log.json"
 PD = ROOT / "server" / "predictor-data"
 
-DIST_SESSIONS = ["2021-07", "2022-01", "2023-07", "2024-01", "2025-01", "2025-07"]
-# complete round sets only (1st + 2nd + open)
-COUNS_SESSIONS = ["2023-01", "2024-01", "2024-07", "2025-01", "2025-07"]
+DIST_SESSIONS = ["2021-07", "2022-01", "2023-07", "2024-01", "2025-01", "2025-07", "2026-01"]
+# complete round sets only (1st + 2nd + open). 2026-01's set completed
+# 2026-09-21 (manual browser grab of Notifications 327/2025 + 02/2026 + 69/2026).
+COUNS_SESSIONS = ["2023-01", "2024-01", "2024-07", "2025-01", "2025-07", "2026-01"]
 ROUND_ORDER = ["1st", "2nd", "open"]
 
 CATEGORIES = ["UR", "EWS", "OBC", "SC", "ST"]
@@ -190,8 +191,13 @@ def provenance_for(session: str, kind: str):
     for e in json.loads(RAWLOG.read_text(encoding="utf-8")):
         if e.get("session") == session and e.get("kind") in kind_aliases.get(kind, (kind,)):
             origin = " (web.archive.org copy of the old portal)" if e["kind"].endswith("oldportal") else ""
-            return {"source": "official:AIIMS " + ("result notification" if kind == "result" else "seat allocation round") + origin,
+            prov = {"source": "official:AIIMS " + ("result notification" if kind == "result" else "seat allocation round") + origin,
                     "url": e["url"], "sha256": e["sha256"], "downloaded": "2026-09-20"}
+            # manually grabbed files carry their own honest date + note
+            if e.get("status") == "manual-browser-grab":
+                prov["downloaded"] = e.get("downloaded", "2026-09-20")
+                prov["note"] = e.get("note", "manual browser grab from the AIIMS SPA result page")
+            return prov
     raise KeyError(f"no provenance for {session} {kind}")
 
 
@@ -199,18 +205,29 @@ def build_distribution(session: str):
     rows = load_jsonl(PARSED / session / "result-mdms.jsonl")
     rows.sort(key=lambda r: r["rank"])
     micro = [[r["rank"], round(r["percentile"] * 1_000_000)] for r in rows]
+    # 2026-01 publishes 7-decimal percentiles; micros (x10^6) round the 7th
+    # digit (<=1e-7 percentile — negligible, but the doc claim must stay true).
+    beyond_micro = any(
+        abs(r["percentile"] * 1_000_000 - round(r["percentile"] * 1_000_000)) > 1e-6 for r in rows
+    )
+    doc = [
+        "rows: [rank, percentile_micros] of QUALIFIED MD/MS candidates, sorted by rank",
+        "percentile_micros = official AIIMS percentile x 10^6 (integer, no precision lost)",
+        "percentile is NON-INCREASING down the rows (published rounded; ties expected)",
+        "rank gaps = appeared-but-not-qualified candidates (not listed by AIIMS)",
+        "separation rule: this distribution serves percentile->rank ONLY (INI-CET publishes no marks, ever)",
+    ]
+    if beyond_micro:
+        doc.append(
+            "this session publishes 7-decimal percentiles: micros round the 7th decimal "
+            "(<= 1e-7 percentile error, below any resolution the product uses)"
+        )
     year, month = session.split("-")
     snap = {
         "snapshot_id": f"DS-INICET-DISTRIBUTION-{year}{month}-v1",
         "dataset_kind": "rank_percentile_distribution",
         "format": "rank-percentile-v1",
-        "format_doc": [
-            "rows: [rank, percentile_micros] of QUALIFIED MD/MS candidates, sorted by rank",
-            "percentile_micros = official AIIMS percentile x 10^6 (integer, no precision lost)",
-            "percentile is NON-INCREASING down the rows (published rounded; ties expected)",
-            "rank gaps = appeared-but-not-qualified candidates (not listed by AIIMS)",
-            "separation rule: this distribution serves percentile->rank ONLY (INI-CET publishes no marks, ever)",
-        ],
+        "format_doc": doc,
         "exam": "INI-CET",
         "session": session,
         "exam_year": int(year),
@@ -368,6 +385,12 @@ def update_manifest(new_files):
         man["file_hashes"][rel] = sha256_file(dest)
     man["snapshots"].sort(key=lambda e: e["id"])
     man["file_hashes"] = dict(sorted(man["file_hashes"].items()))
+    # goldens pin the snapshots — keep their recorded hash in sync whenever
+    # this tool runs, so a golden edit can never leave the MANIFEST stale
+    # (the store hash-verifies goldens.json like every other committed file).
+    goldens_rel = "golden/v1/goldens.json"
+    if goldens_rel in man["file_hashes"]:
+        man["file_hashes"][goldens_rel] = sha256_file(PD / goldens_rel)
     man_path.write_text(json.dumps(man, indent=1), encoding="utf-8")
     print(f"MANIFEST updated: {len(man['snapshots'])} snapshots")
 

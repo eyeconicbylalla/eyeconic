@@ -27,7 +27,8 @@ const { dataIntegrity } = require('./errors');
  * @returns {object} frozen lookup API:
  *   { numericPairs, maxScore, minScore, lastRank,
  *     rankIntervalForScore(s), percentileForRank(r),
- *     percentileIntervalForScore(s), scoreForRank(r) }
+ *     percentileIntervalForScore(s), scoreForRank(r),
+ *     requiredScoreForRank(r) }
  */
 function buildDistributionModel(snapshot) {
   const v = snapshot.validation || {};
@@ -168,6 +169,54 @@ function buildDistributionModel(snapshot) {
     return { score: band.score + frac * (aboveBand.score - band.score) };
   }
 
+  /**
+   * Strict tie-band guarantee (Desired Branch Phase 2 —
+   * docs/DESIRED_BRANCH_PREDICTOR.md §3.2.1): the smallest OBSERVED score
+   * whose band's worst rank clears `rank`, i.e. a candidate scoring it lands
+   * at rank ≤ `rank` even in the worst tie position inside the band.
+   *
+   * scoreForRank(rank) alone can under-guarantee by up to one tie band: it
+   * returns the band CONTAINING rank, whose maxR may exceed rank. Rule here:
+   *   - the band whose maxR === rank qualifies (rank is its last rank);
+   *   - otherwise the next band up qualifies (its maxR = that band's minR − 1
+   *     < rank);
+   *   - rank inside the TOP band but not at its end → no observed score
+   *     guarantees it → { state: 'above' } (better than the best recorded
+   *     score would be needed);
+   *   - rank < 1 → { state: 'above' };
+   *   - rank beyond lastRank → the lowest observed score already clears it
+   *     (its band's maxR = lastRank < rank) → { score: minScore } (an upper
+   *     bound in practice: nobody in the recorded field scored lower).
+   *
+   * Unobserved intermediate scores insert at the lower band's minR (band
+   * contiguity), so the returned score is conservative by at most one
+   * observed-score gap — never under-guaranteed.
+   */
+  function requiredScoreForRank(rank) {
+    if (!Number.isFinite(rank)) {
+      throw new TypeError('requiredScoreForRank expects a number');
+    }
+    if (rank < 1) return { state: 'above' };
+    // First band (score-descending index) whose maxR reaches rank.
+    let lo = 0;
+    let hi = entries.length; // exclusive: no band reaches rank ⇒ rank > lastRank
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (entries[mid].maxR < rank) lo = mid + 1;
+      else hi = mid;
+    }
+    if (lo === entries.length) {
+      return { score: minScore }; // rank beyond the recorded field
+    }
+    if (entries[lo].maxR === rank) {
+      return { score: entries[lo].score }; // rank is exactly this band's last rank
+    }
+    if (lo === 0) {
+      return { state: 'above' }; // inside the top band, before its end
+    }
+    return { score: entries[lo - 1].score };
+  }
+
   return Object.freeze({
     snapshotId: snapshot.snapshot_id,
     numericPairs,
@@ -179,6 +228,7 @@ function buildDistributionModel(snapshot) {
     percentileForRank,
     percentileIntervalForScore,
     scoreForRank,
+    requiredScoreForRank,
   });
 }
 

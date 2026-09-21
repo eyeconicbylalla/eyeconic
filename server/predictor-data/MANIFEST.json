@@ -12,40 +12,48 @@
    "file": "counselling/ini-cet-2023-01/v1/closing-ranks.json",
    "kind": "counselling_closing_ranks_FINAL_STATE",
    "session": "2023-01",
-   "groups": 808,
-   "final_rows": 2078
+   "groups": 813,
+   "final_rows": 2090
   },
   {
    "id": "DS-INICET-COUNSELLING-202401-v1",
    "file": "counselling/ini-cet-2024-01/v1/closing-ranks.json",
    "kind": "counselling_closing_ranks_FINAL_STATE",
    "session": "2024-01",
-   "groups": 1006,
-   "final_rows": 2191
+   "groups": 1010,
+   "final_rows": 2201
   },
   {
    "id": "DS-INICET-COUNSELLING-202407-v1",
    "file": "counselling/ini-cet-2024-07/v1/closing-ranks.json",
    "kind": "counselling_closing_ranks_FINAL_STATE",
    "session": "2024-07",
-   "groups": 896,
-   "final_rows": 2226
+   "groups": 900,
+   "final_rows": 2246
   },
   {
    "id": "DS-INICET-COUNSELLING-202501-v1",
    "file": "counselling/ini-cet-2025-01/v1/closing-ranks.json",
    "kind": "counselling_closing_ranks_FINAL_STATE",
    "session": "2025-01",
-   "groups": 1001,
-   "final_rows": 2300
+   "groups": 1004,
+   "final_rows": 2311
   },
   {
    "id": "DS-INICET-COUNSELLING-202507-v1",
    "file": "counselling/ini-cet-2025-07/v1/closing-ranks.json",
    "kind": "counselling_closing_ranks_FINAL_STATE",
    "session": "2025-07",
-   "groups": 944,
-   "final_rows": 2276
+   "groups": 947,
+   "final_rows": 2286
+  },
+  {
+   "id": "DS-INICET-COUNSELLING-202601-v1",
+   "file": "counselling/ini-cet-2026-01/v1/closing-ranks.json",
+   "kind": "counselling_closing_ranks_FINAL_STATE",
+   "session": "2026-01",
+   "groups": 1116,
+   "final_rows": 2618
   },
   {
    "id": "DS-INICET-DISTRIBUTION-202107-v1",
@@ -90,6 +98,13 @@
    "rows": 46884
   },
   {
+   "id": "DS-INICET-DISTRIBUTION-202601-v1",
+   "file": "distribution/ini-cet-2026-01/v1/rank-percentile.json",
+   "kind": "rank_percentile_distribution",
+   "session": "2026-01",
+   "rows": 30071
+  },
+  {
    "id": "DS-NEETPG-COUNSELLING-2024-v1",
    "file": "counselling/neet-pg-2024/v1/closing-ranks.json",
    "kind": "counselling_closing_ranks_FINAL_STATE",
@@ -123,11 +138,12 @@
   }
  ],
  "file_hashes": {
-  "counselling/ini-cet-2023-01/v1/closing-ranks.json": "e7c0ac7bcd931013498940c5ffc9d66a58ae2775c87b7529b0c6ab0abd63c4f8",
-  "counselling/ini-cet-2024-01/v1/closing-ranks.json": "550e220609a45dab5586eba4faf47ffb73c8d6ff600ce256f153c6f97cffd7ce",
-  "counselling/ini-cet-2024-07/v1/closing-ranks.json": "61f49f67cc7d056ee16f743d752cc4ee6cf4e752184a65c3fde2b141e84d8baf",
-  "counselling/ini-cet-2025-01/v1/closing-ranks.json": "12fdf73d54bd0209146e23f496fd90d43552e67a41680cff3bbeb8d3f278e87f",
-  "counselling/ini-cet-2025-07/v1/closing-ranks.json": "df088c5584b0a6802753eaa0d4a0f06b65758d4f8fa85b4fbc3b0177b4557ff9",
+  "counselling/ini-cet-2023-01/v1/closing-ranks.json": "5378075235b8feec4acb3bb60417bd5ad03d387c4674dd4d113aba6fa39b3287",
+  "counselling/ini-cet-2024-01/v1/closing-ranks.json": "ffc5a4aab09c3de0352bcbf1ded7e82ae1f246142e38e2d226896cd36ff0da67",
+  "counselling/ini-cet-2024-07/v1/closing-ranks.json": "35e5b7f0d80ccc4fc2593b871096b801ba12cbb75227c14b58fee03e8c50cbeb",
+  "counselling/ini-cet-2025-01/v1/closing-ranks.json": "8bbac9e0088cfae09aedcc7df11e3be0b66728ec6a7d390c577a677bd8476da9",
+  "counselling/ini-cet-2025-07/v1/closing-ranks.json": "b2925f6d4fda100533ff1e62163f241834e3275cff90a67692194fd681fc29a7",
+  "counselling/ini-cet-2026-01/v1/closing-ranks.json": "61f9f890369d345ce5e732380d8abbbd2bcce362ff0463a1eae60e58954c151c",
   "counselling/neet-pg-2024/v1/closing-ranks.json": "f52d4cff3009767c964441336332ca781ef9726ddb9ea3b8a7d6b6b925e87232",
   "counselling/neet-pg-2025/v1/closing-ranks.json": "ed846617e22844aaf0bc5c7a92312272efc0a4fa4825571444323cdd099773fd",
   "dictionaries/v1/category.json": "e234d517c5815e4cb4e8c9a38f410c72a7da38055b5ef9e0c3f469ee3aebf70f",
@@ -139,8 +155,9 @@
   "distribution/ini-cet-2024-01/v1/rank-percentile.json": "15181eeaf0cddeddf6730cdf3bb5761dd0577066e09d53e7cd5533493adae7f4",
   "distribution/ini-cet-2025-01/v1/rank-percentile.json": "1a5c766687f777324c5d55532491429494a8dc4a8cfeea0e7a067d0b534558cd",
   "distribution/ini-cet-2025-07/v1/rank-percentile.json": "ca6cc73c4cc73ea767e9f84123086ff1d5654135b00cb4145ad4da7c1423f0ac",
+  "distribution/ini-cet-2026-01/v1/rank-percentile.json": "c11698f30e8d907d87a5081be1a6aae7486bbd760ea5e11d34f3837c2121f12f",
   "distribution/neet-pg-2025/v1/score-rank-bands.json": "cab1e8e6dc39a9136cb48cf42cb14c309a45f2ce244831b9e2bfbc66910ff813",
-  "golden/v1/goldens.json": "c8da172e6cd7acbfdbadfcc0c6970ed84d52b36ff27f80085de6f8dcba5ffabf",
+  "golden/v1/goldens.json": "feef2c8b9ba96db9855824e5c1fd59caa2167351b40b2ce0356e763caeb03806",
   "priors/inicet/v1/hazra-corrects-air.json": "8d5ef4da763b02f09fa0a2a7f7e4eade999f6c42c0b5f7c039006e0fbfc1cb77"
  },
  "golden_version": "golden-v1",

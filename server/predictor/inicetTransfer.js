@@ -50,7 +50,12 @@ function buildPriorModel(prior, pattern) {
   /** AIR estimate for a marks value; null outside the ladder's span. */
   function airForMarks(m) {
     if (m < marks[0] || m > marks[marks.length - 1]) return null;
-    if (m === marks[marks.length - 1]) return pts[pts.length - 1].air;
+    // exact rung marks return the rung AIR exactly (previously only the top
+    // rung was special-cased; rung interpolation returned it only up to
+    // exp/log float noise — matters for marksForAir's inverse identity)
+    for (let i = 0; i < marks.length; i += 1) {
+      if (m === marks[i]) return pts[i].air;
+    }
     // interpolate in log(AIR): ladders span two orders of magnitude, so the
     // log scale is where piecewise-linear is least distorting
     let i = 0;
@@ -61,6 +66,44 @@ function buildPriorModel(prior, pattern) {
     return Math.exp(la + t * (lb - la));
   }
 
+  /**
+   * Inverse ladder (Desired Branch Phase 2 — DBP §3.2.2): the marks whose
+   * ladder AIR is `air`, interpolating in the SAME log(AIR) space so the
+   * transform is exactly invertible inside the span
+   * (marksForAir(airForMarks(m)) === m there).
+   *
+   * CAREFUL with orientation: pts are sorted ASCENDING by corrects, so airs
+   * strictly DESCEND with the index — pts[0] is the ladder FLOOR (fewest
+   * corrects, worst AIR) and pts[last] the best rung. airSpan is echoed in
+   * that same pts order ([worstAir, bestAir]); the bounds here are computed
+   * from the points themselves so orientation can never bite again.
+   *
+   * NO extrapolation beyond the ladder's ends (§5.2 no fabrication):
+   *   air better than the best rung  → { state: 'above-ladder' }
+   *   air beyond the floor rung      → { state: 'below-ladder' }
+   * In the reverse direction this ladder is the LOAD-BEARING step (AIIMS has
+   * never published marks) — callers must carry the crowd-sourced labelling.
+   */
+  function marksForAir(air) {
+    if (!Number.isFinite(air)) {
+      throw new TypeError('marksForAir expects a number');
+    }
+    const bestAir = pts[pts.length - 1].air; // smallest AIR on the ladder
+    const worstAir = pts[0].air; // largest AIR on the ladder
+    if (air < bestAir) return { state: 'above-ladder' };
+    if (air > worstAir) return { state: 'below-ladder' };
+    // exact rung (including both ends)
+    for (let i = 0; i < pts.length; i += 1) {
+      if (pts[i].air === air) return { marks: marks[i] };
+    }
+    // strictly between rungs i and i+1 (airs strictly decrease as i grows)
+    let i = 0;
+    while (i < pts.length - 2 && pts[i + 1].air > air) i += 1;
+    const t = (Math.log(pts[i].air) - Math.log(air)) /
+      (Math.log(pts[i].air) - Math.log(pts[i + 1].air)); // 0..1
+    return { marks: marks[i] + t * (marks[i + 1] - marks[i]) };
+  }
+
   return Object.freeze({
     priorId: prior.snapshot_id,
     urOnly: prior.source.ur_only === true,
@@ -69,6 +112,7 @@ function buildPriorModel(prior, pattern) {
     marksSpan: [marks[0], marks[marks.length - 1]],
     airSpan: [pts[0].air, pts[pts.length - 1].air],
     airForMarks,
+    marksForAir,
   });
 }
 

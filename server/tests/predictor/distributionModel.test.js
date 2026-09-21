@@ -125,3 +125,61 @@ describe('distribution model — monotonicity over the full snapshot', () => {
     }
   });
 });
+
+describe('distribution model — requiredScoreForRank (strict tie-band guarantee, Desired Branch Phase 2)', () => {
+  // Top bands (goldens): 707 → [1,1], 705 → [2,3], 701 → [4,4], 695 → [5,6].
+  it('returns a band score only when that band’s worst rank clears the target', () => {
+    expect(model.requiredScoreForRank(6)).toEqual({ score: 695 }); // 6 is 695’s band end
+    expect(model.requiredScoreForRank(5)).toEqual({ score: 701 }); // inside [5,6] → band above
+    expect(model.requiredScoreForRank(4)).toEqual({ score: 701 }); // 4 is 701’s band end
+    expect(model.requiredScoreForRank(3)).toEqual({ score: 705 }); // 3 is 705’s band end
+    expect(model.requiredScoreForRank(2)).toEqual({ score: 707 }); // inside [2,3] → 707
+    expect(model.requiredScoreForRank(7)).toEqual({ score: 695 }); // first rank past 695’s band end
+  });
+
+  it('mid-range and bottom anchors (goldens)', () => {
+    expect(model.requiredScoreForRank(100)).toEqual({ score: 666 });
+    expect(model.requiredScoreForRank(9511)).toEqual({ score: 559 });
+    expect(model.requiredScoreForRank(230087)).toEqual({ score: -11 });
+    // last recorded rank and beyond → the lowest observed score already clears
+    expect(model.requiredScoreForRank(230114)).toEqual({ score: -40 });
+    expect(model.requiredScoreForRank(230115)).toEqual({ score: -40 });
+  });
+
+  it('rank 1 resolves to the best recorded score; sub-1 ranks are an above state', () => {
+    expect(model.requiredScoreForRank(1)).toEqual({ score: 707 }); // band [1,1] ends at 1
+    expect(model.requiredScoreForRank(0.5)).toEqual({ state: 'above' });
+    expect(() => model.requiredScoreForRank(NaN)).toThrow(TypeError);
+  });
+
+  it('structural invariant over EVERY band: the answer’s worst rank clears the target', () => {
+    // For each band: its last rank resolves to its own score; its first rank
+    // (when not also its last) resolves to the band above’s score.
+    const bands = Object.entries(store.loadNeetPgDistribution().data.bands)
+      .map(([s, b]) => ({ score: Number(s), minR: b[0], maxR: b[1] }))
+      .sort((a, b) => b.score - a.score);
+    expect(bands.length).toBe(model.bandCount);
+    for (let i = 0; i < bands.length; i += 1) {
+      const end = model.requiredScoreForRank(bands[i].maxR);
+      expect(end).toEqual({ score: bands[i].score });
+      if (bands[i].minR < bands[i].maxR) {
+        const start = model.requiredScoreForRank(bands[i].minR);
+        if (i === 0) expect(start).toEqual({ state: 'above' });
+        else expect(start).toEqual({ score: bands[i - 1].score });
+      }
+      // guarantee proper: scoring the answer lands at worst maxR ≤ target
+      const ri = model.rankIntervalForScore(end.score);
+      expect(ri.maxR).toBeLessThanOrEqual(bands[i].maxR);
+    }
+  });
+
+  it('monotone: the required score never increases as the target rank loosens', () => {
+    let prev = Infinity;
+    for (let r = 1; r <= model.lastRank; r += 137) {
+      const res = model.requiredScoreForRank(r);
+      if (res.state) continue;
+      expect(res.score).toBeLessThanOrEqual(prev);
+      prev = res.score;
+    }
+  });
+});

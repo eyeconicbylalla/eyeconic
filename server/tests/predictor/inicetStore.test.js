@@ -8,8 +8,8 @@
  */
 const store = require('../../predictor/store');
 
-const DIST_SESSIONS = ['2021-07', '2022-01', '2023-07', '2024-01', '2025-01', '2025-07'];
-const COUNS_SESSIONS = ['2023-01', '2024-01', '2024-07', '2025-01', '2025-07'];
+const DIST_SESSIONS = ['2021-07', '2022-01', '2023-07', '2024-01', '2025-01', '2025-07', '2026-01'];
+const COUNS_SESSIONS = ['2023-01', '2024-01', '2024-07', '2025-01', '2025-07', '2026-01'];
 
 describe('INI-CET snapshot store (M2 Phase 1)', () => {
   it('loads every distribution session hash-verified with monotone percentiles', () => {
@@ -79,7 +79,32 @@ describe('INI-CET snapshot store (M2 Phase 1)', () => {
     expect(row[7]).toBe(3);
   });
 
+  it('keeps the 2026-01 official anchors (Notification 327/2025 page 1)', () => {
+    // rank 1 = JIPMER GenMed UR-37; rank 2 = AIIMS ND Radiodiagnosis;
+    // ranks 3/5/6 = AIIMS ND Medicine UR seats (final state).
+    const { data } = store.loadIniCetCounselling('2026-01');
+    const find = (inst, course) => data.rows.find(
+      (r) => data.institutes[r[0]] === inst
+        && data.courses[r[1]] === course
+        && data.category_enum[r[3]] === 'UR'
+        && r[4] === 0
+    );
+    const genmed = find('AIIMS NEW DELHI', 'GENERAL MEDICINE');
+    expect(genmed).toBeDefined();
+    expect(genmed[5]).toBe(6);
+    expect(genmed[6]).toBe(3);
+    expect(genmed[7]).toBe(3);
+    const radio = find('AIIMS NEW DELHI', 'RADIODIAGNOSIS');
+    expect(radio).toBeDefined();
+    expect(radio[5]).toBe(2); // overall rank 2 held this seat
+    const jipmer = find('JIPMER PUDUCHERRY', 'GENERAL MEDICINE');
+    expect(jipmer).toBeDefined();
+    expect(jipmer[6]).toBe(1); // overall rank 1 held this seat
+  });
+
   it('is a hard failure to load a session the store does not carry', () => {
-    expect(() => store.loadIniCetDistribution('2026-01')).toThrow(/not listed in MANIFEST/);
+    // 2026-01 joined the store 2026-09-21 (manual-grab distribution; anchor
+    // stays 2025-07) — 2026-07 is the not-carried example now.
+    expect(() => store.loadIniCetDistribution('2026-07')).toThrow(/not listed in MANIFEST/);
   });
 });

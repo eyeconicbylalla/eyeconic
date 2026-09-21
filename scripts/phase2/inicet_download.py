@@ -25,6 +25,11 @@ UA = {"User-Agent": "Mozilla/5.0 (eyeconic-data-pipeline)"}
 
 # session-key -> files to fetch from the live docs host.
 # kind: result (qualified-candidates distribution) | round (seat allocation).
+#
+# NOT here by design: the 2026-01 session (result + round-2nd). Those files sit
+# behind the hash-obfuscated SPA result pages and were obtained by a one-time
+# MANUAL browser grab on 2026-09-21 — they live in data/raw/aiims/2026-01/
+# with PROVENANCE/download-log entries; nothing for this script to fetch.
 LIVE = {
     "2023-07": [("result", "INICET_July_23_Result-NET.pdf"),
                  ("round-1st", "INICET_Jul_23_1st_Round-website-compressed.pdf"),
