@@ -36,7 +36,10 @@ const appErrorResponse = (res, error, fallbackStatus = 503, fallbackCode = 'APP_
   if (error instanceof AppApiError) {
     return res.status(error.status).json({ msg: error.message, code: error.code });
   }
-  console.error('[app-auth] Unexpected error', { message: error && error.message });
+  console.error('[app-auth] Unexpected error', {
+    message: error && error.message,
+    stack: error && error.stack,
+  });
   return res.status(500).json({ msg: 'Server error', code: 'SERVER_ERROR' });
 };
 
@@ -84,10 +87,10 @@ router.post('/login', async (req, res) => {
     setSessionCookie(res, data.token, data.user);
     return res.json({ user: buildSessionUser(data.user) });
   } catch (error) {
-    // Map the App API's 400 "Invalid email or password." to a clean 401 —
+    // Map the App API's 400 or 401 "Invalid email or password." to a clean 401 —
     // same user-facing outcome, standard semantics for the web client.
-    if (error instanceof AppApiError && error.status === 400) {
-      return res.status(401).json({ msg: 'Invalid email or password.', code: 'INVALID_CREDENTIALS' });
+    if (error instanceof AppApiError && (error.status === 400 || error.status === 401)) {
+      return res.status(401).json({ msg: error.message || 'Invalid email or password.', code: 'INVALID_CREDENTIALS' });
     }
     return appErrorResponse(res, error);
   }

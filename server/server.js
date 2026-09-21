@@ -12,10 +12,10 @@ const appProxyRoutes = require('./routes/appProxy');
 const predictorRoutes = require('./routes/predictor');
 const { resolveAllowedOrigins } = require('./middleware/sameOrigin');
 const { isIntegrationConfigured } = require('./config/appApi');
+const { ensureDbConnection } = require('./config/db');
 
 // Fail fast with a clear message when required secrets are missing — only
-// when the server is actually started (module import stays side-effect-free
-// so tests can require the app).
+// when the server is actually started directly.
 if (require.main === module) {
   if (!process.env.JWT_SECRET) {
     console.error('FATAL: JWT_SECRET is not set. Configure it in the environment before starting the server.');
@@ -36,6 +36,18 @@ const app = express();
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
 app.use(helmet());
+
+// Auto-connect / ensure DB connection for serverless / Vercel runs
+app.use(async (_req, _res, next) => {
+  if (process.env.MONGO_URI && mongoose.connection.readyState !== 1) {
+    try {
+      await ensureDbConnection();
+    } catch (err) {
+      console.warn('[db] Auto-connect error:', redactUri(err && err.message));
+    }
+  }
+  next();
+});
 
 // --- CORS allowlist -------------------------------------------------------
 // Production only trusts the configured origins (default: the live website).
@@ -127,14 +139,12 @@ if (require.main === module) {
     process.exit(1);
   }
 
-  mongoose
-    .connect(process.env.MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    })
+  ensureDbConnection()
     .then(() => {
-      console.log('MongoDB connected');
       app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
     })
-    .catch((err) => console.error('MongoDB connection error:', redactUri(err.message)));
+    .catch((err) => {
+      console.error('MongoDB connection error:', redactUri(err.message));
+      process.exit(1);
+    });
 }

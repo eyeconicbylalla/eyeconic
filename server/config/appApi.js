@@ -87,7 +87,13 @@ function resolveSessionSecret() {
 }
 
 function isIntegrationConfigured() {
-  return Boolean(resolveAppApiBaseUrl() && resolveIntegrationToken() && resolveSessionSecret());
+  const secret = resolveSessionSecret();
+  return Boolean(
+    resolveAppApiBaseUrl() &&
+      resolveIntegrationToken() &&
+      secret &&
+      secret.length >= 32
+  );
 }
 
 const APP_UNAVAILABLE_MESSAGE =

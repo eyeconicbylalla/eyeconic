@@ -72,13 +72,17 @@ const StudentLoginModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, onSwit
         <p className="text-center mt-5 text-xs text-[#94A3B8]">
           Don&apos;t have an account? Ask your mentor to add you to Eyeconic.
         </p>
-        {onSwitchToLegacy && (
-          <p className="text-center mt-2 text-xs text-[#94A3B8]">
+        <div className="flex items-center justify-center gap-3 mt-3 text-xs text-[#94A3B8]">
+          {onSwitchToLegacy && (
             <button onClick={onSwitchToLegacy} className="text-[#18B6A4] hover:text-[#1CC8B5] underline">
               Visitor account (GT Score Predictor)
             </button>
-          </p>
-        )}
+          )}
+          {onSwitchToLegacy && <span>&bull;</span>}
+          <a href="/admin" className="text-[#94A3B8] hover:text-[#18B6A4] transition-colors underline">
+            Admin Portal
+          </a>
+        </div>
       </div>
     </div>,
     document.body

@@ -1,17 +1,6 @@
 const mongoose = require('mongoose');
 
-const connectDB = async () => {
-  try {
-    await mongoose.connect(process.env.MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-    console.log('MongoDB connected');
-  } catch (err) {
-    console.error(err.message);
-    process.exit(1);
-  }
-};
+let ensurePromise = null;
 
 /**
  * Ensure the default mongoose connection is usable, connecting (or
@@ -21,23 +10,14 @@ const connectDB = async () => {
  * (`require.main === module`) — module-imported runs (Vercel serverless,
  * `vercel dev`) never connect, and a connection that dies mid-flight (e.g.
  * sockets killed by machine sleep against Atlas) does not reliably self-heal
- * before the next operation. Routes that REQUIRE the database (predictor
- * persistence) call this before their first DB op instead of assuming a
- * healthy connection.
- *
- * Behaviour:
- *  - readyState 1 (connected) → immediate no-op
- *  - otherwise → mongoose.connect(MONGO_URI) with the cached in-flight
- *    promise shared by concurrent callers; the cache is cleared once settled
- *    so a later drop triggers a fresh reconnect (self-healing)
- *  - timeouts via MONGO_CONNECT_TIMEOUT_MS (default 10s)
- * Rejections propagate to the caller, which decides how to respond.
+ * before the next operation.
  */
-let ensurePromise = null;
-
 function ensureDbConnection() {
   if (mongoose.connection.readyState === 1) {
     return Promise.resolve();
+  }
+  if (!process.env.MONGO_URI) {
+    return Promise.reject(new Error('MONGO_URI is not configured'));
   }
   if (!ensurePromise) {
     const timeoutMs = Number.parseInt(process.env.MONGO_CONNECT_TIMEOUT_MS, 10) || 10000;
@@ -47,12 +27,26 @@ function ensureDbConnection() {
         useUnifiedTopology: true,
         serverSelectionTimeoutMS: timeoutMs,
       })
+      .then(() => {
+        console.log('MongoDB connected');
+      })
       .finally(() => {
         ensurePromise = null;
       });
   }
   return ensurePromise;
 }
+
+const connectDB = async () => {
+  try {
+    await ensureDbConnection();
+  } catch (err) {
+    console.error('MongoDB connection error:', err && err.message);
+    if (require.main === module) {
+      process.exit(1);
+    }
+  }
+};
 
 module.exports = connectDB;
 module.exports.ensureDbConnection = ensureDbConnection;
