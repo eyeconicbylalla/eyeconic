@@ -133,79 +133,97 @@ const features: Feature[] = [
 const FeaturesShowcaseSection: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [activeProgress, setActiveProgress] = useState(0);
-  const [translationY, setTranslationY] = useState(0);
-  const [scrollHeight, setScrollHeight] = useState('1100vh');
-  
-  const containerRef = useRef<HTMLDivElement>(null);
+  const imageContainerRef = useRef<HTMLDivElement>(null);
 
-  // Compute responsive scroll height based on screen width
+  // Sync active feature when image container is scrolled
+  const handleImageContainerScroll = () => {
+    const container = imageContainerRef.current;
+    if (!container) return;
+
+    const { scrollTop, clientHeight } = container;
+    if (clientHeight <= 0) return;
+
+    const rawIndex = scrollTop / clientHeight;
+    const index = Math.max(0, Math.min(features.length - 1, Math.round(rawIndex)));
+    const subProgress = Math.max(0, Math.min(1, rawIndex - Math.floor(rawIndex)));
+
+    setActiveIndex(index);
+    setActiveProgress(subProgress);
+  };
+
+  // Scoped wheel handling on the image container:
+  // Prevents outer webpage scroll when cursor is over the image container,
+  // and smoothly advances/scrolls the image container.
   useEffect(() => {
-    const updateHeight = () => {
-      const isSmall = window.innerWidth < 1024;
-      setScrollHeight(`${features.length * (isSmall ? 65 : 85)}vh`);
+    const container = imageContainerRef.current;
+    if (!container) return;
+
+    let isWheelStepping = false;
+    let wheelStepTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const handleWheel = (e: WheelEvent) => {
+      // 1. Consume the event so parent/window does not receive it
+      e.stopPropagation();
+      // 2. Prevent default page scrolling while hovering image container
+      e.preventDefault();
+
+      const { clientHeight } = container;
+      if (clientHeight <= 0) return;
+
+      // Detect discrete mouse wheel (usually integer deltas >= 40 or line deltaMode)
+      const isDiscreteWheel =
+        e.deltaMode === 1 || (Math.abs(e.deltaY) >= 40 && Number.isInteger(e.deltaY));
+
+      if (isDiscreteWheel) {
+        if (isWheelStepping) return;
+        isWheelStepping = true;
+
+        const direction = e.deltaY > 0 ? 1 : -1;
+        const currentIndex = Math.round(container.scrollTop / clientHeight);
+        const targetIndex = Math.max(0, Math.min(features.length - 1, currentIndex + direction));
+
+        container.scrollTo({
+          top: targetIndex * clientHeight,
+          behavior: 'smooth',
+        });
+
+        if (wheelStepTimeout) clearTimeout(wheelStepTimeout);
+        wheelStepTimeout = setTimeout(() => {
+          isWheelStepping = false;
+        }, 320);
+      } else {
+        // Continuous trackpad scroll
+        container.scrollBy({
+          top: e.deltaY,
+          behavior: 'auto',
+        });
+      }
     };
-    updateHeight();
-    window.addEventListener('resize', updateHeight);
-    return () => window.removeEventListener('resize', updateHeight);
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+      if (wheelStepTimeout) clearTimeout(wheelStepTimeout);
+    };
   }, []);
 
-  // Handle scroll logic to switch features and active states
-  useEffect(() => {
-    const handleScroll = () => {
-      const element = containerRef.current;
-      if (!element) return;
-
-      const rect = element.getBoundingClientRect();
-      const top = rect.top;
-      const height = rect.height;
-      const viewportHeight = window.innerHeight;
-
-      // Scrollable distance inside the spacer container
-      const scrollableRange = height - viewportHeight;
-      if (scrollableRange <= 0) return;
-
-      // Progress ranges from 0 to 1
-      const progress = -top / scrollableRange;
-      const clampedProgress = Math.max(0, Math.min(0.999, progress));
-
-      const index = Math.floor(clampedProgress * features.length);
-      const subProgress = (clampedProgress * features.length) - index;
-      
-      const progressMultiplier = clampedProgress * features.length;
-      const cappedMultiplier = Math.min(features.length - 1, progressMultiplier);
-      const translationPercent = -cappedMultiplier * 100;
-
-      setActiveIndex(index);
-      setActiveProgress(subProgress);
-      setTranslationY(translationPercent);
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  // Click dot or navigate to dynamic scroll index
+  // Click dot or feature list item to scroll the image container
   const scrollToFeature = (index: number) => {
-    const element = containerRef.current;
-    if (!element) return;
+    const container = imageContainerRef.current;
+    if (!container) return;
 
-    const rect = element.getBoundingClientRect();
-    const absoluteTop = window.scrollY + rect.top;
-    const viewportHeight = window.innerHeight;
-    const scrollableRange = rect.height - viewportHeight;
-    const progress = index / features.length;
-
-    window.scrollTo({
-      top: absoluteTop + progress * scrollableRange,
+    const itemHeight = container.clientHeight;
+    container.scrollTo({
+      top: index * itemHeight,
       behavior: 'smooth',
     });
+    setActiveIndex(index);
   };
 
   return (
     <section
       id="features"
-      className="relative"
+      className="relative py-16 lg:py-24"
       style={{
         background: '#080C11',
         overflowX: 'clip',
@@ -221,8 +239,8 @@ const FeaturesShowcaseSection: React.FC = () => {
         }}
       />
 
-      {/* Title / Header section (rendered normally above layout) */}
-      <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 pt-24 pb-8 lg:pb-16 text-center z-10">
+      {/* Title / Header section */}
+      <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 mb-12 lg:mb-16 text-center z-10">
         <motion.div
           initial={{ opacity: 0, y: 14 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -276,194 +294,196 @@ const FeaturesShowcaseSection: React.FC = () => {
         </motion.p>
       </div>
 
-      {/* Sticky Scroll Layout for both mobile and desktop */}
-      <div ref={containerRef} className="relative" style={{ height: scrollHeight }}>
-        <div className="sticky top-0 h-screen w-full flex items-center justify-center overflow-hidden">
-          <div className="w-full max-w-[94vw] xl:max-w-[1440px] mx-auto pl-4 sm:pl-6 lg:pl-16 pr-4 sm:pr-6 lg:pr-0">
-            <div className="flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-16 w-full">
-              {/* Left side: descriptions & indicators */}
-              <div className="w-full lg:w-[35%] flex flex-col justify-center text-center lg:text-left items-center lg:items-start">
-                {/* Eyebrow */}
-                <p
-                  className="text-[10px] lg:text-[11px] font-semibold uppercase tracking-[0.14em] mb-2 lg:mb-3"
-                  style={{ color: '#3A4A5A' }}
-                >
-                  What's inside
-                </p>
+      {/* Main Feature Content layout */}
+      <div className="relative w-full max-w-[94vw] xl:max-w-[1440px] mx-auto pl-4 sm:pl-6 lg:pl-16 pr-4 sm:pr-6 lg:pr-0 z-10">
+        <div className="flex flex-col lg:flex-row items-center lg:items-start justify-between gap-8 lg:gap-16 w-full">
+          {/* Left side: descriptions & indicators */}
+          <div className="w-full lg:w-[35%] flex flex-col justify-center text-center lg:text-left items-center lg:items-start">
+            {/* Eyebrow */}
+            <p
+              className="text-[10px] lg:text-[11px] font-semibold uppercase tracking-[0.14em] mb-2 lg:mb-3"
+              style={{ color: '#3A4A5A' }}
+            >
+              What's inside
+            </p>
 
-                {/* Static headline */}
-                <h2 className="text-[1.5rem] md:text-[1.8rem] lg:text-[2.2rem] font-bold leading-[1.1] tracking-tight text-white mb-6 lg:mb-8">
-                  Built for one goal.
-                  <br />
-                  <span
-                    style={{
-                      backgroundImage: 'linear-gradient(135deg, #18B6A4 0%, #4DD7C8 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      backgroundClip: 'text',
-                    }}
+            {/* Static headline */}
+            <h2 className="text-[1.5rem] md:text-[1.8rem] lg:text-[2.2rem] font-bold leading-[1.1] tracking-tight text-white mb-6 lg:mb-8">
+              Built for one goal.
+              <br />
+              <span
+                style={{
+                  backgroundImage: 'linear-gradient(135deg, #18B6A4 0%, #4DD7C8 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
+              >
+                Your AIR.
+              </span>
+            </h2>
+
+            {/* Desktop features list */}
+            <div className="hidden lg:flex flex-col gap-3.5 w-full mt-1">
+              {features.map((feature, i) => {
+                const isActive = i === activeIndex;
+                return (
+                  <div
+                    key={feature.key}
+                    className="flex gap-4 cursor-pointer group select-none text-left"
+                    onClick={() => scrollToFeature(i)}
                   >
-                    Your AIR.
-                  </span>
-                </h2>
-
-                {/* Desktop features scroll-spy list */}
-                <div className="hidden lg:flex flex-col gap-4 w-full mt-2">
-                  {features.map((feature, i) => {
-                    const isActive = i === activeIndex;
-                    return (
+                    {/* Progress line indicator */}
+                    <div className="relative w-[3px] bg-white/5 rounded-full overflow-hidden self-stretch min-h-[36px] flex-shrink-0">
                       <div
-                        key={feature.key}
-                        className="flex gap-4 cursor-pointer group select-none text-left animate-fade-in"
-                        onClick={() => scrollToFeature(i)}
-                      >
-                        {/* Progress line indicator */}
-                        <div className="relative w-[3px] bg-white/5 rounded-full overflow-hidden self-stretch min-h-[36px] flex-shrink-0">
-                          <div
-                            className="absolute top-0 left-0 w-full bg-[#18B6A4] rounded-full transition-all duration-75"
-                            style={{
-                              height: isActive
-                                ? `${activeProgress * 100}%`
-                                : i < activeIndex
-                                ? '100%'
-                                : '0%',
-                            }}
-                          />
-                        </div>
-
-                        {/* Text details */}
-                        <div className="flex flex-col flex-1 py-0.5">
-                          <h3
-                            className={`text-[15px] xl:text-[17px] font-bold tracking-tight transition-colors duration-300 ${
-                              isActive ? 'text-white font-extrabold' : 'text-[#4E5D70] group-hover:text-slate-300'
-                            }`}
-                          >
-                            {feature.title}
-                          </h3>
-                          
-                          <AnimatePresence initial={false}>
-                            {isActive && (
-                              <motion.div
-                                initial={{ height: 0, opacity: 0, marginTop: 0 }}
-                                animate={{ height: 'auto', opacity: 1, marginTop: 6 }}
-                                exit={{ height: 0, opacity: 0, marginTop: 0 }}
-                                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                                className="overflow-hidden"
-                              >
-                                <p className="text-[13px] xl:text-[14px] leading-relaxed text-[#7A8FA6] max-w-md">
-                                  {feature.description}
-                                </p>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Mobile / Tablet active feature view */}
-                <div className="flex lg:hidden flex-col items-center text-center w-full">
-                  {/* Tag */}
-                  <span
-                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-widest uppercase mb-3"
-                    style={{
-                      background: 'rgba(24,182,164,0.10)',
-                      border: '1px solid rgba(24,182,164,0.22)',
-                      color: '#18B6A4',
-                      letterSpacing: '0.12em',
-                    }}
-                  >
-                    {features[activeIndex].tag}
-                  </span>
-
-                  <h3 className="text-xl font-bold text-white mb-2">
-                    {features[activeIndex].title}
-                  </h3>
-
-                  <p className="text-[13px] leading-relaxed text-[#7A8FA6] max-w-sm">
-                    {features[activeIndex].description}
-                  </p>
-
-                  {/* Progress bar and dot navigation for mobile */}
-                  <div className="flex items-center gap-3 mt-5 w-full max-w-[200px]">
-                    <span className="text-[10px] font-semibold tabular-nums text-[#18B6A4]">
-                      {String(activeIndex + 1).padStart(2, '0')}
-                    </span>
-                    <div className="flex-1 h-px bg-white/10">
-                      <div
-                        className="h-full transition-all duration-300"
+                        className="absolute top-0 left-0 w-full bg-[#18B6A4] rounded-full transition-all duration-200"
                         style={{
-                          width: `${((activeIndex + 1) / features.length) * 100}%`,
-                          background: 'linear-gradient(90deg, #18B6A4, #4DD7C8)',
+                          height: isActive
+                            ? '100%'
+                            : i < activeIndex
+                            ? '100%'
+                            : '0%',
                         }}
                       />
                     </div>
-                    <span className="text-[10px] font-semibold tabular-nums text-[#3A4A5A]">
-                      {String(features.length).padStart(2, '0')}
-                    </span>
-                  </div>
 
-                  <div className="flex flex-wrap gap-1 mt-4 justify-center">
-                    {features.map((f, i) => (
-                      <button
-                        key={f.key}
-                        aria-label={`Jump to ${f.title}`}
-                        onClick={() => scrollToFeature(i)}
-                        style={{
-                          width: i === activeIndex ? '12px' : '4px',
-                          height: '4px',
-                          borderRadius: '999px',
-                          background:
-                            i === activeIndex
-                              ? 'linear-gradient(90deg,#18B6A4,#4DD7C8)'
-                              : 'rgba(255,255,255,0.12)',
-                          border: 'none',
-                          cursor: 'pointer',
-                          transition: 'width 0.35s cubic-bezier(0.22,1,0.36,1), background 0.35s ease',
-                          padding: 0,
-                        }}
-                        className="hover:bg-white/30"
-                      />
-                    ))}
+                    {/* Text details */}
+                    <div className="flex flex-col flex-1 py-0.5">
+                      <h3
+                        className={`text-[15px] xl:text-[16px] font-bold tracking-tight transition-colors duration-200 ${
+                          isActive ? 'text-white font-extrabold' : 'text-[#4E5D70] group-hover:text-slate-300'
+                        }`}
+                      >
+                        {feature.title}
+                      </h3>
+                      
+                      <AnimatePresence initial={false}>
+                        {isActive && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                            animate={{ height: 'auto', opacity: 1, marginTop: 6 }}
+                            exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                            className="overflow-hidden"
+                          >
+                            <p className="text-[13px] xl:text-[14px] leading-relaxed text-[#7A8FA6] max-w-md">
+                              {feature.description}
+                            </p>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </div>
+                );
+              })}
+            </div>
+
+            {/* Mobile / Tablet active feature view */}
+            <div className="flex lg:hidden flex-col items-center text-center w-full">
+              {/* Tag */}
+              <span
+                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-widest uppercase mb-3"
+                style={{
+                  background: 'rgba(24,182,164,0.10)',
+                  border: '1px solid rgba(24,182,164,0.22)',
+                  color: '#18B6A4',
+                  letterSpacing: '0.12em',
+                }}
+              >
+                {features[activeIndex].tag}
+              </span>
+
+              <h3 className="text-xl font-bold text-white mb-2">
+                {features[activeIndex].title}
+              </h3>
+
+              <p className="text-[13px] leading-relaxed text-[#7A8FA6] max-w-sm">
+                {features[activeIndex].description}
+              </p>
+
+              {/* Progress bar and dot navigation for mobile */}
+              <div className="flex items-center gap-3 mt-5 w-full max-w-[200px]">
+                <span className="text-[10px] font-semibold tabular-nums text-[#18B6A4]">
+                  {String(activeIndex + 1).padStart(2, '0')}
+                </span>
+                <div className="flex-1 h-px bg-white/10">
+                  <div
+                    className="h-full transition-all duration-300"
+                    style={{
+                      width: `${((activeIndex + 1) / features.length) * 100}%`,
+                      background: 'linear-gradient(90deg, #18B6A4, #4DD7C8)',
+                    }}
+                  />
                 </div>
+                <span className="text-[10px] font-semibold tabular-nums text-[#3A4A5A]">
+                  {String(features.length).padStart(2, '0')}
+                </span>
               </div>
 
-              {/* Right side: Large Framer-style screenshot showcase */}
-              <div className="w-full lg:w-[61%] flex justify-end items-center relative group/image">
-                {/* Background ambient glow behind the container */}
-                <div
-                  className="absolute -inset-4 rounded-l-3xl opacity-35 blur-3xl pointer-events-none transition-all duration-700"
-                  style={{
-                    background: `radial-gradient(circle, rgba(24,182,164,0.14) 0%, transparent 70%)`,
-                  }}
-                />
-                
-                {/* Clean image showcase wrapper - no browser buttons, large size, bleeding to edge */}
-                <div 
-                  className="w-full aspect-[16/10] overflow-hidden rounded-2xl lg:rounded-l-[24px] lg:rounded-r-none shadow-[0_24px_80px_rgba(0,0,0,0.85)] border-y border-l border-white/[0.05] bg-[#080C11] relative"
-                >
-                  <motion.div
-                    className="w-full h-full flex flex-col"
-                    animate={{ y: `${translationY}%` }}
-                    transition={{ type: "spring", stiffness: 100, damping: 25, mass: 0.2 }}
+              <div className="flex flex-wrap gap-1.5 mt-4 justify-center">
+                {features.map((f, i) => (
+                  <button
+                    key={f.key}
+                    aria-label={`Jump to ${f.title}`}
+                    onClick={() => scrollToFeature(i)}
+                    style={{
+                      width: i === activeIndex ? '16px' : '6px',
+                      height: '6px',
+                      borderRadius: '999px',
+                      background:
+                        i === activeIndex
+                          ? 'linear-gradient(90deg,#18B6A4,#4DD7C8)'
+                          : 'rgba(255,255,255,0.15)',
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'width 0.35s cubic-bezier(0.22,1,0.36,1), background 0.35s ease',
+                      padding: 0,
+                    }}
+                    className="hover:bg-white/30"
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right side: Large Framer-style screenshot showcase with independent scroll */}
+          <div className="w-full lg:w-[61%] flex justify-end items-center relative group/image lg:sticky lg:top-28">
+            {/* Background ambient glow behind the container */}
+            <div
+              className="absolute -inset-4 rounded-l-3xl opacity-35 blur-3xl pointer-events-none transition-all duration-700"
+              style={{
+                background: `radial-gradient(circle, rgba(24,182,164,0.14) 0%, transparent 70%)`,
+              }}
+            />
+            
+            {/* Independent scrollable image showcase container */}
+            <div 
+              ref={imageContainerRef}
+              onScroll={handleImageContainerScroll}
+              className="w-full aspect-[16/10] overflow-y-auto overflow-x-hidden rounded-2xl lg:rounded-l-[24px] lg:rounded-r-none shadow-[0_24px_80px_rgba(0,0,0,0.85)] border-y border-l border-white/[0.05] bg-[#080C11] relative select-none scrollbar-none"
+              style={{
+                overscrollBehaviorY: 'contain',
+                scrollSnapType: 'y mandatory',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+              }}
+            >
+              <div className="w-full flex flex-col">
+                {features.map((f, i) => (
+                  <div 
+                    key={f.key} 
+                    data-feature-index={i}
+                    className="w-full aspect-[16/10] flex-shrink-0 relative overflow-hidden bg-[#0A0F14] snap-start snap-always"
                   >
-                    {features.map((f) => (
-                      <div 
-                        key={f.key} 
-                        className="w-full h-full flex-shrink-0 relative overflow-hidden bg-[#0A0F14]"
-                      >
-                        <img
-                          src={imageByName[f.key]}
-                          alt={f.title}
-                          className="w-full h-full object-cover object-top select-none"
-                          loading="lazy"
-                        />
-                      </div>
-                    ))}
-                  </motion.div>
-                </div>
+                    <img
+                      src={imageByName[f.key]}
+                      alt={f.title}
+                      className="w-full h-full object-cover object-top select-none pointer-events-none"
+                      loading="lazy"
+                      draggable={false}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           </div>
