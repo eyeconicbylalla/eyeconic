@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { GtAttemptInput, GtInput, GtsResponse } from '../../types/predictor';
 import { predictorEndpoints } from '../../lib/predictorClient';
-import { MAX_CORRECTS, SUGGESTION_CHIPS_MAX } from './constants';
+import { EXAM_MAX_CORRECTS, SUGGESTION_CHIPS_MAX } from './constants';
 import { dateLabel, latestAttempt } from './format';
 
 /**
@@ -15,6 +15,9 @@ import { dateLabel, latestAttempt } from './format';
  *  - an EMPTY row is valid and simply contributes nothing to the payload
  *    (the reverse flow works without current GTs — no gap stage then);
  *  - the low-data note counts only rows that carry a value.
+ *
+ * `maxCorrects` bounds every row to the SELECTED exam's question count
+ * (180 for NEET PG, 200 for INI-CET) — never a global constant.
  */
 
 export interface GtRow {
@@ -29,15 +32,15 @@ export interface GtRow {
   attemptsNote?: string;
 }
 
-export function rowValidationError(value: string, optional = false): string | null {
+export function rowValidationError(value: string, optional = false, maxCorrects = EXAM_MAX_CORRECTS.NEET_PG): string | null {
   if (value.trim() === '') return optional ? null : 'Enter a score';
   const num = Number(value);
   if (!Number.isInteger(num) || num < 0) return 'Whole numbers only (0 or more)';
-  if (num > MAX_CORRECTS) return `Cannot exceed ${MAX_CORRECTS} questions`;
+  if (num > maxCorrects) return `Cannot exceed ${maxCorrects} questions`;
   return null;
 }
 
-export function useGtInput({ optional = false } = {}) {
+export function useGtInput({ optional = false, maxCorrects = EXAM_MAX_CORRECTS.NEET_PG } = {}) {
   const keySeq = useRef(1);
   const nextKey = () => keySeq.current++;
 
@@ -128,9 +131,9 @@ export function useGtInput({ optional = false } = {}) {
   // Live per-row validation (errors exist as you type; they only turn red
   // once a row has content or a submit was attempted).
   const validation = useMemo(() => {
-    const errors = rows.map((row) => rowValidationError(row.value, optional));
+    const errors = rows.map((row) => rowValidationError(row.value, optional, maxCorrects));
     return { errors, valid: errors.every((e) => e === null) };
-  }, [rows, optional]);
+  }, [rows, optional, maxCorrects]);
 
   const valuedRows = useMemo(() => rows.filter((row) => row.value.trim() !== ''), [rows]);
 
@@ -177,6 +180,8 @@ export function useGtInput({ optional = false } = {}) {
     hasAutoGts,
     lowGtCount,
     validation,
+    /** The exam's question count the rows are bounded to (input max attr). */
+    maxCorrects,
     hasValues: valuedRows.length > 0,
     updateRow,
     addRow,

@@ -75,8 +75,8 @@ async function main() {
         gtId: '507f1f77bcf86cd7994d90a1',
         provenance: 'auto-captured',
         attempts: [
-          { corrects: 112, totalQuestions: 200, status: 'completed', endedAt: '2026-08-01T10:00:00.000Z' },
-          { corrects: 128, totalQuestions: 200, status: 'completed', endedAt: '2026-08-20T10:00:00.000Z' },
+          { corrects: 112, totalQuestions: 180, status: 'completed', endedAt: '2026-08-01T10:00:00.000Z' },
+          { corrects: 128, totalQuestions: 180, status: 'completed', endedAt: '2026-08-20T10:00:00.000Z' },
         ],
       },
       { provenance: 'self-reported', attempts: [{ corrects: 130, status: 'completed' }] },

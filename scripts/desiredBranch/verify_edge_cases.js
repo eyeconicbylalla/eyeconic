@@ -31,8 +31,16 @@ const {
   requiredCorrectsNeetPg,
   computeGap,
 } = require(path.join(ROOT, 'server', 'predictor', 'desiredBranch'));
+const { buildPatternBridge } = require(path.join(ROOT, 'server', 'predictor', 'patternBridge'));
 
 const engine = createPredictorEngine();
+
+// NEET PG corrects live on the 180-question pattern; the distribution is
+// 800-scale — reverse resolutions go through the fraction-parity bridge.
+const neetBridge = buildPatternBridge({
+  pattern: EXAMS.NEET_PG.pattern,
+  anchorPattern: EXAMS.NEET_PG.distribution.anchorPattern,
+});
 
 let failures = 0;
 function check(label, ok, detail) {
@@ -55,14 +63,17 @@ function expectError(request, messagePattern) {
   return null;
 }
 
-const gt = (corrects, extra = {}) => ({
+const gtOf = (total) => (corrects, extra = {}) => ({
   gtId: null,
   provenance: 'self-reported',
   attempts: [{
-    corrects, totalQuestions: 200, status: 'completed', endedAt: null,
+    corrects, totalQuestions: total, status: 'completed', endedAt: null,
     retestApprovedUsed: false, skippedCount: 0, ...extra,
   }],
 });
+// NEET PG runs the 180-question pattern (2026-09-24 migration); INI-CET 200.
+const gt = gtOf(180);
+const iniGt = gtOf(200);
 const gts = (...list) => list.map((c) => (typeof c === 'number' ? gt(c) : c));
 
 // Golden anchors (pinned by the phase suites; re-asserted end to end here).
@@ -193,7 +204,7 @@ console.log('Desired Branch Predictor — §9 edge-case walk (engine + committed
   check('case 9: above-distribution state machinery exists below rank 1 (defensive)',
     above.state === 'above');
   const below = requiredCorrectsNeetPg({
-    closingRanks: [distModel.lastRank + 1], distModel, pattern,
+    closingRanks: [distModel.lastRank + 1], distModel, pattern, bridge: neetBridge,
   }).perClosing[0];
   check('case 9: closing beyond the last rank → bounded by the lowest recorded score',
     below.bounded === true && /beyond the last recorded rank/.test(below.note));
@@ -216,8 +227,8 @@ console.log('Desired Branch Predictor — §9 edge-case walk (engine + committed
 
 // ---- §9 cases 11–13 — optional GTs and the D7 gap -----------------------------
 {
-  const T_SAFE = 178; // golden: GM UR safe end
-  const T_LIKELY = 152;
+  const T_SAFE = 160; // golden: GM UR safe end (bridged, 180-question pattern)
+  const T_LIKELY = 137;
 
   const none = engine.predictRequired({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR' });
   check('case 11: no GTs → current omitted, NO_CURRENT_DATA (target-only result)',
@@ -233,28 +244,28 @@ console.log('Desired Branch Predictor — §9 edge-case walk (engine + committed
     one.gap.status === 'BELOW_TARGET');
 
   const onTrack = engine.predictRequired({
-    exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', gts: gts(185, 180),
+    exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', gts: gts(170, 180),
   });
   check('case 13: mean above the safe end → ON_TRACK',
-    onTrack.gap.status === 'ON_TRACK' && onTrack.gap.gapToSafe === 4.5,
+    onTrack.gap.status === 'ON_TRACK' && onTrack.gap.gapToSafe === 15,
     JSON.stringify(onTrack.gap));
 
   // D7 boundary rules: inclusive at both thresholds, unrounded mean compared.
-  const atSafe = engine.predictRequired({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', gts: gts(178, 178) });
-  check('D7: C ≥ T_safe inclusive (mean 178 = T_safe → ON_TRACK)', atSafe.gap.status === 'ON_TRACK');
-  const fracAbove = engine.predictRequired({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', gts: gts(177, 180) });
-  check('D7: unrounded mean decides (178.5 → ON_TRACK, not rounded down to 178)',
+  const atSafe = engine.predictRequired({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', gts: gts(160, 160) });
+  check('D7: C ≥ T_safe inclusive (mean 160 = T_safe → ON_TRACK)', atSafe.gap.status === 'ON_TRACK');
+  const fracAbove = engine.predictRequired({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', gts: gts(159, 162) });
+  check('D7: unrounded mean decides (160.5 → ON_TRACK, not rounded down to 160)',
     fracAbove.gap.status === 'ON_TRACK' && fracAbove.gap.gapToSafe === 0.5,
     JSON.stringify(fracAbove.gap));
-  const fracBelow = engine.predictRequired({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', gts: gts(177, 178) });
-  check('D7: unrounded mean decides (177.5 < 178 → WITHIN_REACH)',
+  const fracBelow = engine.predictRequired({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', gts: gts(159, 160) });
+  check('D7: unrounded mean decides (159.5 < 160 → WITHIN_REACH)',
     fracBelow.gap.status === 'WITHIN_REACH');
-  const atLikely = engine.predictRequired({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', gts: gts(152, 152) });
-  check('D7: T_likely ≤ C < T_safe (mean 152 → WITHIN_REACH)', atLikely.gap.status === 'WITHIN_REACH');
+  const atLikely = engine.predictRequired({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', gts: gts(137, 137) });
+  check('D7: T_likely ≤ C < T_safe (mean 137 → WITHIN_REACH)', atLikely.gap.status === 'WITHIN_REACH');
 
   // Bounded-end propagation (D7): safe end above-ladder → ON_TRACK impossible.
   const bounded = engine.predictRequired({
-    exam: 'INI_CET', branchKey: INI_GM, category: 'UR', gts: gts(140, 138),
+    exam: 'INI_CET', branchKey: INI_GM, category: 'UR', gts: [iniGt(140), iniGt(138)],
   });
   check('D7: bounded safe end → state from the likely end alone, gapToSafe null',
     bounded.gap.status === 'WITHIN_REACH' && bounded.gap.gapToSafe === null &&
@@ -317,11 +328,13 @@ console.log('Desired Branch Predictor — §9 edge-case walk (engine + committed
 {
   const distModel = buildDistributionModel(store.loadNeetPgDistribution().data);
   const pattern = EXAMS.NEET_PG.pattern;
-  // Phase-2 golden: closing 6 → strict-guarantee score 695 → ceil(179.0)=179
-  const e = requiredCorrectsNeetPg({ closingRanks: [6], distModel, pattern }).perClosing[0];
-  check('case 18: golden closing 6 → 695 → 179 corrects (rounds up, never down)',
-    e.score === 695 && e.corrects === 179, `score ${e.score} corrects ${e.corrects}`);
-  console.log('case 18  ceil rounding (golden 6 → 695 → 179) .................... checked');
+  // Bridged golden (2026-09-24): closing 6 → anchor 695 → 720-scale 625.5 →
+  // ceil((625.5+180)/5) = ceil(161.1) = 162 on the 180-question pattern
+  const e = requiredCorrectsNeetPg({ closingRanks: [6], distModel, pattern, bridge: neetBridge }).perClosing[0];
+  check('case 18: golden closing 6 → anchor 695 → 625.5/720 → 162 corrects (rounds up, never down)',
+    e.anchorScore === 695 && e.score === 625.5 && e.corrects === 162,
+    `anchor ${e.anchorScore} score ${e.score} corrects ${e.corrects}`);
+  console.log('case 18  ceil rounding (golden 6 → 695 → 625.5 → 162) ........... checked');
 }
 
 // ---- §9 case 19 — persisted re-derivation drift -------------------------------
@@ -386,8 +399,9 @@ for (const examId of ['NEET_PG', 'INI_CET']) {
           safeE.closing === tight && likelyE.closing === loose);
         for (const [endName, end] of [['safe', safeE], ['likely', likelyE]]) {
           if (end.corrects !== null) {
+            const maxCorrects = examId === 'NEET_PG' ? 180 : 200;
             check(`census ${label} ${endName}-integer`,
-              Number.isInteger(end.corrects) && end.corrects >= 0 && end.corrects <= 200,
+              Number.isInteger(end.corrects) && end.corrects >= 0 && end.corrects <= maxCorrects,
               String(end.corrects));
           } else {
             check(`census ${label} ${endName}-bounded`,

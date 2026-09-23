@@ -57,16 +57,33 @@ function createPredictorEngine(deps = {}) {
       available: e.available,
       milestone: e.milestone,
       patternVersion: e.patternVersion,
+      pattern: { ...e.pattern },
     }));
+  }
+
+  /**
+   * Strategy for a run: the current one, or the retired pattern profile a
+   * stored record was served under (§10 pattern history — re-derivation of
+   * stored predictions only; new requests never pass a methodVersion).
+   */
+  function strategyFor(examId, methodVersion) {
+    if (methodVersion && typeof strategies.legacy === 'function') {
+      const legacy = strategies.legacy(examId, methodVersion);
+      if (legacy) return legacy;
+    }
+    return strategies[examId];
   }
 
   /**
    * Run the Phase 3 prediction pipeline.
    * @param {object} request see server/predictor/validation.js contract
+   * @param {object} [opts] { methodVersion } — the STORED methodVersion when
+   *   re-deriving a persisted prediction (selects its pattern profile);
+   *   omit for new predictions (always the current pattern).
    * @returns {object} result with estimate + full method/inputs record
    *   (shaped so Phase 7/9 can persist it verbatim — §18 Phase 9 fields)
    */
-  function predict(request) {
+  function predict(request, opts = {}) {
     const examId =
       request && typeof request === 'object' && typeof request.exam === 'string'
         ? request.exam
@@ -77,7 +94,7 @@ function createPredictorEngine(deps = {}) {
       validateRequest(request);
       throw new Error('unreachable: validation accepted an unregistered exam');
     }
-    const strategy = strategies[examId];
+    const strategy = strategyFor(examId, opts.methodVersion);
 
     const validated = strategy.validate(request);
 
@@ -98,6 +115,7 @@ function createPredictorEngine(deps = {}) {
     const distMeta = strategy.distributionMeta
       ? strategy.distributionMeta()
       : { snapshotId: null, numericPairs: null };
+    const patternMeta = typeof strategy.patternMeta === 'function' ? strategy.patternMeta() : null;
 
     return {
       exam: validated.exam.id,
@@ -108,6 +126,13 @@ function createPredictorEngine(deps = {}) {
         version: strategy.methodVersion || METHOD_VERSION,
         stage: validated.category ? 'BRANCHES' : 'RANK_RANGE', // P6 output when category present
         assumptions: ['no-skip', 'full-length-standard-pattern', 'difficulty-parity'],
+        /** Pattern the GT inputs and displayed scores are on (§10 echo). */
+        ...(patternMeta
+          ? {
+              pattern: { ...patternMeta.pattern, version: patternMeta.patternVersion },
+              distributionBridge: patternMeta.distributionBridge,
+            }
+          : {}),
         aggregation: {
           method: AGGREGATION.method,
           dedupRuleId: AGGREGATION.DEDUP_RULE_ID,
@@ -158,12 +183,25 @@ function createPredictorEngine(deps = {}) {
    * required GT-corrects range → optional gap. Exam-specific reverse steps
    * live in the strategy (official distribution vs crowd ladder); the forward
    * predict() path is untouched by this addition.
+   *
+   * @param {object} [opts] { methodVersion } — stored version for re-deriving
+   *   a persisted reverse query under its own pattern profile.
    */
-  function predictRequired(request) {
+  function predictRequired(request, opts = {}) {
+    // Legacy pattern (if the stored methodVersion names one) must drive GT
+    // validation too — a 200-question-era query validates against 200.
+    const examId =
+      request && typeof request === 'object' && typeof request.exam === 'string'
+        ? request.exam
+        : undefined;
+    const legacyEntry =
+      opts.methodVersion && typeof strategies.legacyEntry === 'function'
+        ? strategies.legacyEntry(examId, opts.methodVersion)
+        : null;
     // validateDesiredBranchRequest resolves the exam (unknown/unavailable
     // exams throw the canonical errors) — no unreachable-exam shim needed.
-    const validated = validateDesiredBranchRequest(request);
-    const strategy = strategies[validated.exam.id];
+    const validated = validateDesiredBranchRequest(request, legacyEntry ? legacyEntry.pattern : undefined);
+    const strategy = strategyFor(validated.exam.id, opts.methodVersion);
     return strategy.resolveDesiredBranch(validated);
   }
 

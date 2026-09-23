@@ -35,25 +35,25 @@ const GT2 = '507f1f77bcf86cd799439033';
 const ANALYTICS_ATTEMPTS = [
   {
     _id: '507f1f77bcf86cd7994d0001',
-    quiz: { _id: GT1, title: 'Grand Test 01', testType: 'grand', totalMarks: 800 },
+    quiz: { _id: GT1, title: 'Grand Test 01', testType: 'grand', totalMarks: 720 },
     score: 112,
-    totalQuestions: 200,
+    totalQuestions: 180,
     skipped: 0,
     endTime: '2026-08-01T10:00:00.000Z',
   },
   {
     _id: '507f1f77bcf86cd7994d0002',
-    quiz: { _id: GT1, title: 'Grand Test 01', testType: 'grand', totalMarks: 800 },
+    quiz: { _id: GT1, title: 'Grand Test 01', testType: 'grand', totalMarks: 720 },
     score: 128,
-    totalQuestions: 200,
+    totalQuestions: 180,
     skipped: 2,
     endTime: '2026-08-20T10:00:00.000Z',
   },
   {
     _id: '507f1f77bcf86cd7994d0003',
-    quiz: { _id: GT2, title: 'Grand Test 02', testType: 'grand', totalMarks: 800 },
+    quiz: { _id: GT2, title: 'Grand Test 02', testType: 'grand', totalMarks: 720 },
     score: 95,
-    totalQuestions: 200,
+    totalQuestions: 180,
     skipped: 0,
     endTime: '2026-09-01T10:00:00.000Z',
   },
@@ -184,6 +184,14 @@ describe('predictor API — auth and metadata', () => {
     const ini = res.body.exams.find((e) => e.id === 'INI_CET');
     expect(neet.available).toBe(true);
     expect(ini.available).toBe(true); // INI-CET live (M2: Phases 1+5+6+UI)
+    // Pattern echo (2026-09-24 migration): NEET PG 180/720, INI-CET 200/200 —
+    // the UI derives its input bounds from these numbers.
+    expect(neet.pattern).toEqual({
+      totalQuestions: 180, positive: 4, negative: 1, maxMarks: 720, version: '720-scale (+4/-1)',
+    });
+    expect(ini.pattern).toEqual({
+      totalQuestions: 200, positive: 1, negative: 1 / 3, maxMarks: 200, version: '200 marks (+1/-1/3)',
+    });
   });
 });
 
@@ -202,7 +210,7 @@ describe('predictor API — POST /predict (persist before serve)', () => {
     expect(res.body.predictionId).toBeTruthy();
 
     const p = res.body.prediction;
-    expect(p.method.version).toBe('neetpg-branch-p6.v1');
+    expect(p.method.version).toBe('neetpg-branch-720-v1');
     expect(p.method.datasetSnapshots.distribution).toBe('DS-NEETPG-DISTRIBUTION-2025-v1');
     expect(p.estimate.transfer.tiers).toEqual({ TIER_1: 2, TIER_2: 0 });
     expect(p.rank.rankRange[0]).toBeLessThan(p.rank.rankRange[1]);
@@ -314,7 +322,7 @@ describe('predictor API — history and retrieval (§18 Phase 9)', () => {
     expect(list.status).toBe(200);
     expect(list.body.predictions.length).toBeGreaterThanOrEqual(1);
     const row = list.body.predictions[0];
-    expect(row.methodVersion).toBe('neetpg-branch-p6.v1');
+    expect(row.methodVersion).toBe('neetpg-branch-720-v1');
     expect(row.percentileRange[0]).toBeLessThan(row.percentileRange[1]);
     expect(row.rankRange[0]).toBeLessThan(row.rankRange[1]);
     expect(row.branchesCoverage).toBe('MATCHED');
@@ -483,10 +491,14 @@ describe('predictor API — Desired Branch (Feature 02: reverse flow, D6 persist
     expect(res.body.desiredBranchId).toBeTruthy();
 
     const r = res.body.result;
-    expect(r.method.version).toBe('desired-neetpg-v1');
+    expect(r.method.version).toBe('desired-neetpg-v2');
+    expect(r.method.pattern).toEqual({
+      totalQuestions: 180, positive: 4, negative: 1, maxMarks: 720, version: '720-scale (+4/-1)',
+    });
     expect(r.method.datasetSnapshots.distribution).toBe('DS-NEETPG-DISTRIBUTION-2025-v1');
     expect(r.target.targetRankRange).toEqual([13, 9511]);
-    expect(r.required.perClosing.map((e) => [e.closing, e.corrects])).toEqual([[13, 178], [9511, 152]]);
+    // 180-question bridged goldens (old 200-question era: 178/152)
+    expect(r.required.perClosing.map((e) => [e.closing, e.corrects])).toEqual([[13, 160], [9511, 137]]);
     expect(r.gap.status).toBe('NO_CURRENT_DATA');
 
     // the store holds the exact request + stages (D6)
@@ -505,7 +517,7 @@ describe('predictor API — Desired Branch (Feature 02: reverse flow, D6 persist
     expect(res.status).toBe(201);
     expect(res.body.result.current.aggregation).toMatchObject({ n: 3, mean: 155 });
     expect(res.body.result.gap).toEqual({
-      status: 'WITHIN_REACH', gapToSafe: -23, gapToLikely: 3, bounded: { safe: false, likely: false },
+      status: 'WITHIN_REACH', gapToSafe: -5, gapToLikely: 18, bounded: { safe: false, likely: false },
     });
   });
 
@@ -628,7 +640,7 @@ describe('predictor API — Desired Branch (Feature 02: reverse flow, D6 persist
 
     // simulate a future method bump: stored stages untouched (hash still
     // matches) but the re-derived version differs → explicit diff, not silence
-    await DesiredBranchQuery.updateOne({ _id: id }, { $set: { methodVersion: 'desired-neetpg-v2' } });
+    await DesiredBranchQuery.updateOne({ _id: id }, { $set: { methodVersion: 'desired-neetpg-v9-future-simulated' } });
     const drifted = await request(app).get(`/api/predictor/desired-branch/${id}`).set('Cookie', cookie);
     expect(drifted.status).toBe(200);
     expect(drifted.body.integrity.matches).toBe(true); // storage is intact
@@ -637,8 +649,8 @@ describe('predictor API — Desired Branch (Feature 02: reverse flow, D6 persist
       methodMatches: false,
       snapshotsMatch: true,
       stagesMatch: true,
-      storedMethodVersion: 'desired-neetpg-v2',
-      currentMethodVersion: 'desired-neetpg-v1',
+      storedMethodVersion: 'desired-neetpg-v9-future-simulated',
+      currentMethodVersion: 'desired-neetpg-v2',
       note: expect.any(String),
     });
   });
@@ -734,7 +746,7 @@ describe('predictor API — outcome capture (§18 Phases 10a+10b)', () => {
     expect(put.body.created).toBe(true);
     expect(put.body.outcome).toEqual({ score: 480, percentile: null, rank: 42000 });
     expect(put.body.consentGivenAt).toBeTruthy();
-    expect(put.body.linkage.methodVersion).toBe('neetpg-branch-p6.v1');
+    expect(put.body.linkage.methodVersion).toBe('neetpg-branch-720-v1');
     expect(put.body.linkage.datasetSnapshots.distribution).toBe('DS-NEETPG-DISTRIBUTION-2025-v1');
     expect(put.body.linkage.gtsUsed).toBe(2);
     expect(put.body.linkage.predictionCreatedAt).toBeTruthy();
@@ -755,7 +767,7 @@ describe('predictor API — outcome capture (§18 Phases 10a+10b)', () => {
     expect(got.body.outcomeRecord.linkageCheck.matches).toBe(true);
     expect(got.body.outcomeRecord.outcome.percentile).toBe(81.2);
     expect(got.body.outcomeRecord.source).toBe('self-reported');
-    expect(got.body.predictionSummary.methodVersion).toBe('neetpg-branch-p6.v1');
+    expect(got.body.predictionSummary.methodVersion).toBe('neetpg-branch-720-v1');
     expect(got.body.predictionSummary.rankRange[0]).toBeLessThan(got.body.predictionSummary.rankRange[1]);
     expect(got.body.predictionSummary.gtsUsed).toBe(2);
   });
@@ -808,7 +820,7 @@ describe('predictor API — outcome capture (§18 Phases 10a+10b)', () => {
     const cookie = await login();
     const id = await predictFor(cookie);
     const cases = [
-      [{ consent: true, score: 801 }, 'score'], // above the 800-scale pattern max
+      [{ consent: true, score: 721 }, 'score'], // above the 720-scale pattern max
       [{ consent: true, score: 480.5 }, 'score'], // scores are whole numbers
       [{ consent: true, percentile: 100.5 }, 'percentile'],
       [{ consent: true, rank: 0 }, 'rank'],
@@ -1100,6 +1112,67 @@ describe('predictor API — branch rows (paginated, re-derived + verified)', () 
     expect(res.status).toBe(409);
     expect(res.body.code).toBe('CATEGORY_REQUIRED');
   });
+
+  it('re-derives a PRE-MIGRATION (200-question) stored prediction under its own pattern profile', async () => {
+    // §10 pattern history (2026-09-24 migration): a stored record served under
+    // 'neetpg-branch-p6.v1' carries 200-question GTs that the CURRENT
+    // 180-question validation would reject — re-derivation must select the
+    // stored method version's pattern profile and stay verified, not 400.
+    const Prediction = require('../models/Prediction');
+    const { createPredictorEngine } = require('../predictor');
+    const legacyEngine = createPredictorEngine();
+    const legacyRequest = {
+      exam: 'NEET_PG',
+      gts: [
+        {
+          gtId: null,
+          provenance: 'self-reported',
+          attempts: [{ corrects: 120, totalQuestions: 200, status: 'completed' }],
+        },
+      ],
+      category: 'UR',
+    };
+    const legacyResult = legacyEngine.predict(legacyRequest, { methodVersion: 'neetpg-branch-p6.v1' });
+    expect(legacyResult.method.version).toBe('neetpg-branch-p6.v1');
+    expect(legacyResult.estimate.performance.patternVersion).toBe('800-scale (+4/-1)');
+    expect(legacyResult.estimate.performance.scoreRange[1]).toBe(5 * 135 - 200); // 200-Q math
+
+    const crypto = require('crypto');
+    const stages = {
+      method: legacyResult.method,
+      input: legacyResult.input,
+      aggregation: legacyResult.aggregation,
+      estimate: legacyResult.estimate,
+      rank: legacyResult.rank,
+      branches: { ...legacyResult.branches, years: legacyResult.branches.years.map(({ rows, ...y }) => y) },
+    };
+    const doc = await Prediction.create({
+      userId: STUDENT._id, // the logged-in session's user (own-only access)
+      exam: 'NEET_PG',
+      request: legacyRequest,
+      methodVersion: 'neetpg-branch-p6.v1',
+      ...stages,
+      resultHash: crypto.createHash('sha256').update(JSON.stringify(stages)).digest('hex'),
+    });
+
+    const res = await request(app)
+      .get(`/api/predictor/predictions/${doc._id}/branches`)
+      .query({ limit: 5 })
+      .set('Cookie', cookie);
+    expect(res.status).toBe(200);
+    expect(res.body.verified).toBe(true);
+    expect(res.body.verification).toBeUndefined();
+    expect(res.body.rows.length).toBeGreaterThan(0);
+
+    // And the same stored request under the CURRENT profile is rejected by the
+    // 180-question full-length rule — new predictions can never use 200-Q GTs.
+    const current = await request(app)
+      .post('/api/predictor/predict')
+      .set('Cookie', cookie)
+      .send(legacyRequest);
+    expect(current.status).toBe(400);
+    expect(current.body.msg).toMatch(/180 questions/);
+  });
 });
 
 describe('predictor API — database connection resilience (Phase 8 fix)', () => {
@@ -1168,7 +1241,7 @@ describe('predictor API — GT auto-fill (auto-captured vs self-reported)', () =
     expect(gt1.provenance).toBe('auto-captured');
     expect(gt1.attempts).toHaveLength(2); // both attempts listed; the ENGINE dedups
     expect(gt1.attempts.map((a) => a.corrects).sort()).toEqual([112, 128]);
-    expect(gt1.attempts[0].totalQuestions).toBe(200);
+    expect(gt1.attempts[0].totalQuestions).toBe(180);
     expect(gt1.attempts.every((a) => a.status === 'completed')).toBe(true);
   });
 

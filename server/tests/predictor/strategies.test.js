@@ -44,7 +44,7 @@ describe('NEET PG strategy — live Phase 3 steps', () => {
     const estimate = neetPg.estimatePercentileRange({ validated, aggregation });
 
     expect(estimate.stage).toBe('PERCENTILE_RANGE');
-    expect(estimate.performance.patternVersion).toBe('800-scale (+4/-1)');
+    expect(estimate.performance.patternVersion).toBe('720-scale (+4/-1)');
     expect(estimate.transfer.tiers).toEqual({ TIER_1: 2, TIER_2: 0 });
     expect(estimate.percentile.range[0]).toBeLessThan(estimate.percentile.range[1]);
   });

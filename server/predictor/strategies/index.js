@@ -24,7 +24,7 @@ function buildStrategies({
   loadIniCetPrior,
   loadIniCetCounselling,
 }) {
-  return {
+  const strategies = {
     [EXAMS.NEET_PG.id]: createNeetPgStrategy({ loadDistribution, loadCounselling, cohortProvider }),
     [EXAMS.INI_CET.id]: createIniCetStrategy({
       loadDistribution: loadIniCetDistribution,
@@ -32,6 +32,45 @@ function buildStrategies({
       loadCounselling: loadIniCetCounselling,
     }),
   };
+
+  /**
+   * Retired pattern profiles (§10 pattern history; NEET PG migration
+   * 2026-09-24). `legacyEntry(examId, methodVersion)` returns the
+   * patternHistory entry whose forward OR desired method version matches —
+   * used only to re-derive STORED predictions/queries byte-identically.
+   * INI-CET has no retired profiles (its methodology is unchanged).
+   *
+   * Both helpers are NON-ENUMERABLE so the registry's own contract holds:
+   * Object.keys(registry) lists exactly the exam ids.
+   */
+  const legacyCache = new Map();
+  const legacyEntry = (examId, methodVersion) => {
+    if (typeof methodVersion !== 'string' || !examId) return null;
+    const exam = EXAMS[examId];
+    if (!exam || !Array.isArray(exam.patternHistory)) return null;
+    return (
+      exam.patternHistory.find(
+        (e) => e.methodVersion === methodVersion || e.desiredMethodVersion === methodVersion
+      ) || null
+    );
+  };
+  Object.defineProperty(strategies, 'legacyEntry', { value: legacyEntry, enumerable: false });
+  Object.defineProperty(strategies, 'legacy', {
+    value: (examId, methodVersion) => {
+      const entry = legacyEntry(examId, methodVersion);
+      if (!entry) return null;
+      if (!legacyCache.has(entry.methodVersion)) {
+        legacyCache.set(
+          entry.methodVersion,
+          createNeetPgStrategy({ loadDistribution, loadCounselling, cohortProvider, profile: entry })
+        );
+      }
+      return legacyCache.get(entry.methodVersion);
+    },
+    enumerable: false,
+  });
+
+  return strategies;
 }
 
 module.exports = { buildStrategies };

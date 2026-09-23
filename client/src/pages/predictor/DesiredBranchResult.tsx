@@ -125,11 +125,13 @@ const RequiredCard: React.FC<{ res: DesiredData }> = ({ res }) => {
 
   if (!required) return null;
 
-  // Corrects live on their true 0–200 axis (same rule as the percentile card).
+  // Corrects live on their true axis — the exam pattern's question count
+  // (180 for NEET PG, 200 for INI-CET), from the result's pattern echo.
+  const total = r.method.pattern?.totalQuestions ?? (isIniCet ? 200 : 180);
   const lo = likely?.corrects ?? null;
   const hi = safe?.corrects ?? null;
-  const left = lo === null ? 0 : Math.max(0, (lo / 200) * 100);
-  const width = hi === null ? Math.max(2, 100 - left) : Math.max(0.75, ((hi - (lo ?? 0)) / 200) * 100);
+  const left = lo === null ? 0 : Math.max(0, (lo / total) * 100);
+  const width = hi === null ? Math.max(2, 100 - left) : Math.max(0.75, ((hi - (lo ?? 0)) / total) * 100);
 
   const source = isIniCet
     ? `Crowd ladder (UR-only) · ${required.prior?.points ?? 7} points`
@@ -178,8 +180,8 @@ const RequiredCard: React.FC<{ res: DesiredData }> = ({ res }) => {
         </div>
         <div className="flex justify-between text-[11px] text-[#94A3B8] mt-1.5">
           <span>0</span>
-          <span>100</span>
-          <span>200</span>
+          <span>{Math.round(total / 2)}</span>
+          <span>{total}</span>
         </div>
       </div>
       <p className="text-xs text-[#94A3B8] mt-3 flex items-start gap-1.5">

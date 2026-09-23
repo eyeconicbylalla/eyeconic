@@ -28,7 +28,23 @@ export const DISCLAIMER_NOTE =
   'Estimate based on historical data. Actual results may vary.';
 
 export const CATEGORIES = ['UR', 'EWS', 'OBC', 'SC', 'ST'] as const;
-export const MAX_CORRECTS = 200;
+
+/**
+ * Per-exam correct-answer bounds. These mirror the server's pattern config
+ * (single source of truth: GET /exams carries `pattern`); the map is the
+ * pre-API fallback so the form is correct before the list loads — and so a
+ * future exam never inherits another exam's question count.
+ */
+export const EXAM_MAX_CORRECTS: Record<string, number> = { NEET_PG: 180, INI_CET: 200 };
+
+/** Bound for the selected exam, preferring the live exam-list pattern. */
+export function maxCorrectsFor(
+  exams: Array<{ id: string; pattern?: { totalQuestions: number } }> | undefined,
+  examId: string
+): number {
+  const fromApi = exams?.find((e) => e.id === examId)?.pattern?.totalQuestions;
+  return fromApi ?? EXAM_MAX_CORRECTS[examId] ?? 200;
+}
 
 /** Cap on "from your last prediction" echo chips — they were unbounded clutter. */
 export const SUGGESTION_CHIPS_MAX = 3;
@@ -40,12 +56,16 @@ export const EXAM_LABELS: Record<string, string> = {
 
 /** Plain-language pattern lines (units consistent across exams). */
 export const EXAM_PATTERN_LABELS: Record<string, string> = {
-  NEET_PG: '200 questions · +4 / −1 marking · max 800',
+  NEET_PG: '180 questions · +4 / −1 marking · max 720',
   INI_CET: '200 questions · +1 / −⅓ marking · max 200',
 };
 
-/** Outcome-capture score bounds follow the exam's pattern (server enforces too). */
-export const OUTCOME_MAX_SCORE: Record<string, number> = { NEET_PG: 800, INI_CET: 200 };
+/**
+ * Outcome-capture score bounds follow the exam's pattern (server enforces
+ * too). The prediction's own pattern echo is preferred when present, so a
+ * stored pre-migration (800-scale) result still shows its true /800 scale.
+ */
+export const OUTCOME_MAX_SCORE: Record<string, number> = { NEET_PG: 720, INI_CET: 200 };
 
 export const BAND_META: Record<BranchBand, { label: string; hint: string; chip: string; dot: string }> = {
   COMFORTABLE: {

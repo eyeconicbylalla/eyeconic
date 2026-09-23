@@ -472,9 +472,12 @@ router.get('/desired-branch/:id', async (req, res) => {
   });
 
   // Re-derive from the stored request (deterministic engine + snapshots).
+  // The stored methodVersion selects the pattern profile the query was served
+  // under (§10 pattern history) — a 200-question-era query re-derives on the
+  // 200-question pattern, never the current one.
   let recomputed;
   try {
-    recomputed = engine.predictRequired(doc.request);
+    recomputed = engine.predictRequired(doc.request, { methodVersion: doc.methodVersion });
   } catch (error) {
     return sendPredictorError(res, error);
   }
@@ -614,10 +617,14 @@ router.get('/predictions/:id/branches', async (req, res) => {
     });
   }
 
-  // Re-derive deterministically from the stored request.
+  // Re-derive deterministically from the stored request. The stored
+  // methodVersion selects the pattern profile the prediction was served
+  // under (§10 pattern history) — pre-migration 200-question predictions
+  // re-derive byte-identically instead of failing the current 180-question
+  // full-length validation.
   let recomputed;
   try {
-    recomputed = engine.predict(doc.request);
+    recomputed = engine.predict(doc.request, { methodVersion: doc.methodVersion });
   } catch (error) {
     return sendPredictorError(res, error);
   }

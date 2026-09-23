@@ -67,8 +67,8 @@ describe('predictor validation — GT rules (§3.5)', () => {
     expect(ctx.gts).toHaveLength(12);
   });
 
-  it('accepts 0 and 200 corrects (inclusive bounds)', () => {
-    expect(() => validateRequest({ ...base, gts: [manualGt(0), manualGt(200)] })).not.toThrow();
+  it('accepts 0 and 180 corrects (inclusive bounds of the 180-question pattern)', () => {
+    expect(() => validateRequest({ ...base, gts: [manualGt(0), manualGt(180)] })).not.toThrow();
   });
 
   it('rejects negatives, decimals, non-numbers, and out-of-pattern values', () => {
@@ -76,26 +76,42 @@ describe('predictor validation — GT rules (§3.5)', () => {
     expectInvalid(() => validateRequest({ ...base, gts: [manualGt(12.5)] }), 'corrects');
     expectInvalid(() => validateRequest({ ...base, gts: [manualGt('120')] }), 'corrects');
     expectInvalid(() => validateRequest({ ...base, gts: [manualGt(null)] }), 'corrects');
-    expectInvalid(() => validateRequest({ ...base, gts: [manualGt(201)] }), 'corrects');
+    expectInvalid(() => validateRequest({ ...base, gts: [manualGt(181)] }), 'corrects');
     expectInvalid(() => validateRequest({ ...base, gts: [manualGt(9999)] }), 'corrects');
   });
 
-  it('rejects non-full-length totals (§3.4 Assumption 2)', () => {
+  it('rejects non-full-length totals (§3.4 Assumption 2) — including the retired 200-question pattern', () => {
     expectInvalid(
       () => validateRequest({ ...base, gts: [manualGt(90, { totalQuestions: 100 })] }),
       'totalQuestions'
     );
+    expectInvalid(
+      () => validateRequest({ ...base, gts: [manualGt(90, { totalQuestions: 200 })] }),
+      'totalQuestions'
+    );
   });
 
-  it('accepts an explicit full-length total', () => {
-    const ctx = validateRequest({ ...base, gts: [manualGt(90, { totalQuestions: 200 })] });
-    expect(ctx.gts[0].attempts[0].totalQuestions).toBe(200);
+  it('accepts an explicit full-length total (180)', () => {
+    const ctx = validateRequest({ ...base, gts: [manualGt(90, { totalQuestions: 180 })] });
+    expect(ctx.gts[0].attempts[0].totalQuestions).toBe(180);
   });
 
   it('rejects corrects above a supplied total', () => {
-    // totalQuestions is pinned to 200 by the full-length rule; the bound check
-    // itself is exercised with the pattern default via corrects > 200 above.
-    expectInvalid(() => validateRequest({ ...base, gts: [manualGt(201, { totalQuestions: 200 })] }), 'corrects');
+    // totalQuestions is pinned to 180 by the full-length rule; the bound check
+    // itself is exercised with the pattern default via corrects > 180 above.
+    expectInvalid(() => validateRequest({ ...base, gts: [manualGt(181, { totalQuestions: 180 })] }), 'corrects');
+  });
+
+  it('INI-CET keeps its own 200-question pattern (200 accepted, 201 rejected)', () => {
+    expect(() =>
+      validateRequest({ exam: 'INI_CET', gts: [manualGt(0), manualGt(200)] })
+    ).not.toThrow();
+    expectInvalid(() => validateRequest({ exam: 'INI_CET', gts: [manualGt(201)] }), 'corrects');
+    const ctx = validateRequest({
+      exam: 'INI_CET',
+      gts: [manualGt(150, { totalQuestions: 200 })],
+    });
+    expect(ctx.gts[0].attempts[0].totalQuestions).toBe(200);
   });
 
   it('rejects untagged or wrongly-tagged provenance (§6A)', () => {

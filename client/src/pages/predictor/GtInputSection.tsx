@@ -1,6 +1,6 @@
 import React from 'react';
 import { Info, Loader2, Plus, Sparkles, Trash2, User, Zap } from 'lucide-react';
-import { LOW_GT_NOTE, MAX_CORRECTS, NO_SKIP_NOTE } from './constants';
+import { LOW_GT_NOTE, NO_SKIP_NOTE } from './constants';
 import type { GtInputApi } from './useGtInput';
 
 /**
@@ -17,7 +17,7 @@ interface Props {
 }
 
 const GtInputSection: React.FC<Props> = ({ gt, title, subtitle }) => {
-  const { rows, suggestions, autoFilling, hasAutoGts, lowGtCount, validation } = gt;
+  const { rows, suggestions, autoFilling, hasAutoGts, lowGtCount, validation, maxCorrects } = gt;
 
   return (
     <div className="bg-[#18222E] border border-white/[0.06] rounded-2xl p-6 mb-4" data-anim="fade-up">
@@ -66,11 +66,11 @@ const GtInputSection: React.FC<Props> = ({ gt, title, subtitle }) => {
                   type="number"
                   inputMode="numeric"
                   min={0}
-                  max={MAX_CORRECTS}
+                  max={maxCorrects}
                   step={1}
                   value={row.value}
                   onChange={(e) => gt.updateRow(row.key, e.target.value)}
-                  placeholder="e.g. 120"
+                  placeholder={`e.g. ${Math.round(maxCorrects * 0.6)}`}
                   aria-label={`Grand Test ${index + 1} correct answers`}
                   aria-invalid={Boolean(highlighted)}
                   className="w-24 bg-transparent text-[#F8FAFC] text-lg font-semibold outline-none text-center [appearance:textfield]"

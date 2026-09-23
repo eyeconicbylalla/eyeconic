@@ -102,7 +102,11 @@ const OutcomeCard: React.FC<{ predictionId: string; result: PredictionResult }> 
   const [serverField, setServerField] = useState<string | null>(null);
   const [announce, setAnnounce] = useState('');
 
-  const maxScore = OUTCOME_MAX_SCORE[result.exam] ?? 800;
+  // The prediction's own pattern echo is authoritative: a stored
+  // pre-migration NEET PG result was on the 800-mark scale and must keep
+  // showing /800; new results show the current pattern's maximum.
+  const maxScore =
+    result.estimate?.performance?.pattern?.maxMarks ?? OUTCOME_MAX_SCORE[result.exam] ?? 800;
 
   const load = useCallback(async () => {
     try {

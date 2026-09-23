@@ -6,7 +6,7 @@ import {
 import type {
   BranchCatalog, DesiredBranchResponse, PredictorExam, PredictorExamId,
 } from '../../types/predictor';
-import { CATEGORIES } from './constants';
+import { CATEGORIES, maxCorrectsFor } from './constants';
 import ExamPicker from './ExamPicker';
 import GtInputSection from './GtInputSection';
 import { useGtInput } from './useGtInput';
@@ -24,7 +24,14 @@ import { useGtInput } from './useGtInput';
 
 const DesiredBranchForm: React.FC<{ onResult: (res: DesiredBranchResponse) => void }> = ({ onResult }) => {
   const [exams, setExams] = useState<PredictorExam[]>([
-    { id: 'NEET_PG', label: 'NEET PG', available: true, milestone: 'M1', patternVersion: '800-scale (+4/-1)' },
+    {
+      id: 'NEET_PG',
+      label: 'NEET PG',
+      available: true,
+      milestone: 'M1',
+      patternVersion: '720-scale (+4/-1)',
+      pattern: { totalQuestions: 180, positive: 4, negative: 1, maxMarks: 720 },
+    },
   ]);
   const [examId, setExamId] = useState<PredictorExamId>('NEET_PG');
 
@@ -36,7 +43,9 @@ const DesiredBranchForm: React.FC<{ onResult: (res: DesiredBranchResponse) => vo
   const [category, setCategory] = useState('');
   const [pwd, setPwd] = useState(false);
 
-  const gt = useGtInput({ optional: true });
+  // Row bounds follow the selected exam's pattern (180 NEET PG / 200 INI-CET).
+  const maxCorrects = maxCorrectsFor(exams, examId);
+  const gt = useGtInput({ optional: true, maxCorrects });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -224,7 +233,7 @@ const DesiredBranchForm: React.FC<{ onResult: (res: DesiredBranchResponse) => vo
       <GtInputSection
         gt={gt}
         title="Where you are now (optional)"
-        subtitle="Add your recent Grand Test corrects to see the gap to the target. Leave this empty to see just the target."
+        subtitle={`Add your recent Grand Test corrects (out of ${maxCorrects}) to see the gap to the target. Leave this empty to see just the target.`}
       />
 
       {formError ? (

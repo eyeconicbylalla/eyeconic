@@ -224,6 +224,13 @@ function buildDistributionModel(snapshot) {
     minScore,
     lastRank,
     bandCount: entries.length,
+    /**
+     * The pattern the snapshot's score axis was recorded on (e.g.
+     * '800-scale (+4/-1)'). Consumers MUST NOT compare scores from a
+     * different-pattern exam against this model without an explicit
+     * patternBridge — patternMismatch()/requiredCorrectsNeetPg guard this.
+     */
+    patternVersion: typeof snapshot.pattern_version === 'string' ? snapshot.pattern_version : null,
     rankIntervalForScore,
     percentileForRank,
     percentileIntervalForScore,

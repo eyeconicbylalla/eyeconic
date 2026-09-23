@@ -2,12 +2,32 @@
 
 export type PredictorExamId = 'NEET_PG' | 'INI_CET';
 
+/** An exam's question/marking pattern (echoed by GET /exams and in method blocks). */
+export interface ExamPattern {
+  totalQuestions: number;
+  positive: number;
+  negative: number;
+  maxMarks: number;
+  /** Present in method-block echoes; absent on the bare /exams list. */
+  version?: string;
+}
+
+/** Provenance for cross-pattern score comparisons (null = same scale). */
+export interface DistributionBridge {
+  id: string;
+  patternVersion: string;
+  anchorPatternVersion: string;
+  basis: string;
+}
+
 export interface PredictorExam {
   id: PredictorExamId;
   label: string;
   available: boolean;
   milestone: string;
   patternVersion: string;
+  /** Question/marking numbers — the authoritative source for UI bounds. */
+  pattern?: ExamPattern;
 }
 
 export type GtProvenance = 'auto-captured' | 'self-reported';
@@ -100,6 +120,10 @@ export interface PredictionResult {
     version: string;
     stage: string;
     assumptions: string[];
+    /** Pattern the GT inputs and displayed scores are on (§10 echo). */
+    pattern?: ExamPattern;
+    /** Cross-pattern bridge used for distribution lookups (null = same scale). */
+    distributionBridge?: DistributionBridge | null;
     aggregation: { method: string; dedupRule: string };
     widthModel: { id: string; provisional: boolean };
     datasetSnapshots: { distribution: string; counselling: string[] };
@@ -138,6 +162,9 @@ export interface PredictionResult {
       correctsRange: [number, number];
       scoreRange: [number, number];
       dispersion: { sdCorrects: number };
+      patternVersion?: string | null;
+      /** The pattern scores/corrects are expressed on (NEET PG 2026+: 180 questions / 720 marks). */
+      pattern?: ExamPattern;
     };
     percentile: {
       range: [number, number];
@@ -147,6 +174,7 @@ export interface PredictionResult {
     transfer: {
       tiers: { TIER_1: number; TIER_2: number };
       mixedTiers: boolean;
+      distributionBridge?: DistributionBridge | null;
     };
     warnings: Array<{ code: string; note: string }>;
     notes: string[];
@@ -364,7 +392,10 @@ export interface DesiredTarget {
 /** One closing rank resolved to required score/marks → required corrects. */
 export interface DesiredRequiredEntry {
   closing: number;
+  /** Required score on the CURRENT exam pattern (NEET PG 2026+: 720 scale). */
   score?: number | null;
+  /** The official-data score the closing resolved at (snapshot's scale). */
+  anchorScore?: number | null;
   marks?: number | null;
   corrects: number | null;
   state: 'in-distribution' | 'above-distribution' | 'in-ladder' | 'above-ladder' | 'below-ladder';
@@ -376,7 +407,13 @@ export interface DesiredRequiredEntry {
 export interface DesiredRequired {
   stage: 'REQUIRED_CORRECTS';
   rule: string;
-  distribution?: { snapshotId: string; numericPairs: number; lastRank: number };
+  distribution?: {
+    snapshotId: string;
+    numericPairs: number;
+    lastRank: number;
+    patternVersion?: string | null;
+    bridge?: { id: string; patternVersion: string };
+  };
   prior?: {
     priorId: string;
     provenance: string;
@@ -423,6 +460,8 @@ export interface DesiredBranchResult {
     version: string;
     stage: string;
     assumptions: string[];
+    /** Pattern the required-corrects targets are expressed on (§10 echo). */
+    pattern?: ExamPattern;
     datasetSnapshots: { counselling: string[]; distribution: string | null; prior: string | null };
   };
   input: {

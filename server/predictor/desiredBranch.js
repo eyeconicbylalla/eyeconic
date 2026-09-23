@@ -349,30 +349,54 @@ function resolveTarget({ indexes, branchKey, category, pwd, quota }) {
  *
  * Per closing rank: the strict tie-band guaranteed score
  * (distributionModel.requiredScoreForRank — an official-data lookup, not a
- * model), converted to corrects with the exact Tier-1 inverse
- * (transfer.correctsForScore) and rounded UP: fractional corrects are not
- * achievable, and rounding down would understate the requirement (D5).
+ * model, returning a score on the DISTRIBUTION's pattern), converted to the
+ * CURRENT pattern's scale by the fraction-parity bridge when the two differ,
+ * then to corrects with the exact Tier-1 inverse (transfer.correctsForScore)
+ * and rounded UP: fractional corrects are not achievable, and rounding down
+ * would understate the requirement (D5).
+ *
+ * Corrects are NOT scale-free across question counts (2026-09-24 correction
+ * of the earlier "scale-free" claim): a 200-question-era score maps to a
+ * strictly smaller corrects count on 180 questions (×180/200 at equal
+ * fraction). The bridge makes every target pattern-correct.
  *
  * All closings resolve through the distribution snapshot the exam config
  * anchors (2025 / 800-scale) — for 2024 counselling closings this assumes the
- * two years' score↔rank mappings are comparable. That assumption is echoed in
- * the returned notes, and the primary output unit is CORRECTS (pattern-level,
- * scale-free), never a raw score for future cycles.
+ * two years' score↔rank mappings are comparable, and for the 2026-pattern
+ * inputs it assumes fraction parity across the 800↔720 patterns. Both
+ * assumptions are echoed in the returned notes.
  *
  * @param {object} args
  *   closingRanks: number[] — ranks to resolve (typically [tightest, loosest])
  *   distModel:    buildDistributionModel output (official score↔rank bands)
- *   pattern:      EXAMS.NEET_PG.pattern
+ *   pattern:      the pattern corrects are expressed on (current exam config)
+ *   patternVersion: the pattern's version string (mismatch guard)
+ *   bridge:       patternBridge output, REQUIRED when patternVersion differs
+ *                 from distModel.patternVersion (never silent mixing)
+ *   ruleId:       versioned rule id (config default; legacy profiles pass
+ *                 their own so stored results re-derive byte-identically)
  */
-function requiredCorrectsNeetPg({ closingRanks, distModel, pattern }) {
+function requiredCorrectsNeetPg({ closingRanks, distModel, pattern, patternVersion, bridge, ruleId }) {
   assertClosingRanks(closingRanks);
   if (!distModel || typeof distModel.requiredScoreForRank !== 'function') {
     throw new TypeError('requiredCorrectsNeetPg needs a built distribution model');
   }
+  if (
+    distModel.patternVersion &&
+    (patternVersion || pattern.version) &&
+    distModel.patternVersion !== (patternVersion || pattern.version) &&
+    !bridge
+  ) {
+    throw new Error(
+      `requiredCorrectsNeetPg: distribution is ${distModel.patternVersion} but corrects are wanted on ` +
+        `${patternVersion || pattern.version} — an explicit pattern bridge is required (patternBridge.js).`
+    );
+  }
 
   const perClosing = closingRanks.map((closing) => {
-    const resolved = distModel.requiredScoreForRank(closing);
+    const resolved = distModel.requiredScoreForRank(closing); // anchor-space score
     if (resolved.state === 'above') {
+      const best = bridge ? Math.round(bridge.toPatternScore(distModel.maxScore)) : distModel.maxScore;
       return {
         closing,
         score: null,
@@ -381,16 +405,24 @@ function requiredCorrectsNeetPg({ closingRanks, distModel, pattern }) {
         bounded: true,
         note:
           `This branch historically closed inside the top recorded scores — clearing it needs better than the best ` +
-          `recorded score (${distModel.maxScore}). No finite target can be stated from the data.`,
+          `recorded score (${distModel.maxScore} on the 2025 800-mark pattern${bridge ? `, about ${best} on today's ${pattern.maxMarks}-mark pattern` : ''}). ` +
+          `No finite target can be stated from the data.`,
       };
     }
     // resolved.score is set for every other case (band score, or minScore for
     // a closing beyond the recorded field — an upper bound, flagged).
     const beyondField = closing > distModel.lastRank;
-    const corrects = Math.max(0, Math.ceil(correctsForScore(resolved.score, pattern)));
+    const patternScore = bridge ? bridge.toPatternScore(resolved.score) : resolved.score;
+    const corrects = Math.min(
+      pattern.totalQuestions,
+      Math.max(0, Math.ceil(correctsForScore(patternScore, pattern)))
+    );
     return {
       closing,
-      score: resolved.score,
+      /** Required score on the pattern the student is examined under. */
+      score: patternScore,
+      /** The official-data score it was resolved at (snapshot's scale). */
+      anchorScore: resolved.score,
       corrects,
       state: 'in-distribution',
       bounded: beyondField,
@@ -404,21 +436,34 @@ function requiredCorrectsNeetPg({ closingRanks, distModel, pattern }) {
     };
   });
 
+  const notes = [
+    'Required scores are exact lookups over the official score↔rank distribution: scoring this much lands at or better than the historical closing rank even in the worst tie position.',
+    `Historical closing ranks are resolved through the ${distModel.snapshotId} distribution — cross-year use assumes comparable score↔rank mappings between counselling years.`,
+  ];
+  if (bridge) {
+    notes.push(
+      `The distribution is on the older ${bridge.anchorPatternVersion} pattern; targets are converted to today's ` +
+        `${bridge.patternVersion} pattern by fraction of maximum marks (bridge ${bridge.id}) — the same relative performance, on the current question count.`,
+      NOTES.PATTERN_BRIDGE
+    );
+  }
+  notes.push(
+    'Required corrects follow from the exam pattern under the same assumptions as the forward predictor (all questions attempted, full-length, difficulty parity).',
+    NOTES.ESTIMATE_DISCLAIMER
+  );
+
   return {
     stage: 'REQUIRED_CORRECTS',
-    rule: DESIRED_BRANCH.RULES.NEET_PG_REQUIRED,
+    rule: ruleId || DESIRED_BRANCH.RULES.NEET_PG_REQUIRED,
     distribution: {
       snapshotId: distModel.snapshotId,
       numericPairs: distModel.numericPairs,
       lastRank: distModel.lastRank,
+      patternVersion: distModel.patternVersion,
+      ...(bridge ? { bridge: { id: bridge.id, patternVersion: bridge.patternVersion } } : {}),
     },
     perClosing,
-    notes: [
-      'Required scores are exact lookups over the official score↔rank distribution: scoring this much lands at or better than the historical closing rank even in the worst tie position.',
-      `Historical closing ranks are resolved through the ${distModel.snapshotId} distribution — cross-year use assumes comparable score↔rank mappings between counselling years.`,
-      'Required corrects follow from the exam pattern under the same assumptions as the forward predictor (all questions attempted, full-length, difficulty parity).',
-      NOTES.ESTIMATE_DISCLAIMER,
-    ],
+    notes,
   };
 }
 
@@ -715,6 +760,8 @@ function buildDesiredBranchResult({
       version: methodVersion,
       stage: 'REQUIRED_PERFORMANCE',
       assumptions: ['no-skip', 'full-length-standard-pattern', 'difficulty-parity'],
+      /** Pattern the required-corrects targets are expressed on (§10 echo). */
+      pattern: { ...examConfig.pattern, version: examConfig.patternVersion },
       datasetSnapshots: {
         counselling: target.dataCoverage.snapshotIds,
         distribution: reverseDataMeta.distribution || null,

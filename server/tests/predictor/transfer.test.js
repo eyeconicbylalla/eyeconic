@@ -15,8 +15,10 @@ const {
   correctsForScore,
 } = require('../../predictor/transfer');
 const { buildDistributionModel } = require('../../predictor/distributionModel');
+const { buildPatternBridge } = require('../../predictor/patternBridge');
+const { halfWidthCorrects } = require('../../predictor/widthModel');
 const store = require('../../predictor/store');
-const { TRANSFER } = require('../../predictor/config');
+const { EXAMS, TRANSFER } = require('../../predictor/config');
 const { aggregate } = require('../../predictor/aggregation');
 
 const PATTERN = { totalQuestions: 200, positive: 4, negative: 1, maxMarks: 800 };
@@ -224,5 +226,67 @@ describe('estimate assembly (percentile range + coverage states)', () => {
     expect(est.notes).toHaveLength(3);
     expect(est.notes[0]).toMatch(/assumes you attempted all questions/i);
     expect(est.notes[2]).toMatch(/Estimate based on historical data/i);
+  });
+});
+
+describe('720-scale migration: bridged estimates against the 800-scale distribution', () => {
+  const NEET180 = EXAMS.NEET_PG.pattern; // {180, +4/−1, 720, version '720-scale'}
+  const ANCHOR800 = EXAMS.NEET_PG.distribution.anchorPattern;
+  const bridge = buildPatternBridge({ pattern: NEET180, anchorPattern: ANCHOR800 });
+
+  it('the exam config and the snapshot agree that a bridge is required', () => {
+    expect(dist.patternVersion).toBe('800-scale (+4/-1)');
+    expect(NEET180.version).toBe('720-scale (+4/-1)');
+    expect(bridge).not.toBeNull();
+    expect(bridge.id).toBe(EXAMS.NEET_PG.distribution.bridgeId);
+  });
+
+  it('buildEstimate refuses cross-pattern lookups without an explicit bridge (never silent mixing)', () => {
+    expect(() =>
+      buildEstimate({ perGt: perGtOf([120]), pattern: NEET180, distModel: dist, cohortProvider: null })
+    ).toThrow(/explicit pattern bridge is required/);
+  });
+
+  it('Tier-1 scores are computed on the 180-question pattern (5c − 180) and bridged for lookups', () => {
+    const est = buildEstimate({
+      perGt: perGtOf([120]),
+      pattern: NEET180,
+      distModel: dist,
+      cohortProvider: null,
+      bridge,
+    });
+    // pattern space: 120 corrects → center 5×120 − 180 = 420; n=1 width 13.5
+    // (15 × 180/200) → corrects [106.5, 133.5] → scores [352.5, 487.5]
+    expect(est.performance.centerCorrects).toBe(120);
+    expect(est.performance.halfWidthCorrects).toBe(13.5);
+    expect(est.performance.scoreRange).toEqual([352.5, 487.5]);
+    // internal (anchor space): pattern scores × 800/720 — what rank resolution
+    // feeds into the official bands
+    expect(est.internal.sCenter).toBeCloseTo((420 * 800) / 720, 9);
+    expect(est.internal.sLo).toBeCloseTo((352.5 * 800) / 720, 9);
+    expect(est.internal.sHi).toBeCloseTo((487.5 * 800) / 720, 9);
+    // provenance echo, not silence
+    expect(est.transfer.distributionBridge).toMatchObject({
+      id: 'fraction-parity-v1',
+      patternVersion: '720-scale (+4/-1)',
+      anchorPatternVersion: '800-scale (+4/-1)',
+    });
+    expect(est.notes.some((n) => /fraction-parity-v1/.test(n))).toBe(true);
+    // fraction parity: 120/180 transfers to the same percentile neighborhood
+    // as 133.33/200 did under the old pattern (equal marks fraction)
+    const oldStyle = buildEstimate({ perGt: perGtOf([133]), pattern: PATTERN, distModel: dist });
+    expect(est.percentile.center).toBeCloseTo(oldStyle.percentile.center, 0);
+  });
+
+  it('width model scales the provisional constants by the pattern (same relative widths)', () => {
+    expect(halfWidthCorrects({ n: 1, sd: 0, totalQuestions: 200 })).toBe(15);
+    expect(halfWidthCorrects({ n: 1, sd: 0, totalQuestions: 180 })).toBe(13.5);
+    expect(halfWidthCorrects({ n: 1, sd: 0, totalQuestions: 180 })).toBeLessThan(
+      halfWidthCorrects({ n: 1, sd: 0, totalQuestions: 200 })
+    );
+    // default stays the 200-question reference (INI-CET behavior unchanged)
+    expect(halfWidthCorrects({ n: 1, sd: 0 })).toBe(15);
+    // spread coefficient applies to pattern-native sd, unscaled
+    expect(halfWidthCorrects({ n: 1, sd: 10, totalQuestions: 180 })).toBeCloseTo(13.5 + 0.5 * 10, 12);
   });
 });

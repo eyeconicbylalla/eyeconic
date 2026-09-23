@@ -174,6 +174,16 @@ function createIniCetStrategy({ loadDistribution, loadPrior, loadCounselling } =
       const m = rpModel();
       return { snapshotId: m.snapshotId, numericPairs: m.rows, priorId: priorModel().priorId };
     },
+
+    /** Pattern provenance for the method block (§10 echo; no bridge — INI-CET
+     *  publishes no marks, its pipeline never enters a score space). */
+    patternMeta() {
+      return {
+        pattern: { ...config.pattern },
+        patternVersion: config.patternVersion,
+        distributionBridge: null,
+      };
+    },
   };
 }
 

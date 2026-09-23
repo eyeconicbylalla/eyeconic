@@ -17,7 +17,7 @@
  */
 
 /** Bump on ANY methodology change (assumption, formula, constant, threshold). */
-const METHOD_VERSION = 'neetpg-branch-p6.v1';
+const METHOD_VERSION = 'neetpg-branch-720-v1';
 
 /**
  * Exam registry (spec §2, §9, §10). Adding an exam = config + a strategy
@@ -31,18 +31,51 @@ const EXAMS = {
     available: true,
     milestone: 'M1',
     strategy: 'neetPg', // server/predictor/strategies/neetPg.js
-    patternVersion: '800-scale (+4/-1)', // spec §10: MVP targets the 800-scale pattern
-    pattern: { totalQuestions: 200, positive: 4, negative: 1, maxMarks: 800 },
+    /**
+     * Pattern migration 2026-09-24 (product-directed): NEET PG moved to the
+     * 180-question / 720-mark pattern. The 200-question era remains available
+     * for re-deriving stored predictions via `patternHistory` below — new
+     * predictions ALWAYS use the current pattern; a stored methodVersion
+     * selects its own profile (spec §10 pattern versioning).
+     */
+    patternVersion: '720-scale (+4/-1)',
+    pattern: { totalQuestions: 180, positive: 4, negative: 1, maxMarks: 720, version: '720-scale (+4/-1)' },
     quotaScope: {
       supported: ['AIQ'], // MVP: All India Quota only (spec §3.6)
       label: 'All India Quota',
     },
     distribution: {
-      // Phase 2 snapshot store — score↔rank bands over all 242,493 rows
+      // Phase 2 snapshot store — score↔rank bands over all 242,493 rows.
+      // The snapshot is 2025 / 800-scale (200-question) data: its score axis
+      // does NOT match the current 720-scale pattern, so every lookup goes
+      // through the fraction-parity bridge (patternBridge.js) — never a raw
+      // score comparison across patterns. The 2026 official distribution, when
+      // published and ingested, replaces this anchor and the bridge.
       dir: 'distribution/neet-pg-2025/v1',
       snapshotId: 'DS-NEETPG-DISTRIBUTION-2025-v1',
       examYear: 2025,
+      anchorPattern: { totalQuestions: 200, positive: 4, negative: 1, maxMarks: 800, version: '800-scale (+4/-1)' },
+      anchorPatternVersion: '800-scale (+4/-1)',
+      bridgeId: 'fraction-parity-v1',
     },
+    /**
+     * Retired pattern profiles, keyed by the forward methodVersion that served
+     * them (spec §10 — historical versions are never overwritten). Used ONLY
+     * to re-derive stored predictions/queries byte-identically
+     * (GET /predictions/:id/branches, GET /desired-branch/:id); new requests
+     * always run the current pattern above.
+     */
+    patternHistory: [
+      {
+        methodVersion: 'neetpg-branch-p6.v1',
+        patternVersion: '800-scale (+4/-1)',
+        pattern: { totalQuestions: 200, positive: 4, negative: 1, maxMarks: 800, version: '800-scale (+4/-1)' },
+        desiredMethodVersion: 'desired-neetpg-v1',
+        desiredRuleId: 'neetpg-required-strict-tie-band-v1',
+        retiredAt: '2026-09-24',
+        note: '200-question era (MVP → 2026-09-24). No bridge: the pattern IS the 2025 distribution\'s scale.',
+      },
+    ],
     counselling: [
       // Rank→branch inputs (consumed from Phase 6; listed for metadata echo)
       { dir: 'counselling/neet-pg-2024/v1', snapshotId: 'DS-NEETPG-COUNSELLING-2024-v1', examYear: 2024 },
@@ -59,7 +92,7 @@ const EXAMS = {
     strategy: 'iniCet',
     methodVersion: 'inicet-branch-p6.v1',
     patternVersion: '200 marks (+1/-1/3)',
-    pattern: { totalQuestions: 200, positive: 1, negative: 1 / 3, maxMarks: 200 },
+    pattern: { totalQuestions: 200, positive: 1, negative: 1 / 3, maxMarks: 200, version: '200 marks (+1/-1/3)' },
     quotaScope: {
       supported: ['INI'], // §3.6: single counselling pool — no quota selection
       label: 'Single INI counselling pool',
@@ -163,12 +196,15 @@ const TRANSFER = Object.freeze({
  *
  *  - 1/√n decay is the standard-error scaling of averaging n noisy
  *    measurements — the shape is statistics, not invention.
- *  - Provisional constants (corrects units, 200-question pattern):
+ *  - Provisional constants (corrects units at the 200-QUESTION REFERENCE
+ *    pattern; widthModel.js scales them proportionally to the exam's
+ *    totalQuestions — 180-question NEET PG runs at ×0.9, INI-CET at ×1.0,
+ *    so relative widths are identical across patterns):
  *      SINGLE_GT = 15 (±7.5pp on one noisy measurement + unknown parity error)
  *      FLOOR     = 5  (parity-transfer error is unknown even with many GTs;
  *                      the floor stays wide on purpose — spec §11)
  *      SPREAD_K  = 0.5 (a scattered GT set widens the range by half its SD —
- *                      makes consistency visible per §11)
+ *                      SD is pattern-native corrects, so no scaling here)
  *      MAX       = 40 (guard so pathological dispersion cannot produce
  *                      absurd ranges; still ±20pp)
  *  - Inspected-data evidence for these values:
@@ -242,14 +278,18 @@ const LOW_GT_COUNT = Object.freeze({
  * the same way forward predictions are.
  */
 const DESIRED_BRANCH = Object.freeze({
-  METHOD_VERSION_NEET_PG: 'desired-neetpg-v1',
+  METHOD_VERSION_NEET_PG: 'desired-neetpg-v2',
   METHOD_VERSION_INI_CET: 'desired-inicet-v1',
   /**
    * Rule ids for the reverse rank→required-corrects step (versioned like the
    * tier rule ids in TRANSFER — part of every stored reverse result).
+   * NEET_PG_REQUIRED v2 (2026-09-24): corrects targets are now computed on the
+   * 180-question pattern — the 2025 800-scale required score is bridged by
+   * fraction parity before the corrects inverse. Corrects are NOT scale-free
+   * across question counts (a 200-question target must shrink ×180/200).
    */
   RULES: Object.freeze({
-    NEET_PG_REQUIRED: 'neetpg-required-strict-tie-band-v1',
+    NEET_PG_REQUIRED: 'neetpg-required-fraction-parity-v2',
     INI_CET_REQUIRED: 'inicet-required-inverse-ladder-v1',
   }),
   /**
@@ -277,7 +317,9 @@ const NOTES = Object.freeze({
   NO_SKIP:
     'Prediction assumes you attempted all questions and did not skip any questions in these Grand Tests.',
   FULL_LENGTH:
-    'Entered scores are treated as full-length Grand Tests matching the NEET PG pattern (200 questions, +4/−1).',
+    'Entered scores are treated as full-length Grand Tests matching the NEET PG pattern (180 questions, +4/−1).',
+  PATTERN_BRIDGE:
+    'Scores are compared with the official NEET PG 2025 result distribution, which used the older 200-question / 800-mark pattern. Your 180-question score is matched to it by fraction of maximum marks — the two patterns share +4/−1 marking, so equal fractions mean equal relative performance (pattern bridge fraction-parity-v1).',
   DIFFICULTY_PARITY:
     'Grand Tests are assumed comparable in difficulty to the actual exam; this estimate has no Eyeconic-specific calibration yet.',
   ESTIMATE_DISCLAIMER:

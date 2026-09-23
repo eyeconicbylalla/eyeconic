@@ -15,9 +15,10 @@
 const path = require('path');
 const PREDICTOR_DIR = path.join(__dirname, '..', '..', 'server', 'predictor');
 const { createPredictorEngine } = require(path.join(PREDICTOR_DIR, 'index.js'));
-const { WIDTH_MODEL, TRANSFER } = require(path.join(PREDICTOR_DIR, 'config.js'));
+const { WIDTH_MODEL, TRANSFER, EXAMS } = require(path.join(PREDICTOR_DIR, 'config.js'));
 
 const engine = createPredictorEngine();
+const NEET = EXAMS.NEET_PG.pattern; // 180 questions / 720 marks since the 2026-09-24 migration
 
 const gt = (corrects) => ({ provenance: 'self-reported', attempts: [{ corrects, status: 'completed' }] });
 
@@ -51,14 +52,16 @@ const LEVELS = [60, 100, 140, 170];
 console.log('='.repeat(100));
 console.log('WIDTH-MODEL CALIBRATION INSPECTION — against DS-NEETPG-DISTRIBUTION-2025-v1');
 console.log('(official NBEMS 2025: 230,096 scored candidates; percentile = 100×(1−rank/N);');
-console.log(' AIR ranges are exact Phase 4 lookups over the official bands)');
+console.log(' AIR ranges are exact Phase 4 lookups over the official bands.');
+console.log(` Pattern: ${NEET.totalQuestions} questions / ${NEET.maxMarks} marks (width constants scaled`);
+console.log(' proportionally; scores bridged onto the 800-scale distribution by fraction parity.)');
 console.log('='.repeat(100));
-console.log(`model: ${WIDTH_MODEL.id}  provisional=${WIDTH_MODEL.provisional}  params=${JSON.stringify(WIDTH_MODEL.params)}`);
+console.log(`model: ${WIDTH_MODEL.id}  provisional=${WIDTH_MODEL.provisional}  params=${JSON.stringify(WIDTH_MODEL.params)} (at the 200-question reference; ×${NEET.totalQuestions / 200} here)`);
 console.log(`tier-2 cohort threshold: ${TRANSFER.TIER2_MIN_COHORT} (provisional=${TRANSFER.TIER2_MIN_COHORT_PROVISIONAL})`);
 console.log('');
 
 for (const level of LEVELS) {
-  console.log(`— mean GT corrects = ${level}/200  (center score ${5 * level - 200}/800) —`);
+  console.log(`— mean GT corrects = ${level}/${NEET.totalQuestions}  (center score ${5 * level - NEET.totalQuestions}/${NEET.maxMarks}) —`);
   console.log(
     '  '.padEnd(14) +
     ['GTs', 'sd', '±width', 'corrects range', 'score range', 'percentile range', 'coverage', 'AIR range (exact, P4)']

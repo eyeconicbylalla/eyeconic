@@ -3,7 +3,7 @@ import { AlertTriangle, Loader2, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { errorRowIndices, predictorEndpoints, predictorErrorMessage } from '../../lib/predictorClient';
 import type { PredictResponse, PredictorExam, PredictorExamId } from '../../types/predictor';
-import { CATEGORIES } from './constants';
+import { CATEGORIES, maxCorrectsFor } from './constants';
 import ExamPicker from './ExamPicker';
 import GtInputSection from './GtInputSection';
 import { useGtInput } from './useGtInput';
@@ -22,13 +22,22 @@ import { useGtInput } from './useGtInput';
 
 const PredictorForm: React.FC<{ onPredicted: (res: PredictResponse) => void }> = ({ onPredicted }) => {
   const [exams, setExams] = useState<PredictorExam[]>([
-    { id: 'NEET_PG', label: 'NEET PG', available: true, milestone: 'M1', patternVersion: '800-scale (+4/-1)' },
+    {
+      id: 'NEET_PG',
+      label: 'NEET PG',
+      available: true,
+      milestone: 'M1',
+      patternVersion: '720-scale (+4/-1)',
+      pattern: { totalQuestions: 180, positive: 4, negative: 1, maxMarks: 720 },
+    },
   ]);
   const [examId, setExamId] = useState<PredictorExamId>('NEET_PG');
   const [category, setCategory] = useState('');
   const [pwd, setPwd] = useState(false);
 
-  const gt = useGtInput();
+  // Row bounds follow the selected exam's pattern (180 NEET PG / 200 INI-CET).
+  const maxCorrects = maxCorrectsFor(exams, examId);
+  const gt = useGtInput({ maxCorrects });
   const [predicting, setPredicting] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -81,7 +90,7 @@ const PredictorForm: React.FC<{ onPredicted: (res: PredictResponse) => void }> =
       <GtInputSection
         gt={gt}
         title="Your Grand Test scores"
-        subtitle="Correct answers per Grand Test (out of 200). Add as many as you have — more GTs give a narrower, more reliable range."
+        subtitle={`Correct answers per Grand Test (out of ${maxCorrects}). Add as many as you have — more GTs give a narrower, more reliable range.`}
       />
 
       {/* category & quota (§3.6: never defaulted) */}

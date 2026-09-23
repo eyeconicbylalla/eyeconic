@@ -31,6 +31,7 @@ const { buildDistributionModel } = require(path.join(ROOT, 'server', 'predictor'
 const { buildPriorModel } = require(path.join(ROOT, 'server', 'predictor', 'inicetTransfer'));
 const { buildCounsellingIndex } = require(path.join(ROOT, 'server', 'predictor', 'branchMatching'));
 const { scoreForCorrects } = require(path.join(ROOT, 'server', 'predictor', 'transfer'));
+const { buildPatternBridge } = require(path.join(ROOT, 'server', 'predictor', 'patternBridge'));
 const { EXAMS } = require(path.join(ROOT, 'server', 'predictor', 'config'));
 const {
   requiredCorrectsNeetPg,
@@ -48,8 +49,14 @@ function check(label, ok, detail) {
 // ---- NEET PG -----------------------------------------------------------------
 
 console.log('NEET PG — strict tie-band guarantee over every counselling closing rank');
+console.log('(180-question pattern since 2026-09-24: required scores resolve on the 800-scale');
+console.log(' distribution, bridge to 720 by fraction parity, then invert to 180-Q corrects)');
 const distModel = buildDistributionModel(store.loadNeetPgDistribution().data);
 const neetPattern = EXAMS.NEET_PG.pattern;
+const neetBridge = buildPatternBridge({
+  pattern: neetPattern,
+  anchorPattern: EXAMS.NEET_PG.distribution.anchorPattern,
+});
 let neetChecked = 0;
 let neetAbove = 0;
 
@@ -66,9 +73,13 @@ for (const year of [2024, 2025]) {
     const ri = distModel.rankIntervalForScore(res.score);
     check(`y${year} r${r} score ${res.score}`, !ri.state && ri.maxR <= r, `worst rank ${ri.maxR}`);
 
-    // end to end: the integer corrects target still clears the closing
-    const e = requiredCorrectsNeetPg({ closingRanks: [r], distModel, pattern: neetPattern }).perClosing[0];
-    const fwd = distModel.rankIntervalForScore(scoreForCorrects(e.corrects, neetPattern));
+    // end to end: the integer 180-question corrects target, forward-mapped
+    // through the pattern and bridged onto the 800-scale distribution, still
+    // clears the closing
+    const e = requiredCorrectsNeetPg({ closingRanks: [r], distModel, pattern: neetPattern, bridge: neetBridge }).perClosing[0];
+    const fwd = distModel.rankIntervalForScore(
+      neetBridge.toAnchorScore(scoreForCorrects(e.corrects, neetPattern))
+    );
     check(`y${year} r${r} corrects ${e.corrects}`, !fwd.state && fwd.maxR <= r, `forward worst rank ${fwd.maxR}`);
     neetChecked += 1;
   }

@@ -19,6 +19,7 @@ const { buildDistributionModel } = require('../../predictor/distributionModel');
 const { buildPriorModel } = require('../../predictor/inicetTransfer');
 const { buildCounsellingIndex } = require('../../predictor/branchMatching');
 const { scoreForCorrects } = require('../../predictor/transfer');
+const { buildPatternBridge } = require('../../predictor/patternBridge');
 const { EXAMS, DESIRED_BRANCH } = require('../../predictor/config');
 const store = require('../../predictor/store');
 
@@ -29,27 +30,52 @@ const iniIdx = ['2023-01', '2024-01', '2024-07', '2025-01', '2025-07', '2026-01'
   buildCounsellingIndex(store.loadIniCetCounselling(s).data)
 );
 
+/**
+ * NEET PG corrects targets live on the 180-question pattern; the official
+ * distribution is 800-scale — every reverse resolution goes through the
+ * fraction-parity bridge (never a raw cross-scale score comparison).
+ */
+const neetBridge = buildPatternBridge({
+  pattern: EXAMS.NEET_PG.pattern,
+  anchorPattern: EXAMS.NEET_PG.distribution.anchorPattern,
+});
+const neetResolve = (closingRanks, extra = {}) =>
+  requiredCorrectsNeetPg({
+    closingRanks,
+    distModel,
+    pattern: EXAMS.NEET_PG.pattern,
+    bridge: neetBridge,
+    ...extra,
+  });
+
 describe('requiredCorrectsNeetPg — composed reverse resolver (real distribution)', () => {
-  it('goldens: closing → guaranteed score → ceiled corrects', () => {
-    const r = requiredCorrectsNeetPg({
-      closingRanks: [6, 13, 3000, 9511],
-      distModel,
-      pattern: EXAMS.NEET_PG.pattern,
-    });
+  it('goldens: closing → guaranteed anchor score → bridged 720-scale score → ceiled corrects', () => {
+    const r = neetResolve([6, 13, 3000, 9511]);
     expect(r.stage).toBe('REQUIRED_CORRECTS');
     expect(r.rule).toBe(DESIRED_BRANCH.RULES.NEET_PG_REQUIRED);
+    // Bridged targets: the 200-question-era score shrinks ×720/800 (fraction
+    // parity) and the corrects inverse runs on the 180-question pattern —
+    // corrects are NOT reused unchanged across question counts.
     expect(r.perClosing).toEqual([
-      { closing: 6, score: 695, corrects: 179, state: 'in-distribution', bounded: false },
-      { closing: 13, score: 687, corrects: 178, state: 'in-distribution', bounded: false },
-      { closing: 3000, score: 601, corrects: 161, state: 'in-distribution', bounded: false },
-      { closing: 9511, score: 559, corrects: 152, state: 'in-distribution', bounded: false },
+      { closing: 6, score: 625.5, anchorScore: 695, corrects: 162, state: 'in-distribution', bounded: false },
+      { closing: 13, score: 618.3, anchorScore: 687, corrects: 160, state: 'in-distribution', bounded: false },
+      { closing: 3000, score: 540.9, anchorScore: 601, corrects: 145, state: 'in-distribution', bounded: false },
+      { closing: 9511, score: 503.1, anchorScore: 559, corrects: 137, state: 'in-distribution', bounded: false },
     ]);
     expect(r.distribution.snapshotId).toBe('DS-NEETPG-DISTRIBUTION-2025-v1');
+    expect(r.distribution.patternVersion).toBe('800-scale (+4/-1)');
+    expect(r.distribution.bridge).toEqual({ id: 'fraction-parity-v1', patternVersion: '720-scale (+4/-1)' });
+  });
+
+  it('refuses to resolve across patterns without an explicit bridge (never silent mixing)', () => {
+    expect(() =>
+      requiredCorrectsNeetPg({ closingRanks: [100], distModel, pattern: EXAMS.NEET_PG.pattern })
+    ).toThrow(/explicit pattern bridge is required/);
   });
 
   it('corrects are integers in pattern bounds and rise as the target tightens', () => {
     const closings = [50000, 9511, 3000, 100, 13, 6];
-    const r = requiredCorrectsNeetPg({ closingRanks: closings, distModel, pattern: EXAMS.NEET_PG.pattern });
+    const r = neetResolve(closings);
     for (const e of r.perClosing) {
       expect(Number.isInteger(e.corrects)).toBe(true);
       expect(e.corrects).toBeGreaterThanOrEqual(0);
@@ -80,17 +106,18 @@ describe('requiredCorrectsNeetPg — composed reverse resolver (real distributio
   });
 
   it('beyond the recorded field: bounded answer at the lowest observed score', () => {
-    const r = requiredCorrectsNeetPg({ closingRanks: [999999], distModel, pattern: EXAMS.NEET_PG.pattern });
+    const r = neetResolve([999999]);
     const e = r.perClosing[0];
-    // minScore −40 → (−40+200)/5 = 32 corrects
-    expect(e).toMatchObject({ score: distModel.minScore, corrects: 32, state: 'in-distribution', bounded: true });
+    // minScore −40 (800-scale) → bridged −36 (720-scale) → (−36+180)/5 → ceil = 29 corrects
+    expect(e).toMatchObject({ score: -36, anchorScore: distModel.minScore, corrects: 29, state: 'in-distribution', bounded: true });
     expect(e.note).toContain('last recorded rank');
   });
 
-  it('notes carry the cross-year mapping assumption and the pattern assumptions', () => {
-    const r = requiredCorrectsNeetPg({ closingRanks: [1000], distModel, pattern: EXAMS.NEET_PG.pattern });
+  it('notes carry the cross-year mapping, bridge, and pattern assumptions', () => {
+    const r = neetResolve([1000]);
     const all = r.notes.join(' ');
     expect(all).toContain('assumes comparable score↔rank mappings');
+    expect(all).toContain('fraction-parity-v1');
     expect(all).toContain('all questions attempted');
     expect(all).toContain('Estimate based on historical data');
   });
@@ -106,14 +133,15 @@ describe('requiredCorrectsNeetPg — composed reverse resolver (real distributio
     for (const idx of neetIdx) {
       for (const row of idx.rows) {
         if (row.quota !== 'AIQ' || row.category !== 'UR' || row.pwd) continue;
-        const e = requiredCorrectsNeetPg({
-          closingRanks: [row.closing], distModel, pattern: EXAMS.NEET_PG.pattern,
-        }).perClosing[0];
+        const e = neetResolve([row.closing]).perClosing[0];
         if (e.state === 'above-distribution') continue; // none in current data
         expect(e.state).toBe('in-distribution');
-        // the guarantee proper: the integer corrects target, forward-mapped,
-        // lands at a worst rank that clears the historical closing
-        const fwd = distModel.rankIntervalForScore(scoreForCorrects(e.corrects, EXAMS.NEET_PG.pattern));
+        // the guarantee proper: the integer 180-question corrects target,
+        // forward-mapped through the pattern and bridged onto the 800-scale
+        // distribution, lands at a worst rank that clears the historical closing
+        const fwd = distModel.rankIntervalForScore(
+          neetBridge.toAnchorScore(scoreForCorrects(e.corrects, EXAMS.NEET_PG.pattern))
+        );
         expect(fwd.maxR).toBeLessThanOrEqual(row.closing);
         checked += 1;
       }

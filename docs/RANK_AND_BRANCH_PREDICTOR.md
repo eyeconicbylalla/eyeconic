@@ -422,15 +422,22 @@ Every historical exam record and every prediction context must retain:
 - scoring structure where known (marking scheme)
 - maximum marks where relevant
 
-Known pattern facts (as of research date):
+Known pattern facts (updated 2026-09-24 — the migration below has shipped):
 
 | Exam | Pattern | Notes |
 |---|---|---|
-| NEET PG (through 2025) | 200 questions, +4 / −1, max 800 | **The MVP target — this is the pattern our historical data covers** |
-| NEET PG (2026) | Portal-reported change to a 720 scale | **Needs verification.** Do NOT redesign the MVP around it; handle later via a new pattern version + fresh anchors |
-| INI-CET | 200 questions, +1 / −⅓, max 200 | Stable pattern across available data |
+| NEET PG (through 2025) | 200 questions, +4 / −1, max 800 | The pattern the 2025 distribution snapshot and the 2024/2025 counselling data were recorded on |
+| NEET PG (2026 →) | **180 questions, +4 / −1, max 720** | **ACTIVE PATTERN since the 2026-09-24 migration (product-directed).** No official 2026 score↔rank distribution exists yet — lookups run through the fraction-parity bridge onto the 2025 snapshot |
+| INI-CET | 200 questions, +1 / −⅓, max 200 | Stable pattern across available data — **unchanged by the migration** |
 
-MVP rule: **target the previous (800-scale) NEET PG pattern**, because that is what the historical data is. When a new pattern stabilizes and its data exists, add it as a new pattern version with its own distributions — the architecture makes this a data/config change, not a rewrite.
+### 2026-09-24 pattern migration (180Q/720) — how it shipped
+
+- **Current pattern** (`EXAMS.NEET_PG.pattern`): 180 questions / +4 / −1 / 720 marks, `patternVersion '720-scale (+4/-1)'`. Full-length validation expects 180; corrects > 180 are rejected; the Tier-1 formula on this pattern is score = 4c − (180−c) = 5c − 180 (max 720 at c = 180). Width-model constants scale proportionally (×180/200; INI-CET numerically unchanged at ×1.0).
+- **The bridge (`fraction-parity-v1`, `server/predictor/patternBridge.js`)**: the only official score↔rank distribution is the 2025 NBEMS snapshot on the 800-scale. A 720-scale score is NEVER looked up in the 800-scale bands directly. Because both patterns share +4/−1 marking, score/maxMarks = (5f − 1)/4 with f = corrects/N is pattern-independent, so **equal fraction of maximum marks ⇔ equal fraction of corrects** — the bridge converts `s_anchor = s_pattern × 800/720`. This is the Tier-1 fraction-correct parity assumption expressed pattern-independently, and it is echoed into every prediction (`estimate.transfer.distributionBridge`, `method.distributionBridge`) plus a student-facing note — never silent.
+- **Hard guards**: `buildEstimate` and `requiredCorrectsNeetPg` THROW when a versioned pattern is used against a distribution whose `pattern_version` differs and no bridge is passed. Pattern objects carry their `version` inline precisely so the guard cannot be bypassed by omission.
+- **Pattern history (stored-prediction reproducibility)**: `EXAMS.NEET_PG.patternHistory` keeps the retired 200-question profile keyed by the method versions that served it (`neetpg-branch-p6.v1` / `desired-neetpg-v1`). Re-derivation endpoints (`GET /predictions/:id/branches`, `GET /desired-branch/:id`) pass the stored `methodVersion` so pre-migration records re-derive byte-identically instead of failing the current 180-question validation. New predictions always run the current pattern; a stored methodVersion that names no profile re-derives with the current engine and surfaces `verified:false` with an explicit diff, exactly as before.
+- **Method versions**: `neetpg-branch-p6.v1` → `neetpg-branch-720-v1` (forward), `desired-neetpg-v1` → `desired-neetpg-v2` (reverse; rule `neetpg-required-strict-tie-band-v1` → `neetpg-required-fraction-parity-v2`). INI-CET versions unchanged.
+- **Data**: the 2025 distribution snapshot and both counselling snapshots are untouched (their provenance and scale are historical facts). When a 2026 official distribution is published and ingested, it becomes the anchor, the bridge disappears (`buildPatternBridge` returns null for same-scale patterns), and no engine change is needed. **Known limitation until then**: 2026-pattern rank estimates carry the bridge assumption on top of the usual historical-anchor assumption — a difficulty shift between the 2025 and 2026 exams is not captured by fraction parity alone.
 
 ---
 

@@ -21,8 +21,9 @@ const { halfWidthCorrects } = require('./widthModel');
  *            cohort ≥ TRANSFER.TIER2_MIN_COHORT exists for that GT, else
  *            Tier 1 (fraction-correct parity: corrects → exam score under
  *            the pattern's marking, assuming all questions attempted, §3.4)
- *   then:    mean of transferred scores (≡ mean of corrects × 5 − 200 when
- *            every GT is Tier 1 — the confirmed §3.3 aggregation, exactly)
+ *   then:    mean of transferred scores (≡ the pattern's linear corrects→score
+ *            map of the mean of corrects when every GT is Tier 1 — the
+ *            confirmed §3.3 aggregation, exactly)
  *   then:    ± halfWidth(n, dispersion) in corrects units (§11 width model)
  *   then:    percentile interval endpoints via the official distribution
  *
@@ -64,7 +65,7 @@ function correctsForScore(score, pattern) {
  * @returns {{perGt: Array, tiers: {TIER_1: number, TIER_2: number}, mixedTiers: boolean,
  *            fallbacks: Array}}
  */
-function selectTiers(perGt, { pattern, distModel, cohortProvider }) {
+function selectTiers(perGt, { pattern, distModel, cohortProvider, bridge }) {
   const out = [];
   const tiers = { TIER_1: 0, TIER_2: 0 };
   const fallbacks = [];
@@ -72,7 +73,7 @@ function selectTiers(perGt, { pattern, distModel, cohortProvider }) {
   for (const gt of perGt) {
     const { selected } = gt;
     let tier = 'TIER_1';
-    let transferredScore = scoreForCorrects(selected.corrects, pattern);
+    let transferredScore = scoreForCorrects(selected.corrects, pattern); // pattern space
     let cohortSize = null;
     let fallbackReason = null;
 
@@ -84,10 +85,10 @@ function selectTiers(perGt, { pattern, distModel, cohortProvider }) {
         if (cohortSize >= TRANSFER.TIER2_MIN_COHORT) {
           const p = cohortPercentile(selected.corrects, cohort.corrects);
           const rank = (1 - p / 100) * distModel.numericPairs;
-          const resolved = distModel.scoreForRank(rank);
+          const resolved = distModel.scoreForRank(rank); // distribution (anchor) space
           if (Number.isFinite(resolved.score)) {
             tier = 'TIER_2';
-            transferredScore = resolved.score;
+            transferredScore = bridge ? bridge.toPatternScore(resolved.score) : resolved.score;
           } else {
             fallbackReason = 'cohort-percentile-outside-distribution';
           }
@@ -134,13 +135,36 @@ function round(value, digits) {
  * @param {object} args
  *   perGt:     deduped per-GT selections (aggregation.aggregate output)
  *   pattern:   exam pattern (config.EXAMS[id].pattern)
+ *   patternVersion: the pattern's version string (mismatch guard + provenance)
  *   distModel: built from the official distribution snapshot
+ *   bridge:    optional patternBridge (required when the pattern and the
+ *              distribution's pattern_version differ — see patternBridge.js);
+ *              null/undefined means same-scale lookups
  *   cohortProvider: optional (gtId) => null | {size, corrects[]}
  * @returns estimate object — the Phase 3 stage output (spec §18 Phase 3
  *   done-when: defensible percentile range + tiers recorded)
  */
-function buildEstimate({ perGt, pattern, distModel, cohortProvider }) {
-  const ladder = selectTiers(perGt, { pattern, distModel, cohortProvider });
+function buildEstimate({ perGt, pattern, patternVersion, distModel, cohortProvider, bridge }) {
+  // Never silently mix score spaces: if the distribution snapshot was recorded
+  // on a different pattern than the request's, a bridge is mandatory. The
+  // version is read off the pattern object itself (config patterns carry it)
+  // so a caller cannot omit it by accident.
+  const effectiveVersion = patternVersion || pattern.version;
+  if (
+    distModel &&
+    distModel.patternVersion &&
+    effectiveVersion &&
+    distModel.patternVersion !== effectiveVersion &&
+    !bridge
+  ) {
+    throw new Error(
+      `buildEstimate: distribution is ${distModel.patternVersion} but the exam pattern is ` +
+        `${effectiveVersion} — an explicit pattern bridge is required (patternBridge.js).`
+    );
+  }
+
+  const ladder = selectTiers(perGt, { pattern, distModel, cohortProvider, bridge });
+  const toAnchor = bridge ? bridge.toAnchorScore : (s) => s;
 
   // Corrects-equivalent transferred values: mean over these IS the confirmed
   // §3.3 mean-of-corrects for the all-Tier-1 launch mode (linear identity).
@@ -149,17 +173,22 @@ function buildEstimate({ perGt, pattern, distModel, cohortProvider }) {
   const centerCorrects = mean(values);
   const sd = sampleSd(values);
 
-  const halfWidth = halfWidthCorrects({ n, sd });
+  const halfWidth = halfWidthCorrects({ n, sd, totalQuestions: pattern.totalQuestions });
   const total = pattern.totalQuestions;
   const cLo = Math.max(0, centerCorrects - halfWidth);
   const cHi = Math.min(total, centerCorrects + halfWidth);
+  // Pattern-space scores (display + corrects inverse); every distribution
+  // lookup below runs on the ANCHOR-space equivalents.
   const sCenter = scoreForCorrects(centerCorrects, pattern);
   const sLo = scoreForCorrects(cLo, pattern);
   const sHi = scoreForCorrects(cHi, pattern);
+  const aCenter = toAnchor(sCenter);
+  const aLo = toAnchor(sLo);
+  const aHi = toAnchor(sHi);
 
   // --- coverage states (§12-style honesty at the percentile stage) ---
-  const aboveAll = sLo > distModel.maxScore; // entire estimate above every recorded score
-  const belowAll = sHi < distModel.minScore; // entire estimate below every recorded score
+  const aboveAll = aLo > distModel.maxScore; // entire estimate above every recorded score
+  const belowAll = aHi < distModel.minScore; // entire estimate below every recorded score
   const pcts = distModel.percentileIntervalForScore;
   let pWorst;
   let pBest;
@@ -173,8 +202,8 @@ function buildEstimate({ perGt, pattern, distModel, cohortProvider }) {
     pBest = distModel.percentileForRank(distModel.lastRank); // clamped ≥ 0 in the model
     coverage = 'below-distribution';
   } else {
-    const worst = pcts(sLo);
-    const best = pcts(sHi);
+    const worst = pcts(aLo);
+    const best = pcts(aHi);
     pWorst = worst.state === 'below' ? 0 : worst.lo;
     pBest = best.state === 'above' ? 100 : best.hi;
     if (worst.state === 'below' && best.state === 'above') coverage = 'spans-distribution';
@@ -183,7 +212,7 @@ function buildEstimate({ perGt, pattern, distModel, cohortProvider }) {
   }
 
   // Center percentile (midpoint of the center score's interval).
-  const centerIv = pcts(sCenter);
+  const centerIv = pcts(aCenter);
   const centerPercentile = centerIv.state
     ? (centerIv.state === 'above' ? 100 : 0)
     : (centerIv.lo + centerIv.hi) / 2;
@@ -207,11 +236,15 @@ function buildEstimate({ perGt, pattern, distModel, cohortProvider }) {
      * Unrounded internals consumed by Phase 4 rank resolution (exact lookups
      * must not inherit display rounding — up to 0.25 marks of drift at band
      * edges would move ranks by tens). Not part of the UI contract.
+     *
+     * sLo/sHi/sCenter are in the DISTRIBUTION's score space (anchor space —
+     * bridged when the exam pattern differs from the snapshot's pattern);
+     * rankResolution feeds them straight into the distribution model.
      */
     internal: Object.freeze({
-      sLo,
-      sHi,
-      sCenter,
+      sLo: aLo,
+      sHi: aHi,
+      sCenter: aCenter,
       cLo,
       cHi,
       halfWidth,
@@ -242,13 +275,24 @@ function buildEstimate({ perGt, pattern, distModel, cohortProvider }) {
       tier2CohortThreshold: TRANSFER.TIER2_MIN_COHORT,
       tier2CohortThresholdProvisional: TRANSFER.TIER2_MIN_COHORT_PROVISIONAL,
       tier2Fallbacks: ladder.fallbacks,
+      /** Provenance when scores were bridged across patterns (null = same scale). */
+      distributionBridge: bridge
+        ? {
+            id: bridge.id,
+            patternVersion: bridge.patternVersion,
+            anchorPatternVersion: bridge.anchorPatternVersion,
+            basis: bridge.basis,
+          }
+        : null,
       perGt: ladder.perGt.map((g) => ({
         ...g,
         transferredScore: round(g.transferredScore, 1),
       })),
     },
     warnings,
-    notes: [NOTES.NO_SKIP, NOTES.DIFFICULTY_PARITY, NOTES.ESTIMATE_DISCLAIMER],
+    notes: bridge
+      ? [NOTES.NO_SKIP, NOTES.PATTERN_BRIDGE, NOTES.DIFFICULTY_PARITY, NOTES.ESTIMATE_DISCLAIMER]
+      : [NOTES.NO_SKIP, NOTES.DIFFICULTY_PARITY, NOTES.ESTIMATE_DISCLAIMER],
   };
 }
 

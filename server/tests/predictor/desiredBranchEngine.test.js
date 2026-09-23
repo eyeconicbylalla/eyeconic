@@ -20,6 +20,14 @@ const gts = (...corrects) =>
     attempts: [{ corrects: c, totalQuestions: 200, status: 'completed', endedAt: null, retestApprovedUsed: false, skippedCount: 0 }],
   }));
 
+/** NEET PG runs the 180-question pattern since the 2026-09-24 migration. */
+const neetGts = (...corrects) =>
+  corrects.map((c) => ({
+    gtId: null,
+    provenance: 'self-reported',
+    attempts: [{ corrects: c, totalQuestions: 180, status: 'completed', endedAt: null, retestApprovedUsed: false, skippedCount: 0 }],
+  }));
+
 const NEET_GM = 'm.d. (general medicine)'; // golden target [13, 9511]
 const INI_GM = 'general medicine'; // golden target [4, 2910]
 
@@ -69,9 +77,13 @@ describe('engine.predictRequired — NEET PG (official reverse chain)', () => {
     const r = engine.predictRequired({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR' });
     expect(r.exam).toBe('NEET_PG');
     expect(r.method).toMatchObject({
-      version: 'desired-neetpg-v1',
+      version: 'desired-neetpg-v2',
       stage: 'REQUIRED_PERFORMANCE',
       assumptions: ['no-skip', 'full-length-standard-pattern', 'difficulty-parity'],
+    });
+    // Targets are expressed on the 180-question / 720-mark pattern (§10 echo).
+    expect(r.method.pattern).toEqual({
+      totalQuestions: 180, positive: 4, negative: 1, maxMarks: 720, version: '720-scale (+4/-1)',
     });
     expect(r.method.datasetSnapshots).toMatchObject({
       counselling: ['DS-NEETPG-COUNSELLING-2024-v1', 'DS-NEETPG-COUNSELLING-2025-v1'],
@@ -80,7 +92,10 @@ describe('engine.predictRequired — NEET PG (official reverse chain)', () => {
     });
     expect(r.target.targetRankRange).toEqual([13, 9511]);
     expect(r.target.coverage).toBe('MATCHED');
-    expect(r.required.perClosing.map((e) => [e.closing, e.corrects])).toEqual([[13, 178], [9511, 152]]);
+    // Bridged goldens: 800-scale scores 687/559 → 720-scale 618.3/503.1 →
+    // 180-question corrects 160/137 (never the old 178/152 — corrects are not
+    // scale-free across question counts).
+    expect(r.required.perClosing.map((e) => [e.closing, e.corrects])).toEqual([[13, 160], [9511, 137]]);
     expect(r.current).toBeNull();
     expect(r.input.gts).toBeNull();
     expect(r.gap).toEqual({
@@ -92,38 +107,38 @@ describe('engine.predictRequired — NEET PG (official reverse chain)', () => {
     expect(r.warnings.map((w) => w.code)).toContain('HIGH_VARIABILITY'); // ratio 731.62
   });
 
-  it('D7 gap states over the golden target (T_safe 178, T_likely 152)', () => {
-    const onTrack = engine.predictRequired({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', gts: gts(185, 180) });
+  it('D7 gap states over the golden target (T_safe 160, T_likely 137 on the 180-question pattern)', () => {
+    const onTrack = engine.predictRequired({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', gts: neetGts(170, 180) });
     // n=2 is still low-data by the forward semantics (LOW_GT_COUNT.max = 2)
-    expect(onTrack.current.aggregation).toMatchObject({ n: 2, mean: 182.5, lowDataCaution: true });
+    expect(onTrack.current.aggregation).toMatchObject({ n: 2, mean: 175, lowDataCaution: true });
     expect(onTrack.gap).toEqual({
-      status: 'ON_TRACK', gapToSafe: 4.5, gapToLikely: 30.5, bounded: { safe: false, likely: false },
+      status: 'ON_TRACK', gapToSafe: 15, gapToLikely: 38, bounded: { safe: false, likely: false },
     });
 
-    const within = engine.predictRequired({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', gts: gts(150, 160, 155) });
+    const within = engine.predictRequired({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', gts: neetGts(150, 160, 155) });
     expect(within.gap).toEqual({
-      status: 'WITHIN_REACH', gapToSafe: -23, gapToLikely: 3, bounded: { safe: false, likely: false },
+      status: 'WITHIN_REACH', gapToSafe: -5, gapToLikely: 18, bounded: { safe: false, likely: false },
     });
 
-    const below = engine.predictRequired({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', gts: gts(100) });
+    const below = engine.predictRequired({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', gts: neetGts(100) });
     expect(below.gap.status).toBe('BELOW_TARGET');
-    expect(below.gap.gapToLikely).toBe(-52);
+    expect(below.gap.gapToLikely).toBe(-37);
     // one GT → low-data caution surfaces (§14)
     expect(below.warnings.map((w) => w.code)).toContain('LOW_GT_COUNT');
     expect(below.current.aggregation.lowDataCaution).toBe(true);
   });
 
   it('boundary comparisons are inclusive at both thresholds (unrounded mean vs integers)', () => {
-    const atSafe = engine.predictRequired({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', gts: gts(178, 178) });
-    expect(atSafe.gap.status).toBe('ON_TRACK'); // mean 178 ≥ T_safe 178
-    const atLikely = engine.predictRequired({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', gts: gts(152, 152) });
-    expect(atLikely.gap.status).toBe('WITHIN_REACH'); // 152 ≥ T_likely, < T_safe
+    const atSafe = engine.predictRequired({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', gts: neetGts(160, 160) });
+    expect(atSafe.gap.status).toBe('ON_TRACK'); // mean 160 ≥ T_safe 160
+    const atLikely = engine.predictRequired({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', gts: neetGts(137, 137) });
+    expect(atLikely.gap.status).toBe('WITHIN_REACH'); // 137 ≥ T_likely, < T_safe
   });
 
   it('skipped GTs weaken the current average (same warning as forward)', () => {
     const r = engine.predictRequired({
       exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR',
-      gts: [{ gtId: null, provenance: 'self-reported', attempts: [{ corrects: 160, totalQuestions: 200, status: 'completed', endedAt: null, retestApprovedUsed: false, skippedCount: 12 }] }],
+      gts: [{ gtId: null, provenance: 'self-reported', attempts: [{ corrects: 160, totalQuestions: 180, status: 'completed', endedAt: null, retestApprovedUsed: false, skippedCount: 12 }] }],
     });
     expect(r.warnings.map((w) => w.code)).toContain('NO_SKIP_ASSUMPTION_WEAKENED');
   });
@@ -209,9 +224,9 @@ describe('engine.predictRequired — INI-CET (crowd-ladder reverse chain)', () =
     expect(r.current).toBeNull();
   });
 
-  it('forward predict() stays byte-identical for both exams (regression pin)', () => {
-    const fwd = engine.predict({ exam: 'NEET_PG', gts: gts(120, 130), category: 'UR' });
-    expect(fwd.method.version).toBe('neetpg-branch-p6.v1');
+  it('forward predict() stays consistent for both exams (regression pin)', () => {
+    const fwd = engine.predict({ exam: 'NEET_PG', gts: neetGts(120, 130), category: 'UR' });
+    expect(fwd.method.version).toBe('neetpg-branch-720-v1');
     expect(fwd.method.stage).toBe('BRANCHES');
     const ini = engine.predict({ exam: 'INI_CET', gts: gts(130), category: 'UR' });
     expect(ini.method.version).toBe('inicet-branch-p6.v1');

@@ -65,8 +65,8 @@ function buildComparison(captured, prediction) {
       : null,
     actualRankWithinPredicted: inRange(captured.outcome.rank, [rank.bestRank, rank.worstRank]),
     // Only comparable when the actual exam ran the same pattern the
-    // prediction assumed (e.g. NEET PG 800-scale) — Phase 11 must group by
-    // methodVersion/pattern before reading this.
+    // prediction assumed (pre-migration NEET PG 800-scale vs current 720) —
+    // Phase 11 must group by methodVersion/pattern before reading this.
     actualScoreWithinPredictedScoreRange: scoreRange
       ? inRange(captured.outcome.score, scoreRange)
       : null,

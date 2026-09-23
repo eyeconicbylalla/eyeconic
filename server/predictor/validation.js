@@ -108,17 +108,24 @@ function validateGts(request, exam) {
 
 /**
  * @param {object} request raw prediction request
+ * @param {object} [patternOverride] legacy pattern profile (config
+ *   EXAMS.*.patternHistory entry's pattern) — used ONLY when re-deriving a
+ *   stored prediction/query under the method version that served it; new
+ *   requests always validate against the exam's CURRENT pattern.
  * @returns {{exam: object, category: {value: string, pwd: boolean}|null,
  *            quota: string, quotaDefaulted: boolean, gts: Array}} normalized context
  * @throws {PredictorError} INVALID_INPUT / EXAM_NOT_AVAILABLE
  */
-function validateRequest(request) {
+function validateRequest(request, patternOverride) {
   if (!request || typeof request !== 'object' || Array.isArray(request)) {
     throw invalidInput('Prediction request must be an object.', { field: 'request' });
   }
 
   // --- exam (§2: registry-driven; unavailable exams fail explicitly) ---
-  const exam = resolveExam(request);
+  const resolved = resolveExam(request);
+  // Pattern override (§10 pattern history): same exam identity/rules, the
+  // pattern that was in force when the stored record was served.
+  const exam = patternOverride ? { ...resolved, pattern: patternOverride } : resolved;
 
   // --- GT list (§3.5) ---
   const normalizedGts = validateGts(request, exam);
@@ -176,12 +183,14 @@ function validateRequest(request) {
  *            quota: string, gts: Array|null}}
  * @throws {PredictorError} INVALID_INPUT / EXAM_NOT_AVAILABLE
  */
-function validateDesiredBranchRequest(request) {
+function validateDesiredBranchRequest(request, patternOverride) {
   if (!request || typeof request !== 'object' || Array.isArray(request)) {
     throw invalidInput('Prediction request must be an object.', { field: 'request' });
   }
 
-  const exam = resolveExam(request);
+  const resolved = resolveExam(request);
+  // Pattern override (§10 pattern history) — stored reverse queries only.
+  const exam = patternOverride ? { ...resolved, pattern: patternOverride } : resolved;
 
   // --- branch (catalog key; whitespace tolerated, then trimmed) ---
   if (typeof request.branchKey !== 'string' || !request.branchKey.trim()) {

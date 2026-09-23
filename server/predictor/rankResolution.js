@@ -9,7 +9,10 @@ const { NOTES } = require('./config');
  * This stage is a LOOKUP over official data, not a model (spec: "any mismatch
  * is an ingestion bug, not a tolerance question"). Inputs are the unrounded
  * estimate internals (estimate.internal) so no display rounding leaks into
- * rank lookups. Semantics:
+ * rank lookups. Since the 720-scale migration the internals are in the
+ * DISTRIBUTION's score space (anchor space): buildEstimate bridges pattern
+ * scores before they get here, so this module never sees a score that is not
+ * on the snapshot's own scale. Semantics:
  *
  *  - within data: best rank = band minR at the range's TOP score;
  *                 worst rank = band maxR at the range's BOTTOM score
@@ -22,8 +25,10 @@ const { NOTES } = require('./config');
  *    the last recorded rank (230,114) ⇒ null + beyondLastRecordedRank echo,
  *    never a fabricated number (§12 honesty).
  *
- * Per-year anchors (§10): the distribution snapshot is 2025 / 800-scale; the
- * snapshot id is echoed so every prediction records the year it ran against.
+ * Per-year anchors (§10): the distribution snapshot is 2025 / 800-scale (the
+ * 2026 720-scale official distribution does not exist yet — pattern-bridged
+ * inputs, see patternBridge.js); the snapshot id is echoed so every
+ * prediction records the year it ran against.
  */
 function resolveRankRange({ estimate, distModel, examYear }) {
   const internal = estimate && estimate.internal;

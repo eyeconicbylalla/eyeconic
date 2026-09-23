@@ -31,6 +31,13 @@ const gts = (...corrects) => corrects.map((c) => ({
   attempts: [{ corrects: c, totalQuestions: 200, status: 'completed', endedAt: null, retestApprovedUsed: false, skippedCount: 0 }],
 }));
 
+/** NEET PG runs the 180-question pattern since the 2026-09-24 migration. */
+const neetGts = (...corrects) => corrects.map((c) => ({
+  gtId: null,
+  provenance: 'self-reported',
+  attempts: [{ corrects: c, totalQuestions: 180, status: 'completed', endedAt: null, retestApprovedUsed: false, skippedCount: 0 }],
+}));
+
 /** Build validated + aggregation the way engine.predict would (§3 stages). */
 function runEstimate(corrects, category = null) {
   const validated = {
@@ -162,7 +169,7 @@ describe('INI-CET Phase 5 — estimate + rank range (strategy level)', () => {
 
   it('carries its own method version, separate from NEET PG (§5.3 traceability)', () => {
     expect(ini.methodVersion).toBe('inicet-branch-p6.v1');
-    expect(strategies.NEET_PG.methodVersion).toBe('neetpg-branch-p6.v1');
+    expect(strategies.NEET_PG.methodVersion).toBe('neetpg-branch-720-v1'); // bumped by the 180Q/720 migration
   });
 });
 
@@ -298,8 +305,8 @@ describe('INI-CET — product gate OPEN (M2 UI step)', () => {
 
   it('NEET PG engine output is unchanged (method version, stages, branches)', () => {
     const engine = createPredictorEngine();
-    const r = engine.predict({ exam: 'NEET_PG', gts: gts(120, 130), category: 'UR' });
-    expect(r.method.version).toBe('neetpg-branch-p6.v1');
+    const r = engine.predict({ exam: 'NEET_PG', gts: neetGts(120, 130), category: 'UR' });
+    expect(r.method.version).toBe('neetpg-branch-720-v1');
     expect(r.estimate.transfer.tiers).toEqual({ TIER_1: 2, TIER_2: 0 });
     expect(r.branches.coverage).toBe('MATCHED');
     // NEET PG counselling blocks carry NO session key (byte-identical contract)

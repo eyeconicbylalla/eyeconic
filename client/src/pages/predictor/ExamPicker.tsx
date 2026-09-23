@@ -47,7 +47,10 @@ const ExamPicker: React.FC<Props> = ({ exams, examId, onSelect }) => (
             ) : null}
           </div>
           <p className="text-xs text-[#94A3B8] mt-1">
-            {EXAM_PATTERN_LABELS[exam.id] ?? `${exam.patternVersion} · 200 questions`}
+            {EXAM_PATTERN_LABELS[exam.id] ??
+              (exam.pattern
+                ? `${exam.pattern.totalQuestions} questions · max ${exam.pattern.maxMarks}`
+                : exam.patternVersion)}
           </p>
         </button>
       ))}
