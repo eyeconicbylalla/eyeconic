@@ -126,3 +126,68 @@ export const BRANCH_COVERAGE_TEXT: Record<string, string> = {
     'Your estimated range is beyond the last rank historically allotted in the covered years. This reflects current GT performance, not fate — add more GTs and keep preparing.',
   NO_DATA_FOR_FILTER: 'No counselling data for this combination in the covered years.',
 };
+
+// ---- Desired Branch Predictor (Feature 02 — reverse direction) -----------------
+
+/**
+ * D7 gap states in plain language. Colors follow the band-chip convention
+ * (emerald = clears, amber = in range, rose = below); NO_CURRENT_DATA is a
+ * neutral invite, not a verdict.
+ */
+export const GAP_META: Record<string, { label: string; hint: string; panel: string; dot: string }> = {
+  ON_TRACK: {
+    label: 'On track',
+    hint: 'Your current average already clears even the tightest closing on record for this branch. Keep consolidating.',
+    panel: 'bg-emerald-500/[0.07] border-emerald-500/25 text-emerald-200',
+    dot: 'bg-emerald-400',
+  },
+  WITHIN_REACH: {
+    label: 'Within the historical range',
+    hint: 'Your current average clears the loosest closing on record but not the tightest — the gap below tells you how far the safe end is.',
+    panel: 'bg-amber-500/[0.07] border-amber-500/25 text-amber-200',
+    dot: 'bg-amber-400',
+  },
+  BELOW_TARGET: {
+    label: 'Below the historical range',
+    hint: 'Your current average is below even the loosest closing on record for this branch. The gap below tells you how much is missing.',
+    panel: 'bg-rose-500/[0.08] border-rose-500/25 text-rose-200',
+    dot: 'bg-rose-400',
+  },
+  NO_CURRENT_DATA: {
+    label: 'No current scores compared',
+    hint: 'Add your recent Grand Test corrects (tap the button above) to see the gap between where you are and this target.',
+    panel: 'bg-[#151E29] border-white/[0.08] text-[#CBD5E1]',
+    dot: 'bg-[#4DD7C8]',
+  },
+};
+
+/** Target-resolver coverage states (reverse flow) in plain language. */
+export const TARGET_COVERAGE_TEXT: Record<string, string> = {
+  MATCHED: 'Every counselling cycle on record closed this branch somewhere inside this range.',
+  SINGLE_YEAR:
+    'This branch has closing data in only one of the covered cycles — the range rests on a single counselling round set.',
+  NO_DATA_FOR_FILTER:
+    'This branch exists in the records, but nothing closed under your category and PwD selection. Check the category — it is never assumed.',
+};
+
+/** Reverse-resolver per-closing states in plain language. */
+export const REQUIRED_STATE_TEXT: Record<string, string> = {
+  'in-distribution': 'Exact lookup over the official score↔rank data.',
+  'above-distribution':
+    'Closed inside the top recorded scores — beyond what the official data can state a target for.',
+  'in-ladder': 'Resolved through the crowd-sourced rank→marks ladder.',
+  'above-ladder':
+    'Closed above (better than) the best rung the crowd ladder can resolve — more than its top corrects were needed.',
+  'below-ladder':
+    'Closed beyond the ladder’s last rung — its floor corrects already cleared this historically.',
+};
+
+/** Short in-context lines for reverse-flow warnings (full text in Methodology). */
+export const DESIRED_WARNING_SHORT: Record<string, string> = {
+  HIGH_VARIABILITY:
+    'The historical range for this branch is wide (loosest closing ≥ 2× the tightest) — the two ends imply very different targets.',
+  CROWD_SOURCED_PRIOR:
+    'The rank → marks step has no official data behind it (AIIMS publishes no INI-CET marks) — treat the corrects numbers as a rough estimate.',
+  PRIOR_UR_ONLY:
+    'Reserved category: the rank → marks step is weaker still (its priors cover UR only).',
+};

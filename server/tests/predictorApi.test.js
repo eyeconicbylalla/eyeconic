@@ -604,12 +604,95 @@ describe('predictor API — Desired Branch (Feature 02: reverse flow, D6 persist
     expect(got.body.integrity.matches).toBe(true);
     expect(got.body.result.methodVersion).toBe('desired-inicet-v1');
     expect(got.body.result.request).toBeUndefined(); // request stays server-side here
+    // §9 case 19: clean retrieval re-derives from the stored request and verifies
+    expect(got.body.verified).toBe(true);
+    expect(got.body.verification).toBeUndefined();
 
-    // tamper with the stored stages → hash mismatch is surfaced
+    // tamper with the stored stages → hash mismatch AND re-derivation drift
     await DesiredBranchQuery.updateOne({ _id: id }, { $set: { 'target.targetRankRange': [1, 2] } });
     const tampered = await request(app).get(`/api/predictor/desired-branch/${id}`).set('Cookie', cookie);
     expect(tampered.status).toBe(200);
     expect(tampered.body.integrity.matches).toBe(false);
+    expect(tampered.body.verified).toBe(false);
+    expect(tampered.body.verification).toMatchObject({ stagesMatch: false });
+  });
+
+  it('flags method drift on retrieval with the forward verified:false + diff pattern (§9 case 19)', async () => {
+    const DesiredBranchQuery = require('../models/DesiredBranchQuery');
+    const cookie = await login();
+    const made = await request(app)
+      .post('/api/predictor/desired-branch')
+      .set('Cookie', cookie)
+      .send({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR' });
+    const id = made.body.desiredBranchId;
+
+    // simulate a future method bump: stored stages untouched (hash still
+    // matches) but the re-derived version differs → explicit diff, not silence
+    await DesiredBranchQuery.updateOne({ _id: id }, { $set: { methodVersion: 'desired-neetpg-v2' } });
+    const drifted = await request(app).get(`/api/predictor/desired-branch/${id}`).set('Cookie', cookie);
+    expect(drifted.status).toBe(200);
+    expect(drifted.body.integrity.matches).toBe(true); // storage is intact
+    expect(drifted.body.verified).toBe(false); // …but the engine moved on
+    expect(drifted.body.verification).toEqual({
+      methodMatches: false,
+      snapshotsMatch: true,
+      stagesMatch: true,
+      storedMethodVersion: 'desired-neetpg-v2',
+      currentMethodVersion: 'desired-neetpg-v1',
+      note: expect.any(String),
+    });
+  });
+
+  it('serves NO_DATA_FOR_FILTER as a valid result state, never an error (§9 case 2)', async () => {
+    const cookie = await login();
+    const res = await request(app)
+      .post('/api/predictor/desired-branch')
+      .set('Cookie', cookie)
+      .send({ exam: 'INI_CET', branchKey: 'dermatology, venerology & leprosy', category: 'ST' });
+    expect(res.status).toBe(201);
+    expect(res.body.persisted).toBe(true);
+    const r = res.body.result;
+    expect(r.target.coverage).toBe('NO_DATA_FOR_FILTER');
+    expect(r.target.targetRankRange).toBeNull();
+    expect(r.required).toBeNull();
+    expect(r.gap).toBeNull();
+    // the note points at the selection, never a silent UR fallback
+    expect(r.target.notes[0]).toContain('ST');
+  });
+
+  it('serves SINGLE_YEAR with its caution, not presented as a stable range (§9 case 4)', async () => {
+    const cookie = await login();
+    const res = await request(app)
+      .post('/api/predictor/desired-branch')
+      .set('Cookie', cookie)
+      .send({ exam: 'NEET_PG', branchKey: 'dip. in forensic medicine', category: 'UR' });
+    expect(res.status).toBe(201);
+    const r = res.body.result;
+    expect(r.target.coverage).toBe('SINGLE_YEAR');
+    expect(r.target.targetRankRange).toEqual([85144, 121667]);
+    expect(r.target.notes.join(' ')).toContain('single counselling cycle');
+  });
+
+  it('rejects unsupported exams listing the supported ones (§9 case 3)', async () => {
+    const cookie = await login();
+    const res = await request(app)
+      .post('/api/predictor/desired-branch')
+      .set('Cookie', cookie)
+      .send({ exam: 'FMGE', branchKey: NEET_GM, category: 'UR' });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('INVALID_INPUT');
+    expect(res.body.msg).toMatch(/NEET_PG|INI_CET/); // names what IS supported
+  });
+
+  it('rejects out-of-scope quotas with the forward AIQ-scope message (§9 case 7)', async () => {
+    const cookie = await login();
+    const res = await request(app)
+      .post('/api/predictor/desired-branch')
+      .set('Cookie', cookie)
+      .send({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', quota: 'DNB' });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('INVALID_INPUT');
+    expect(res.body.msg).toContain('currently cover');
   });
 
   it('keeps other students out (own-only)', async () => {

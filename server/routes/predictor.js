@@ -437,7 +437,14 @@ router.post('/desired-branch', async (req, res) => {
   });
 });
 
-/** Retrieve one stored reverse query (own-only) with the integrity check. */
+/**
+ * Retrieve one stored reverse query (own-only) with the integrity check.
+ *
+ * §9 case 19: the result is ALSO re-derived deterministically from the stored
+ * request (the exact pattern the forward branches endpoint established) — a
+ * later method or data change surfaces verified:false with an explicit diff
+ * block instead of a silent mismatch with what was originally served.
+ */
 router.get('/desired-branch/:id', async (req, res) => {
   if (!(await requireDb(res))) return;
   let doc;
@@ -464,6 +471,30 @@ router.get('/desired-branch/:id', async (req, res) => {
     notes: doc.notes,
   });
 
+  // Re-derive from the stored request (deterministic engine + snapshots).
+  let recomputed;
+  try {
+    recomputed = engine.predictRequired(doc.request);
+  } catch (error) {
+    return sendPredictorError(res, error);
+  }
+
+  const methodMatches = recomputed.method.version === doc.methodVersion;
+  const snapshotsMatch = JSON.stringify(recomputed.method.datasetSnapshots) ===
+    JSON.stringify(doc.method.datasetSnapshots);
+  // Stage digest, key-order-normalized on both sides (Mongo lean docs keep
+  // stored order; fresh results keep build order — normalize, never trust it).
+  const stageDigest = (target, required, gap) => JSON.stringify({
+    target: { range: target.targetRankRange, coverage: target.coverage },
+    required: required
+      ? required.perClosing.map((e) => [e.closing, e.corrects, e.state])
+      : null,
+    gap: gap ? [gap.status, gap.gapToSafe, gap.gapToLikely] : null,
+  });
+  const stagesMatch = stageDigest(recomputed.target, recomputed.required, recomputed.gap) ===
+    stageDigest(doc.target, doc.required, doc.gap);
+  const verified = methodMatches && snapshotsMatch && stagesMatch;
+
   return res.json({
     desiredBranchId: doc._id,
     integrity: {
@@ -471,6 +502,19 @@ router.get('/desired-branch/:id', async (req, res) => {
       recomputedHash,
       matches: recomputedHash === doc.resultHash,
     },
+    verified,
+    ...(!verified
+      ? {
+          verification: {
+            methodMatches,
+            snapshotsMatch,
+            stagesMatch,
+            storedMethodVersion: doc.methodVersion,
+            currentMethodVersion: recomputed.method.version,
+            note: 'This lookup was re-derived with the CURRENT engine/data and may differ from the originally served result.',
+          },
+        }
+      : {}),
     result: {
       exam: doc.exam,
       methodVersion: doc.methodVersion,

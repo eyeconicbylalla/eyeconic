@@ -3,6 +3,7 @@ import { Sparkles, Target } from 'lucide-react';
 import { useAppAuth } from '../context/AppAuthContext';
 import type { DesiredBranchResponse, PredictResponse, PredictionResult } from '../types/predictor';
 import DesiredBranchForm from './predictor/DesiredBranchForm';
+import DesiredBranchResult from './predictor/DesiredBranchResult';
 import PredictorForm from './predictor/PredictorForm';
 import ResultView from './predictor/ResultView';
 
@@ -19,9 +20,8 @@ import ResultView from './predictor/ResultView';
  *
  * Thin orchestrator: input experiences live in PredictorForm /
  * DesiredBranchForm, the forward result in ResultView (shared with
- * /predictor/history), the reverse result in a provisional summary panel
- * until Phase 6 lands the designed view. All under the scoped `.ec-predictor`
- * surface (motion + focus utilities in index.css).
+ * /predictor/history), the reverse result in DesiredBranchResult. All under
+ * the scoped `.ec-predictor` surface (motion + focus utilities in index.css).
  */
 type PredictorMode = 'predict' | 'desired';
 
@@ -141,10 +141,7 @@ const Predictor: React.FC = () => {
           </div>
         ) : mode === 'desired' && desired ? (
           <div key="desired-result" data-anim="fade-up">
-            {/* PHASE-5 PROVISIONAL SUMMARY — replaced by the designed result
-                view (DBP §8 Phase 6: target table, required-corrects hero,
-                gap panel, chips, methodology). */}
-            <DesiredSummary res={desired} onBack={handleBackDesired} />
+            <DesiredBranchResult res={desired} onBack={handleBackDesired} />
           </div>
         ) : (
           <div key="desired-form" data-anim="fade-up">
@@ -162,72 +159,6 @@ const Predictor: React.FC = () => {
         )}
       </div>
     </section>
-  );
-};
-
-/** Provisional reverse-result summary (Phase 5 scaffold; Phase 6 redesigns). */
-const DesiredSummary: React.FC<{ res: DesiredBranchResponse; onBack: () => void }> = ({ res, onBack }) => {
-  const r = res.result;
-  const fmt = (n: number | null | undefined) => (n === null || n === undefined ? '—' : n.toLocaleString('en-IN'));
-  const safe = r.required?.perClosing[0];
-  const likely = r.required?.perClosing[1];
-  return (
-    <div className="bg-[#18222E] border border-white/[0.06] rounded-2xl p-6">
-      <h2 className="text-xl font-bold text-[#F8FAFC] mb-1">{r.input.branch.display}</h2>
-      <p className="text-sm text-[#94A3B8] mb-6">
-        {r.examLabel} · {r.input.category.value}
-        {r.input.category.pwd ? ' (PwD)' : ''} · historical target rank {fmt(r.target.targetRankRange?.[0])}–{fmt(r.target.targetRankRange?.[1])}
-      </p>
-
-      {r.required ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-          <div className="bg-[#151E29] border border-white/[0.06] rounded-xl p-4">
-            <p className="text-xs uppercase tracking-wide text-[#94A3B8] mb-1">Aim for (safe end)</p>
-            <p className="text-2xl font-bold text-[#F8FAFC]">
-              {safe?.corrects !== null && safe?.corrects !== undefined ? `≈ ${safe.corrects} corrects` : 'beyond the data'}
-            </p>
-            <p className="text-xs text-[#94A3B8] mt-1">clears even the tightest closing on record</p>
-          </div>
-          <div className="bg-[#151E29] border border-white/[0.06] rounded-xl p-4">
-            <p className="text-xs uppercase tracking-wide text-[#94A3B8] mb-1">Historically enough (likely end)</p>
-            <p className="text-2xl font-bold text-[#F8FAFC]">
-              {likely?.corrects !== null && likely?.corrects !== undefined ? `≈ ${likely.corrects} corrects` : 'beyond the data'}
-            </p>
-            <p className="text-xs text-[#94A3B8] mt-1">cleared the loosest closing on record</p>
-          </div>
-        </div>
-      ) : (
-        <p className="text-sm text-amber-300/90 mb-6">
-          No historical closing ranks for this branch under your category selection.
-        </p>
-      )}
-
-      {r.gap ? (
-        <p className="text-sm text-[#CBD5E1] mb-6">
-          Your current average {r.current ? r.current.meanCorrects.toLocaleString('en-IN') : '—'} corrects ·{' '}
-          <span className={
-            r.gap.status === 'ON_TRACK' ? 'text-emerald-300'
-              : r.gap.status === 'WITHIN_REACH' ? 'text-amber-300'
-              : 'text-rose-300'
-          }>
-            {r.gap.status === 'ON_TRACK' ? 'on track — clears the safest target'
-              : r.gap.status === 'WITHIN_REACH' ? 'within the historical range'
-              : r.gap.status === 'NO_CURRENT_DATA' ? 'add Grand Tests to see the gap'
-              : 'below the historical range'}
-          </span>
-        </p>
-      ) : null}
-
-      <ul className="text-xs text-[#94A3B8] space-y-1 mb-6">
-        {r.warnings.map((w) => (
-          <li key={w.code}>⚠ {w.note}</li>
-        ))}
-      </ul>
-
-      <button type="button" onClick={onBack} className="btn btn-outline text-sm px-4 py-2">
-        Pick another branch
-      </button>
-    </div>
   );
 };
 
