@@ -11,7 +11,7 @@ const HeroSection: React.FC = () => {
   const [loginOpen, setLoginOpen] = useState(false);
 
   return (
-    <section id="home" className="pt-28 pb-20 bg-gradient-to-b from-teal-900 to-teal-500 text-white relative overflow-hidden">
+    <section id="home" className="pt-16 pb-20 bg-gradient-to-b from-teal-900 to-teal-500 text-white relative overflow-hidden">
       {/* Subtle radial glow overlay */}
       <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-teal-400/10 rounded-full blur-[120px] pointer-events-none" />
       

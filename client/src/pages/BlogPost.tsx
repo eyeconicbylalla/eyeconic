@@ -122,7 +122,7 @@ const BlogPost: React.FC = () => {
   }
 
   return (
-    <section className="bg-[radial-gradient(circle_at_top,_rgba(24,182,164,0.08),transparent_45%),linear-gradient(180deg,#0A0F14_0%,#101720_35%)] pb-20 pt-24">
+    <section className="bg-[radial-gradient(circle_at_top,_rgba(24,182,164,0.08),transparent_45%),linear-gradient(180deg,#0A0F14_0%,#101720_35%)] pb-20 pt-12">
       <div className="fixed left-0 top-0 z-[55] h-1 bg-teal-500" style={{ width: `${progress}%` }} />
       <div className="container mx-auto grid gap-10 xl:grid-cols-[1fr_0.28fr]">
         <div className="space-y-10">

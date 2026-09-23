@@ -86,8 +86,9 @@ const BranchResults: React.FC<{
 
   return (
     <div className="bg-[#18222E] border border-white/[0.06] rounded-2xl" data-anim="fade-up">
-      {/* sticky summary — the ranges stay visible while scrolling rows (P1) */}
-      <div className="sticky top-14 z-20 rounded-t-2xl bg-[#18222E]/95 backdrop-blur border-b border-white/[0.06] px-5 sm:px-6 py-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
+      {/* sticky summary — the ranges stay visible while scrolling rows (P1).
+          Pins just below the fixed navbar, not underneath it. */}
+      <div className="sticky top-[var(--nav-h)] z-20 rounded-t-2xl bg-[#18222E]/95 backdrop-blur border-b border-white/[0.06] px-5 sm:px-6 py-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
         <span className="font-medium text-[#CBD5E1] flex items-center gap-2">
           <Award size={14} className="text-[#4DD7C8]" /> Possible branches &amp; colleges
         </span>

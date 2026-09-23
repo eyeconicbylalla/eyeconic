@@ -63,7 +63,7 @@ const Blogs: React.FC = () => {
           : 'Eyeconic Blogs';
 
   return (
-    <section className="bg-[radial-gradient(circle_at_top,_rgba(24,182,164,0.08),transparent_45%),linear-gradient(180deg,#0A0F14_0%,#101720_45%)] pb-20 pt-32">
+    <section className="bg-[radial-gradient(circle_at_top,_rgba(24,182,164,0.08),transparent_45%),linear-gradient(180deg,#0A0F14_0%,#101720_45%)] pb-20 pt-20">
       <div className="container mx-auto space-y-10">
         <div className="rounded-[2.5rem] border border-white/[0.06] bg-[#18222E]/80 p-8 shadow-[0_40px_100px_-45px_rgba(0,0,0,0.45)] backdrop-blur-xl">
           <div className="grid gap-8 xl:grid-cols-[1.2fr_0.8fr] xl:items-end">

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 
 const PrivacyPolicy: React.FC = () => {
   return (
-    <section className="py-20 bg-[#0A0F14] text-[#CBD5E1]">
+    <section className="py-12 bg-[#0A0F14] text-[#CBD5E1]">
       <div className="container mx-auto px-4 max-w-4xl">
         <motion.h1
           initial={{ opacity: 0, y: 20 }}

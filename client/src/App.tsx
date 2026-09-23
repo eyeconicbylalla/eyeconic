@@ -65,7 +65,10 @@ function App() {
         <ScrollToHash />
         <div className="bg-[#0A0F14] min-h-screen text-[#F8FAFC] flex flex-col relative">
           <Navbar />
-          <main className="flex-grow">
+          {/* The navbar is a fixed overlay; this single reservation guarantees
+              every route's content starts below it (--nav-h is published by the
+              Navbar from its measured height — see index.css for fallbacks). */}
+          <main className="flex-grow pt-[var(--nav-h)]">
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/app-link" element={<AppLink />} />

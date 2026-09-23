@@ -531,8 +531,8 @@ const TestAttempt: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#0A0F14] flex flex-col">
-      {/* Sticky header */}
-      <header className="bg-[#101720] border-b border-white/[0.06] sticky top-0 z-20">
+      {/* Sticky header — pins below the fixed navbar */}
+      <header className="bg-[#101720] border-b border-white/[0.06] sticky top-[var(--nav-h)] z-20">
         <div className="container mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">

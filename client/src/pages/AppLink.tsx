@@ -57,7 +57,7 @@ const AppLink: React.FC = () => {
   }, [params, navigate, refresh]);
 
   return (
-    <section className="min-h-[70vh] bg-[#0A0F14] flex items-center justify-center py-20">
+    <section className="min-h-[70vh] bg-[#0A0F14] flex items-center justify-center py-12">
       <div className="bg-[#18222E] border border-white/[0.06] rounded-2xl shadow-card-dark p-8 max-w-md w-full text-center mx-4">
         {phase === 'working' && (
           <>

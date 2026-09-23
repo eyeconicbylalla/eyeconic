@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Menu, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import LoginModal from '../auth/LoginModal';
@@ -26,6 +26,7 @@ const Navbar: React.FC = () => {
   const { user: appUser, logout: appLogout } = useAppAuth();
   const isStudentArea = location.pathname === '/dashboard' || location.pathname.startsWith('/tests');
   const isAppAuthed = Boolean(appUser);
+  const navRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -36,6 +37,29 @@ const Navbar: React.FC = () => {
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  // This navbar is a fixed overlay, so the app shell reserves space for it via
+  // the --nav-h custom property (see App.tsx + index.css). Publishing the real
+  // measured height keeps that reservation exact at every breakpoint and
+  // whenever the navbar's own sizing changes. The mobile menu is absolutely
+  // positioned (overlays content), so opening it never changes this value.
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+
+    const publishHeight = () => {
+      document.documentElement.style.setProperty('--nav-h', `${nav.offsetHeight}px`);
+    };
+
+    publishHeight();
+    const observer = new ResizeObserver(publishHeight);
+    observer.observe(nav);
+
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty('--nav-h');
     };
   }, []);
 
@@ -53,12 +77,14 @@ const Navbar: React.FC = () => {
   };
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 py-3 transition-all duration-300 ${
+    <nav ref={navRef} className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
       isScrolled
         ? 'bg-[#0A0F14]/90 backdrop-blur-xl border-b border-white/[0.06] shadow-[0_8px_30px_rgba(0,0,0,0.3)]'
         : 'bg-[#0A0F14]/70 backdrop-blur-md border-b border-transparent'
     }`}>
-      <div className="container mx-auto px-4 flex items-center justify-between">
+      {/* py-3 lives on this bar row (not the nav) so the nav's height — and
+          therefore --nav-h — is exactly the bar, unaffected by the dropdown. */}
+      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <Link to="/" className="flex items-center space-x-2 text-2xl font-bold text-[#18B6A4] hover:text-[#1CC8B5] transition-colors">
           <img src={logo} alt="Eyeconic Logo" className="h-8 w-8 object-contain" />
           <span>EyeConic</span>
@@ -144,8 +170,11 @@ const Navbar: React.FC = () => {
         </button>
       </div>
 
+      {/* Mobile menu — out of flow (absolute) so it overlays page content as
+          before and so the nav's measured height (--nav-h) never changes when
+          the menu opens. */}
       {isMenuOpen && (
-        <div className="md:hidden bg-[#0A0F14]/98 backdrop-blur-2xl border-t border-white/[0.06] w-full z-50">
+        <div className="md:hidden absolute top-full left-0 right-0 bg-[#0A0F14]/98 backdrop-blur-2xl border-t border-white/[0.06] z-50">
           <div className="container mx-auto px-4 py-6">
             <ul className="space-y-4">
               <li>

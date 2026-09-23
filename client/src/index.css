@@ -30,12 +30,26 @@
   --accent-light: #4DD7C8;
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border-accent: rgba(24, 182, 164, 0.35);
+  /* Rendered height of the fixed Navbar. The Navbar component publishes the
+     live measured value at runtime (ResizeObserver); these are only the
+     pre-mount fallbacks — py-3 (24px) + tallest row item (logo h-8 = 32px
+     below md, .btn with py-3 = 48px from md up). Keep in sync with
+     Navbar.tsx if the navbar's sizing classes change. */
+  --nav-h: 3.5rem;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --nav-h: 4.5rem;
+  }
 }
 
 @layer base {
   html {
     font-family: 'Inter', system-ui, sans-serif;
     scroll-behavior: smooth;
+    /* Anchor/hash navigation must land below the fixed navbar, never under it. */
+    scroll-padding-top: calc(var(--nav-h) + 0.75rem);
     background-color: var(--bg-primary);
     color: var(--text-primary);
     overflow-x: clip;
@@ -188,7 +202,9 @@
   .blog-prose h5,
   .blog-prose h6 {
     color: var(--text-primary);
-    @apply scroll-mt-28 font-bold tracking-tight;
+    /* Navbar clearance now comes from html scroll-padding-top; keep only a
+       small breathing margin here. */
+    @apply scroll-mt-6 font-bold tracking-tight;
   }
 
   .blog-prose h2 {
