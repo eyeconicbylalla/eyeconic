@@ -1,12 +1,17 @@
 'use strict';
 
-const { EXAMS, METHOD_VERSION } = require('../config');
+const { EXAMS, METHOD_VERSION, DESIRED_BRANCH } = require('../config');
 const { validateRequest, validateForBranches } = require('../validation');
 const { aggregate } = require('../aggregation');
 const { buildEstimate } = require('../transfer');
 const { resolveRankRange } = require('../rankResolution');
 const { buildCounsellingIndex, matchBranches } = require('../branchMatching');
 const { buildDistributionModel } = require('../distributionModel');
+const {
+  buildDesiredBranchResult,
+  requiredCorrectsNeetPg,
+  buildBranchCatalog,
+} = require('../desiredBranch');
 
 /**
  * NEET PG strategy (M1) — the exam-strategy interface of spec §18:
@@ -22,6 +27,7 @@ const { buildDistributionModel } = require('../distributionModel');
 function createNeetPgStrategy({ loadDistribution, loadCounselling, cohortProvider }) {
   let cachedModel = null;
   let cachedCounselling = null;
+  let cachedCatalog = null;
 
   function distributionModel() {
     if (!cachedModel) {
@@ -101,6 +107,43 @@ function createNeetPgStrategy({ loadDistribution, loadCounselling, cohortProvide
 
     /** Exposed for Phase 6's cutoff matching (category gate per §3.6). */
     validateForBranches,
+
+    /**
+     * Desired Branch Predictor (Feature 02, DBP §6): the reverse pipeline
+     * branch → historical closing range → required corrects, assembled by the
+     * shared builder; NEET PG's reverse step is the official distribution's
+     * strict tie-band guarantee (distributionModel.requiredScoreForRank).
+     */
+    resolveDesiredBranch(validated) {
+      return buildDesiredBranchResult({
+        examConfig: EXAMS.NEET_PG,
+        methodVersion: DESIRED_BRANCH.METHOD_VERSION_NEET_PG,
+        kind: 'NEET_PG',
+        indexes: counsellingIndexes(),
+        validated,
+        resolveRequired: (closingRanks) =>
+          requiredCorrectsNeetPg({
+            closingRanks,
+            distModel: distributionModel(),
+            pattern: EXAMS.NEET_PG.pattern,
+          }),
+        reverseDataMeta: { distribution: distributionModel().snapshotId },
+      });
+    },
+
+    /**
+     * Branch catalog for the Desired Branch picker (DBP §6.1): normalized-key
+     * branch list over the AIQ-scoped counselling indexes, cached per process.
+     */
+    branchCatalog() {
+      if (!cachedCatalog) {
+        cachedCatalog = buildBranchCatalog({
+          indexes: counsellingIndexes(),
+          quota: EXAMS.NEET_PG.quotaScope.supported[0],
+        });
+      }
+      return cachedCatalog;
+    },
 
     /** Verified snapshot metadata for prediction records (§17 provenance echo). */
     distributionMeta() {

@@ -171,6 +171,9 @@ describe('predictor API — auth and metadata', () => {
     expect((await request(app).get('/api/predictor/exams')).status).toBe(401);
     expect((await request(app).post('/api/predictor/predict').send({})).status).toBe(401);
     expect((await request(app).get('/api/predictor/predictions')).status).toBe(401);
+    expect((await request(app).get('/api/predictor/branches?exam=NEET_PG')).status).toBe(401);
+    expect((await request(app).post('/api/predictor/desired-branch').send({})).status).toBe(401);
+    expect((await request(app).get('/api/predictor/desired-branch/507f1f77bcf86cd7994390ff')).status).toBe(401);
   });
 
   it('lists exams with explicit availability (both live since the M2 UI step)', async () => {
@@ -431,6 +434,195 @@ describe('predictor API — INI-CET predictions (M2: live end-to-end)', () => {
     expect(got.body.integrity.matches).toBe(true);
     expect(got.body.prediction.exam).toBe('INI_CET');
     expect(got.body.prediction.methodVersion).toBe('inicet-branch-p6.v1');
+  });
+});
+
+describe('predictor API — Desired Branch (Feature 02: reverse flow, D6 persist)', () => {
+  const NEET_GM = 'm.d. (general medicine)';
+  const INI_GM = 'general medicine';
+
+  it('serves the NEET PG branch catalog (AIQ-scoped, golden facts)', async () => {
+    const cookie = await login();
+    const res = await request(app).get('/api/predictor/branches?exam=NEET_PG').set('Cookie', cookie);
+    expect(res.status).toBe(200);
+    expect(res.body.builtFrom.map((b) => b.year)).toEqual([2024, 2025]);
+    expect(res.body.branches).toHaveLength(75);
+    const gm = res.body.branches.find((b) => b.key === NEET_GM);
+    expect(gm.display).toBe('M.D. (GENERAL MEDICINE)');
+    expect(gm.perYear['2025']).toEqual({ groups: 1138, instituteCount: 396 });
+    expect(res.body.roundConvention).toContain('final state');
+  });
+
+  it('serves the INI-CET catalog with six session tags', async () => {
+    const cookie = await login();
+    const res = await request(app).get('/api/predictor/branches?exam=INI_CET').set('Cookie', cookie);
+    expect(res.status).toBe(200);
+    expect(res.body.builtFrom.map((b) => b.session)).toEqual([
+      '2023-01', '2024-01', '2024-07', '2025-01', '2025-07', '2026-01',
+    ]);
+    expect(res.body.branches).toHaveLength(105);
+    expect(res.body.branches.find((b) => b.key === INI_GM)).toBeTruthy();
+  });
+
+  it('catalog shares the exam rules (unknown/missing exam → 400)', async () => {
+    const cookie = await login();
+    const unknown = await request(app).get('/api/predictor/branches?exam=FMGE').set('Cookie', cookie);
+    expect(unknown.status).toBe(400);
+    expect(unknown.body.code).toBe('INVALID_INPUT');
+    expect((await request(app).get('/api/predictor/branches').set('Cookie', cookie)).status).toBe(400);
+  });
+
+  it('serves a persisted desired-branch result (persist before serve, golden stages)', async () => {
+    const cookie = await login();
+    const res = await request(app)
+      .post('/api/predictor/desired-branch')
+      .set('Cookie', cookie)
+      .send({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR' });
+    expect(res.status).toBe(201);
+    expect(res.body.persisted).toBe(true);
+    expect(res.body.desiredBranchId).toBeTruthy();
+
+    const r = res.body.result;
+    expect(r.method.version).toBe('desired-neetpg-v1');
+    expect(r.method.datasetSnapshots.distribution).toBe('DS-NEETPG-DISTRIBUTION-2025-v1');
+    expect(r.target.targetRankRange).toEqual([13, 9511]);
+    expect(r.required.perClosing.map((e) => [e.closing, e.corrects])).toEqual([[13, 178], [9511, 152]]);
+    expect(r.gap.status).toBe('NO_CURRENT_DATA');
+
+    // the store holds the exact request + stages (D6)
+    const DesiredBranchQuery = require('../models/DesiredBranchQuery');
+    const doc = await DesiredBranchQuery.findById(res.body.desiredBranchId).lean();
+    expect(doc.request).toEqual({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR' });
+    expect(doc.resultHash).toHaveLength(64);
+  });
+
+  it('computes the D7 gap when GTs are supplied (WITHIN_REACH golden)', async () => {
+    const cookie = await login();
+    const res = await request(app)
+      .post('/api/predictor/desired-branch')
+      .set('Cookie', cookie)
+      .send({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR', gts: [manualGt(150), manualGt(160), manualGt(155)] });
+    expect(res.status).toBe(201);
+    expect(res.body.result.current.aggregation).toMatchObject({ n: 3, mean: 155 });
+    expect(res.body.result.gap).toEqual({
+      status: 'WITHIN_REACH', gapToSafe: -23, gapToLikely: 3, bounded: { safe: false, likely: false },
+    });
+  });
+
+  it('serves INI-CET results with crowd-prior labelling and session-tagged years', async () => {
+    const cookie = await login();
+    const res = await request(app)
+      .post('/api/predictor/desired-branch')
+      .set('Cookie', cookie)
+      .send({ exam: 'INI_CET', branchKey: INI_GM, category: 'OBC' });
+    expect(res.status).toBe(201);
+    const r = res.body.result;
+    expect(r.method.version).toBe('desired-inicet-v1');
+    expect(r.method.datasetSnapshots.prior).toBe('PR-INICET-HAZRA-CORRECTS-AIR-v1');
+    expect(r.target.years.every((y) => y.session && y.snapshotId)).toBe(true);
+    const codes = r.warnings.map((w) => w.code);
+    expect(codes).toContain('CROWD_SOURCED_PRIOR');
+    expect(codes).toContain('PRIOR_UR_ONLY'); // OBC query
+  });
+
+  it('maps unknown branches to UNKNOWN_BRANCH with near-miss suggestions', async () => {
+    const cookie = await login();
+    const res = await request(app)
+      .post('/api/predictor/desired-branch')
+      .set('Cookie', cookie)
+      .send({ exam: 'NEET_PG', branchKey: 'general medicin', category: 'UR' });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('UNKNOWN_BRANCH');
+    expect(res.body.field).toBe('branchKey');
+    expect(res.body.suggestions).toContain(NEET_GM);
+  });
+
+  it('rejects a missing category (reverse contract: category required)', async () => {
+    const cookie = await login();
+    const res = await request(app)
+      .post('/api/predictor/desired-branch')
+      .set('Cookie', cookie)
+      .send({ exam: 'NEET_PG', branchKey: NEET_GM });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('INVALID_INPUT');
+    expect(res.body.field).toBe('category');
+  });
+
+  it('rejects foreign origins on the reverse flow too (CSRF defence-in-depth)', async () => {
+    const cookie = await login();
+    const res = await request(app)
+      .post('/api/predictor/desired-branch')
+      .set('Cookie', cookie)
+      .set('Origin', 'https://evil.example.com')
+      .send({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR' });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('CSRF_REJECTED');
+  });
+
+  it('does NOT serve a result when persistence fails', async () => {
+    const DesiredBranchQuery = require('../models/DesiredBranchQuery');
+    const spy = jest.spyOn(DesiredBranchQuery, 'create').mockRejectedValueOnce(new Error('db down'));
+    const cookie = await login();
+    const res = await request(app)
+      .post('/api/predictor/desired-branch')
+      .set('Cookie', cookie)
+      .send({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR' });
+    spy.mockRestore();
+    expect(res.status).toBe(500);
+    expect(res.body.code).toBe('DESIRED_NOT_STORED');
+    expect(res.body.desiredBranchId).toBeUndefined();
+  });
+
+  it('rate-limits abuse on its own budget (429)', async () => {
+    const DesiredBranchQuery = require('../models/DesiredBranchQuery');
+    // Dedicated user: the desired budget is separate from /predict's.
+    const cookie = await login(STUDENT2.email);
+    let saw429 = false;
+    const createSpy = jest.spyOn(DesiredBranchQuery, 'create').mockResolvedValue({ _id: 'x' });
+    for (let i = 0; i < 70 && !saw429; i += 1) {
+      const res = await request(app)
+        .post('/api/predictor/desired-branch')
+        .set('Cookie', cookie)
+        .send({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'UR' });
+      if (res.status === 429) saw429 = true;
+    }
+    createSpy.mockRestore();
+    expect(saw429).toBe(true);
+  });
+
+  it('retrieves the stored query with a matching integrity hash (and detects tampering)', async () => {
+    const DesiredBranchQuery = require('../models/DesiredBranchQuery');
+    const cookie = await login();
+    const made = await request(app)
+      .post('/api/predictor/desired-branch')
+      .set('Cookie', cookie)
+      .send({ exam: 'INI_CET', branchKey: INI_GM, category: 'UR' });
+    const id = made.body.desiredBranchId;
+
+    const got = await request(app).get(`/api/predictor/desired-branch/${id}`).set('Cookie', cookie);
+    expect(got.status).toBe(200);
+    expect(got.body.integrity.matches).toBe(true);
+    expect(got.body.result.methodVersion).toBe('desired-inicet-v1');
+    expect(got.body.result.request).toBeUndefined(); // request stays server-side here
+
+    // tamper with the stored stages → hash mismatch is surfaced
+    await DesiredBranchQuery.updateOne({ _id: id }, { $set: { 'target.targetRankRange': [1, 2] } });
+    const tampered = await request(app).get(`/api/predictor/desired-branch/${id}`).set('Cookie', cookie);
+    expect(tampered.status).toBe(200);
+    expect(tampered.body.integrity.matches).toBe(false);
+  });
+
+  it('keeps other students out (own-only)', async () => {
+    const cookie = await login();
+    const made = await request(app)
+      .post('/api/predictor/desired-branch')
+      .set('Cookie', cookie)
+      .send({ exam: 'NEET_PG', branchKey: NEET_GM, category: 'ST' });
+    const other = await login(STUDENT2.email);
+    const res = await request(app)
+      .get(`/api/predictor/desired-branch/${made.body.desiredBranchId}`)
+      .set('Cookie', other);
+    expect(res.status).toBe(404);
   });
 });
 

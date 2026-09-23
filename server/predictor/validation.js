@@ -61,17 +61,12 @@ function toEpochMs(value) {
 }
 
 /**
- * @param {object} request raw prediction request
- * @returns {{exam: object, category: {value: string, pwd: boolean}|null,
- *            quota: string, quotaDefaulted: boolean, gts: Array}} normalized context
- * @throws {PredictorError} INVALID_INPUT / EXAM_NOT_AVAILABLE
+ * Exam resolution shared by both directions (forward §3.5–§3.6 and the
+ * Desired Branch reverse flow, DBP §6.1). Extracted verbatim from
+ * validateRequest — same errors, same order.
+ * @returns {object} EXAMS entry
  */
-function validateRequest(request) {
-  if (!request || typeof request !== 'object' || Array.isArray(request)) {
-    throw invalidInput('Prediction request must be an object.', { field: 'request' });
-  }
-
-  // --- exam (§2: registry-driven; unavailable exams fail explicitly) ---
+function resolveExam(request) {
   const examId = request.exam;
   if (typeof examId !== 'string' || !EXAMS[examId]) {
     throw invalidInput(
@@ -86,8 +81,17 @@ function validateRequest(request) {
       { field: 'exam', exam: examId, milestone: exam.milestone }
     );
   }
+  return exam;
+}
 
-  // --- GT list (§3.5) ---
+/**
+ * GT-list validation shared by both directions (§3.5 rules). In the reverse
+ * flow the list is OPTIONAL — callers invoke this only when `gts` is present,
+ * and the same rules then apply unchanged (an empty array is an error in both
+ * directions, never a silent no-current-data).
+ * @returns {Array} normalized GT entries
+ */
+function validateGts(request, exam) {
   const gts = request.gts;
   if (!Array.isArray(gts)) {
     throw invalidInput('gts must be an array of Grand Test entries.', { field: 'gts' });
@@ -98,9 +102,26 @@ function validateRequest(request) {
   if (INPUT_RULES.maxGts !== null && gts.length > INPUT_RULES.maxGts) {
     throw invalidInput(`At most ${INPUT_RULES.maxGts} Grand Tests per prediction.`, { field: 'gts' });
   }
-
   const patternTotal = exam.pattern.totalQuestions;
-  const normalizedGts = gts.map((gt, gtIndex) => validateGtEntry(gt, gtIndex, patternTotal));
+  return gts.map((gt, gtIndex) => validateGtEntry(gt, gtIndex, patternTotal));
+}
+
+/**
+ * @param {object} request raw prediction request
+ * @returns {{exam: object, category: {value: string, pwd: boolean}|null,
+ *            quota: string, quotaDefaulted: boolean, gts: Array}} normalized context
+ * @throws {PredictorError} INVALID_INPUT / EXAM_NOT_AVAILABLE
+ */
+function validateRequest(request) {
+  if (!request || typeof request !== 'object' || Array.isArray(request)) {
+    throw invalidInput('Prediction request must be an object.', { field: 'request' });
+  }
+
+  // --- exam (§2: registry-driven; unavailable exams fail explicitly) ---
+  const exam = resolveExam(request);
+
+  // --- GT list (§3.5) ---
+  const normalizedGts = validateGts(request, exam);
 
   // --- category / PwD (§3.6: optional here, never defaulted, enum-checked) ---
   let category = null;
@@ -137,6 +158,72 @@ function validateRequest(request) {
   }
 
   return { exam, category, quota, quotaDefaulted, gts: normalizedGts };
+}
+
+/**
+ * Desired Branch Predictor request validation (DBP §6.1; D1–D7 approved).
+ *
+ * Reverse-direction differences from the forward contract:
+ *  - branchKey is required (normalized defensively later by the resolver);
+ *  - category is REQUIRED here — closing ranks are category-specific (§3.6's
+ *    never-defaulted rule applies from the start, not just at the branch
+ *    stage);
+ *  - gts is OPTIONAL (only the optional gap stage needs a current average);
+ *    when present, the exact forward §3.5 rules apply;
+ *  - quota is NOT an input: the exam's single counselling pool is echoed.
+ *
+ * @returns {{exam: object, branchKey: string, category: {value, pwd},
+ *            quota: string, gts: Array|null}}
+ * @throws {PredictorError} INVALID_INPUT / EXAM_NOT_AVAILABLE
+ */
+function validateDesiredBranchRequest(request) {
+  if (!request || typeof request !== 'object' || Array.isArray(request)) {
+    throw invalidInput('Prediction request must be an object.', { field: 'request' });
+  }
+
+  const exam = resolveExam(request);
+
+  // --- branch (catalog key; whitespace tolerated, then trimmed) ---
+  if (typeof request.branchKey !== 'string' || !request.branchKey.trim()) {
+    throw invalidInput('Select the branch you are targeting.', { field: 'branchKey' });
+  }
+  const branchKey = request.branchKey.trim();
+
+  // --- category / PwD (required — never defaulted) ---
+  if (request.category === undefined || request.category === null || request.category === '') {
+    throw invalidInput(
+      'Category is required to target a branch (UR / EWS / OBC / SC / ST).',
+      { field: 'category' }
+    );
+  }
+  if (!CATEGORIES.includes(request.category)) {
+    throw invalidInput(
+      `Category must be one of ${CATEGORIES.join(', ')} (got '${request.category}').`,
+      { field: 'category' }
+    );
+  }
+  if (request.pwd !== undefined && typeof request.pwd !== 'boolean') {
+    throw invalidInput('pwd must be true or false.', { field: 'pwd' });
+  }
+  const category = { value: request.category, pwd: request.pwd === true };
+
+  // --- optional current GTs: absent/null means no gap; present means the
+  //     exact forward §3.5 rules (empty array rejected, same message) ---
+  const gts = request.gts === undefined || request.gts === null
+    ? null
+    : validateGts(request, exam);
+
+  // --- quota: echo only; a conflicting explicit quota is rejected with the
+  //     forward feature's scope message (never silently ignored) ---
+  const quota = exam.quotaScope.supported[0];
+  if (request.quota !== undefined && request.quota !== null && request.quota !== quota) {
+    throw invalidInput(
+      `${exam.label} predictions currently cover ${exam.quotaScope.label} only (${exam.quotaScope.supported.join(', ')}).`,
+      { field: 'quota', quota: request.quota }
+    );
+  }
+
+  return { exam, branchKey, category, quota, gts };
 }
 
 function validateGtEntry(gt, gtIndex, patternTotal) {
@@ -259,6 +346,8 @@ function validateForBranches(ctx) {
 
 module.exports = {
   validateRequest,
+  validateDesiredBranchRequest,
   validateForBranches,
+  resolveExam,
   toEpochMs,
 };

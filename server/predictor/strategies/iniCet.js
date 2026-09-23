@@ -1,6 +1,6 @@
 'use strict';
 
-const { EXAMS } = require('../config');
+const { EXAMS, DESIRED_BRANCH } = require('../config');
 const { validateRequest, validateForBranches } = require('../validation');
 const { aggregate } = require('../aggregation');
 const { buildIniCetEstimate, buildPriorModel } = require('../inicetTransfer');
@@ -8,6 +8,11 @@ const { resolveIniCetRankRange } = require('../inicetRankResolution');
 const { buildRankPercentileModel } = require('../rankPercentileModel');
 const { buildCounsellingIndex, matchBranches } = require('../branchMatching');
 const { stepNotImplemented } = require('../errors');
+const {
+  buildDesiredBranchResult,
+  requiredCorrectsIniCet,
+  buildBranchCatalog,
+} = require('../desiredBranch');
 
 /**
  * INI-CET strategy (Phase 5 / M2) — spec §9's dedicated flow:
@@ -35,6 +40,7 @@ function createIniCetStrategy({ loadDistribution, loadPrior, loadCounselling } =
   let cachedRpModel = null;
   let cachedPriorModel = null;
   let cachedCounselling = null;
+  let cachedCatalog = null;
 
   function rpModel() {
     if (!cachedRpModel) {
@@ -123,6 +129,45 @@ function createIniCetStrategy({ loadDistribution, loadPrior, loadCounselling } =
     },
 
     validateForBranches,
+
+    /**
+     * Desired Branch Predictor (Feature 02, DBP §6/§9): the reverse pipeline
+     * assembled by the shared builder. INI-CET's reverse step is the INVERSE
+     * CROWD LADDER (priorModel.marksForAir) — the load-bearing weak step in
+     * this direction (AIIMS has never published marks); the shared builder
+     * attaches the §9 warnings (CROWD_SOURCED_PRIOR / PRIOR_UR_ONLY).
+     */
+    resolveDesiredBranch(validated) {
+      return buildDesiredBranchResult({
+        examConfig: config,
+        methodVersion: DESIRED_BRANCH.METHOD_VERSION_INI_CET,
+        kind: 'INI_CET',
+        indexes: counsellingIndexes(),
+        validated,
+        resolveRequired: (closingRanks) =>
+          requiredCorrectsIniCet({
+            closingRanks,
+            priorModel: priorModel(),
+            pattern: config.pattern,
+          }),
+        reverseDataMeta: { prior: priorModel().priorId },
+      });
+    },
+
+    /**
+     * Branch catalog for the Desired Branch picker (DBP §6.1): normalized-key
+     * specialty list over the single INI pool, session-tagged per year,
+     * cached per process.
+     */
+    branchCatalog() {
+      if (!cachedCatalog) {
+        cachedCatalog = buildBranchCatalog({
+          indexes: counsellingIndexes(),
+          quota: config.quotaScope.supported[0],
+        });
+      }
+      return cachedCatalog;
+    },
 
     /** Verified snapshot metadata for prediction records (§17 provenance echo). */
     distributionMeta() {

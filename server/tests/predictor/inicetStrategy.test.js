@@ -12,6 +12,7 @@ const { EXAMS } = require('../../predictor/config');
 const { buildStrategies } = require('../../predictor/strategies');
 const { buildRankPercentileModel } = require('../../predictor/rankPercentileModel');
 const { buildPriorModel } = require('../../predictor/inicetTransfer');
+const { scoreForCorrects } = require('../../predictor/transfer');
 const { createPredictorEngine } = require('../../predictor');
 const { PredictorError, CODES } = require('../../predictor/errors');
 
@@ -304,5 +305,60 @@ describe('INI-CET — product gate OPEN (M2 UI step)', () => {
     // NEET PG counselling blocks carry NO session key (byte-identical contract)
     expect(r.branches.years.every((y) => y.session === undefined)).toBe(true);
     expect(r.branches.dataCoverage.years).toEqual([2024, 2025]);
+  });
+});
+
+describe('INI-CET crowd prior — inverse ladder marksForAir (Desired Branch Phase 2)', () => {
+  // Ladder rungs (golden): 160c→AIR10, 150c→100, 140c→1000, 135c→2500,
+  // 130c→4000, 120c→10000, 110c→28000. marks = c − (200−c)/3.
+  const prior = buildPriorModel(store.loadIniCetPrior().data, EXAMS.INI_CET.pattern);
+
+  it('exact rungs return their rung marks exactly', () => {
+    expect(prior.marksForAir(10)).toEqual({ marks: 160 - 40 / 3 }); // 160 corrects
+    expect(prior.marksForAir(28000)).toEqual({ marks: 80 }); // 110 corrects
+    expect(prior.marksForAir(100)).toEqual({ marks: 150 - 50 / 3 }); // 150 corrects
+  });
+
+  it('interpolates in log(AIR) space between rungs (golden: AIR 2910 → ≈111.18 marks)', () => {
+    const res = prior.marksForAir(2910);
+    expect(res.marks).toBeCloseTo(111.1792740898199, 9);
+  });
+
+  it('states: better than the best rung → above-ladder; beyond the floor → below-ladder', () => {
+    expect(prior.marksForAir(4)).toEqual({ state: 'above-ladder' });
+    expect(prior.marksForAir(9.99)).toEqual({ state: 'above-ladder' });
+    expect(prior.marksForAir(40000)).toEqual({ state: 'below-ladder' });
+    expect(() => prior.marksForAir('x')).toThrow(TypeError);
+  });
+
+  it('inverse identity: marksForAir(airForMarks(m)) === m across the whole span', () => {
+    let worst = 0;
+    for (let m = prior.marksSpan[0]; m <= prior.marksSpan[1]; m += 0.371) {
+      const air = prior.airForMarks(m);
+      expect(air).not.toBeNull();
+      const back = prior.marksForAir(air);
+      expect(back.marks).toBeDefined();
+      worst = Math.max(worst, Math.abs(back.marks - m));
+    }
+    expect(worst).toBeLessThan(1e-9);
+  });
+
+  it('forward rungs still resolve exactly after the exact-rung special case', () => {
+    for (const p of [{ c: 140, air: 1000 }, { c: 120, air: 10000 }, { c: 160, air: 10 }, { c: 110, air: 28000 }]) {
+      // compute marks EXACTLY as the model does (its own float expression) —
+      // a hand-written (200−c)/3 differs in the last bit and would miss the
+      // exact-rung branch
+      expect(prior.airForMarks(scoreForCorrects(p.c, EXAMS.INI_CET.pattern))).toBe(p.air);
+    }
+  });
+
+  it('monotone: a better (smaller) AIR never needs fewer marks', () => {
+    let prev = -Infinity;
+    for (let air = 28000; air >= 10; air -= 37) {
+      const res = prior.marksForAir(air);
+      if (res.state) continue;
+      expect(res.marks).toBeGreaterThanOrEqual(prev);
+      prev = res.marks;
+    }
   });
 });

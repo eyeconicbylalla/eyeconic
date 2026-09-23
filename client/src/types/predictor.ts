@@ -294,3 +294,155 @@ export interface StoredPredictionResponse {
   integrity: { resultHash: string; recomputedHash: string; matches: boolean };
   prediction: StoredPredictionRecord;
 }
+
+// ---- Desired Branch Predictor (Feature 02, DBP — reverse direction) ------------
+
+/** Branch catalog for the picker (GET /branches?exam=). */
+export interface BranchCatalogYear {
+  snapshotId: string;
+  year: number;
+  session?: string;
+}
+
+export interface BranchCatalogEntry {
+  key: string;
+  display: string;
+  variants: string[];
+  perYear: Record<string, { groups: number; instituteCount: number }>;
+}
+
+export interface BranchCatalog {
+  builtFrom: BranchCatalogYear[];
+  branches: BranchCatalogEntry[];
+  roundConvention: string;
+}
+
+/** Reverse-flow request (POST /desired-branch). GTs are OPTIONAL (gap stage). */
+export interface DesiredBranchRequestBody {
+  exam: string;
+  branchKey: string;
+  category: string;
+  pwd?: boolean;
+  gts?: GtInput[];
+}
+
+export type DesiredTargetCoverage = 'MATCHED' | 'SINGLE_YEAR' | 'NO_DATA_FOR_FILTER';
+
+export interface DesiredTargetYear {
+  year: number;
+  session?: string;
+  snapshotId: string;
+  present: boolean;
+  matched: boolean;
+  groups: number;
+  closingMin: number | null;
+  closingMax: number | null;
+  tightest: { institute: string; closing: number; opening: number; allottedCount: number } | null;
+  loosest: { institute: string; closing: number; opening: number; allottedCount: number } | null;
+}
+
+export interface DesiredTarget {
+  stage: 'TARGET_RANK';
+  branch: { key: string; display: string };
+  category: { value: string; pwd: boolean };
+  quota: string;
+  years: DesiredTargetYear[];
+  targetRankRange: [number, number] | null;
+  coverage: DesiredTargetCoverage;
+  tightest?: { institute: string; closing: number; opening: number; allottedCount: number; year: number; session?: string };
+  loosest?: { institute: string; closing: number; opening: number; allottedCount: number; year: number; session?: string };
+  variability: { tightest: number; loosest: number; ratio: number | null; high: boolean } | null;
+  dataCoverage: {
+    years: number[];
+    snapshotIds: string[];
+    matchedYears?: number[];
+    roundConvention: string;
+  };
+  notes: string[];
+}
+
+/** One closing rank resolved to required score/marks → required corrects. */
+export interface DesiredRequiredEntry {
+  closing: number;
+  score?: number | null;
+  marks?: number | null;
+  corrects: number | null;
+  state: 'in-distribution' | 'above-distribution' | 'in-ladder' | 'above-ladder' | 'below-ladder';
+  bounded: boolean;
+  ladderEndCorrects?: number;
+  note?: string;
+}
+
+export interface DesiredRequired {
+  stage: 'REQUIRED_CORRECTS';
+  rule: string;
+  distribution?: { snapshotId: string; numericPairs: number; lastRank: number };
+  prior?: {
+    priorId: string;
+    provenance: string;
+    points: number;
+    correctsSpan: [number, number];
+    airSpan: [number, number];
+    urOnly: boolean;
+  };
+  perClosing: DesiredRequiredEntry[];
+  notes: string[];
+}
+
+/** The optional current-average block (forward aggregation shape, reused). */
+export interface DesiredCurrent {
+  gts: Array<{ gtId: string | null; provenance: GtProvenance; selected: { corrects: number; skippedCount: number } | null }>;
+  aggregation: {
+    n: number;
+    values: number[];
+    mean: number;
+    median: number;
+    trimmedMean: number | null;
+    sd: number;
+    min: number;
+    max: number;
+    range: number;
+    lowDataCaution: boolean;
+  };
+  meanCorrects: number;
+}
+
+export type DesiredGapStatus = 'ON_TRACK' | 'WITHIN_REACH' | 'BELOW_TARGET' | 'NO_CURRENT_DATA';
+
+export interface DesiredGap {
+  status: DesiredGapStatus;
+  gapToSafe: number | null;
+  gapToLikely: number | null;
+  bounded: { safe: boolean; likely: boolean };
+}
+
+export interface DesiredBranchResult {
+  exam: string;
+  examLabel: string;
+  method: {
+    version: string;
+    stage: string;
+    assumptions: string[];
+    datasetSnapshots: { counselling: string[]; distribution: string | null; prior: string | null };
+  };
+  input: {
+    branch: { key: string; display: string };
+    category: { value: string; pwd: boolean };
+    pwd: boolean;
+    quota: string;
+    quotaLabel: string;
+    gts: DesiredCurrent['gts'] | null;
+  };
+  target: DesiredTarget;
+  required: DesiredRequired | null;
+  current: DesiredCurrent | null;
+  gap: DesiredGap | null;
+  warnings: Array<{ code: string; note: string }>;
+  notes: string[];
+}
+
+export interface DesiredBranchResponse {
+  desiredBranchId: string;
+  persisted: boolean;
+  result: DesiredBranchResult;
+}

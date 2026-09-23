@@ -5,6 +5,7 @@ const express = require('express');
 
 const Prediction = require('../models/Prediction');
 const OutcomeCapture = require('../models/OutcomeCapture');
+const DesiredBranchQuery = require('../models/DesiredBranchQuery');
 const { ensureDbConnection } = require('../config/db');
 const { createPredictorEngine } = require('../predictor');
 const { EXAMS } = require('../predictor/config');
@@ -53,6 +54,11 @@ const engine = createPredictorEngine();
 const PREDICT_WINDOW_MS = 60 * 60 * 1000;
 const PREDICT_MAX_PER_USER = 60;
 
+// Desired Branch queries: their own budget so reverse-flow usage never eats
+// the forward predict budget (same protective size, DBP §7.3).
+const DESIRED_WINDOW_MS = 60 * 60 * 1000;
+const DESIRED_MAX_PER_USER = 60;
+
 // Outcome submissions are low-volume by nature; a modest protective budget.
 const OUTCOME_WINDOW_MS = 60 * 60 * 1000;
 const OUTCOME_MAX_PER_USER = 30;
@@ -91,6 +97,20 @@ function sendPredictorError(res, error) {
   if (!(error instanceof PredictorError)) {
     console.error('[predictor] Unexpected error', { message: error && error.message });
     return res.status(500).json({ msg: 'Server error', code: 'SERVER_ERROR' });
+  }
+  // Desired Branch unknown-branch carries near-miss suggestions for the
+  // picker (DBP §9 case 1) — surfaced as its own typed client error.
+  if (
+    error.code === CODES.INVALID_INPUT &&
+    error.details &&
+    error.details.reason === 'unknown-branch'
+  ) {
+    return res.status(400).json({
+      msg: error.message,
+      code: 'UNKNOWN_BRANCH',
+      field: 'branchKey',
+      suggestions: Array.isArray(error.details.suggestions) ? error.details.suggestions : [],
+    });
   }
   const statusByCode = {
     [CODES.INVALID_INPUT]: 400,
@@ -330,6 +350,139 @@ router.get('/gts', async (req, res) => {
       'Auto-captured Grand Tests come from your Eyeconic quiz attempts; retest flags are not yet part of that feed, so the latest completed attempt is used per Grand Test.',
       'Self-reported entries below are from your most recent prediction — confirm or edit them before predicting.',
     ],
+  });
+});
+
+// ---- Desired Branch Predictor (Feature 02, DBP §7.3; D6 persist) --------------
+
+/** The stage set stored + hashed for a served reverse result (§7.4). */
+function desiredStages(result) {
+  return {
+    method: result.method,
+    input: result.input,
+    target: result.target,
+    required: result.required,
+    current: result.current,
+    gap: result.gap,
+    warnings: result.warnings,
+    notes: result.notes,
+  };
+}
+
+/** Branch catalog for the picker — in-process cached, no DB access needed. */
+router.get('/branches', (req, res) => {
+  try {
+    return res.json(engine.branchCatalog(String(req.query.exam || '')));
+  } catch (error) {
+    return sendPredictorError(res, error);
+  }
+});
+
+router.post('/desired-branch', async (req, res) => {
+  const userId = req.appSession.user.id;
+
+  // Persist-before-serve is a hard requirement here too (D6 approved): an
+  // unpersisted reverse query is a lost intent/calibration sample.
+  if (!(await requireDb(res))) return;
+
+  let limited;
+  try {
+    limited = await hitRateLimit(`predictor:desired:${userId}`, {
+      windowMs: DESIRED_WINDOW_MS,
+      max: DESIRED_MAX_PER_USER,
+    });
+  } catch {
+    limited = { allowed: true }; // limiter outage must not invent an error
+  }
+  if (!limited.allowed) {
+    return res.status(429).json({
+      msg: 'Too many lookups from this account. Try again later.',
+      code: 'RATE_LIMITED',
+    });
+  }
+
+  let result;
+  try {
+    result = engine.predictRequired(req.body);
+  } catch (error) {
+    return sendPredictorError(res, error);
+  }
+
+  const stages = desiredStages(result);
+  let doc;
+  try {
+    doc = await DesiredBranchQuery.create({
+      userId,
+      exam: result.exam,
+      request: req.body,
+      methodVersion: result.method.version,
+      ...stages,
+      resultHash: hashResult(stages),
+    });
+  } catch (error) {
+    console.error('[predictor] Desired-branch persistence failed — result NOT served', {
+      userId,
+      message: error && error.message,
+    });
+    return res.status(500).json({
+      msg: 'Could not save the lookup, so it was not generated. Please try again.',
+      code: 'DESIRED_NOT_STORED',
+    });
+  }
+
+  return res.status(201).json({
+    desiredBranchId: doc._id,
+    persisted: true,
+    result,
+  });
+});
+
+/** Retrieve one stored reverse query (own-only) with the integrity check. */
+router.get('/desired-branch/:id', async (req, res) => {
+  if (!(await requireDb(res))) return;
+  let doc;
+  try {
+    doc = await DesiredBranchQuery.findOne({
+      _id: req.params.id,
+      userId: req.appSession.user.id,
+    }).lean();
+  } catch {
+    doc = null;
+  }
+  if (!doc) {
+    return res.status(404).json({ msg: 'Lookup not found.', code: 'NOT_FOUND' });
+  }
+
+  const recomputedHash = hashResult({
+    method: doc.method,
+    input: doc.input,
+    target: doc.target,
+    required: doc.required,
+    current: doc.current,
+    gap: doc.gap,
+    warnings: doc.warnings,
+    notes: doc.notes,
+  });
+
+  return res.json({
+    desiredBranchId: doc._id,
+    integrity: {
+      resultHash: doc.resultHash,
+      recomputedHash,
+      matches: recomputedHash === doc.resultHash,
+    },
+    result: {
+      exam: doc.exam,
+      methodVersion: doc.methodVersion,
+      method: doc.method,
+      input: doc.input,
+      target: doc.target,
+      required: doc.required,
+      current: doc.current,
+      gap: doc.gap,
+      warnings: doc.warnings,
+      notes: doc.notes,
+    },
   });
 });
 

@@ -8,7 +8,7 @@ const {
   LOW_GT_COUNT,
 } = require('./config');
 const store = require('./store');
-const { validateRequest } = require('./validation');
+const { validateRequest, validateDesiredBranchRequest, resolveExam } = require('./validation');
 const { buildStrategies } = require('./strategies');
 
 /**
@@ -30,6 +30,7 @@ const { buildStrategies } = require('./strategies');
  *   const { createPredictorEngine } = require('./predictor');
  *   const engine = createPredictorEngine();          // or { cohortProvider }
  *   const result = engine.predict({ exam: 'NEET_PG', gts: [...] });
+ *   const target = engine.predictRequired({ exam: 'NEET_PG', branchKey: '…', category: 'UR' });
  */
 
 /**
@@ -151,7 +152,32 @@ function createPredictorEngine(deps = {}) {
     };
   }
 
-  return { listExams, predict };
+  /**
+   * Desired Branch Predictor — the reverse pipeline (Feature 02, DBP §6):
+   * branch (+ category/PwD, optional GTs) → historical target rank range →
+   * required GT-corrects range → optional gap. Exam-specific reverse steps
+   * live in the strategy (official distribution vs crowd ladder); the forward
+   * predict() path is untouched by this addition.
+   */
+  function predictRequired(request) {
+    // validateDesiredBranchRequest resolves the exam (unknown/unavailable
+    // exams throw the canonical errors) — no unreachable-exam shim needed.
+    const validated = validateDesiredBranchRequest(request);
+    const strategy = strategies[validated.exam.id];
+    return strategy.resolveDesiredBranch(validated);
+  }
+
+  /**
+   * Branch catalog for the Desired Branch picker (DBP §6.1) — the exam's
+   * selectable branch list over its counselling pool, normalized-key based.
+   * Same exam rules as prediction (unknown/unavailable exams throw).
+   */
+  function branchCatalog(examId) {
+    const exam = resolveExam({ exam: examId });
+    return strategies[exam.id].branchCatalog();
+  }
+
+  return { listExams, predict, predictRequired, branchCatalog };
 }
 
 function round2(v) {

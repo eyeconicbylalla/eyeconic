@@ -1,8 +1,9 @@
 'use strict';
 
-const { DESIRED_BRANCH, NOTES } = require('./config');
+const { DESIRED_BRANCH, NOTES, LOW_GT_COUNT } = require('./config');
 const { invalidInput } = require('./errors');
 const { correctsForScore } = require('./transfer');
+const { aggregate } = require('./aggregation');
 
 /**
  * Desired Branch Predictor — Phase 1 (docs/DESIRED_BRANCH_PREDICTOR.md).
@@ -528,10 +529,221 @@ function assertClosingRanks(closingRanks) {
   }
 }
 
+/** Round to 2 decimals without float noise (display only — never state math). */
+function round2(v) {
+  return Math.round(v * 100) / 100;
+}
+
+/**
+ * Aggregation summary for the optional current-GT block — mirrors the forward
+ * result's aggregation shape (index.js) so the UI reuses one renderer.
+ */
+function summarizeAggregation(aggregation) {
+  return {
+    n: aggregation.stats.n,
+    values: aggregation.stats.values,
+    mean: round2(aggregation.stats.mean),
+    median: round2(aggregation.stats.median),
+    trimmedMean: aggregation.stats.trimmedMean === null ? null : round2(aggregation.stats.trimmedMean),
+    sd: round2(aggregation.stats.sd),
+    min: aggregation.stats.min,
+    max: aggregation.stats.max,
+    range: aggregation.stats.range,
+    lowDataCaution: aggregation.stats.n <= LOW_GT_COUNT.max,
+  };
+}
+
+/**
+ * Gap computation — the D7 normative rules (docs/DESIRED_BRANCH_PREDICTOR.md
+ * "D7 — exact state rules"). Thresholds are the required-corrects targets
+ * themselves; the ONLY comparison rule is the UNROUNDED current mean against
+ * the INTEGER thresholds:
+ *
+ *   ON_TRACK      C ≥ T_safe             (clears even the tightest close)
+ *   WITHIN_REACH  T_likely ≤ C < T_safe
+ *   BELOW_TARGET  C < T_likely
+ *
+ * Bounded ends (D7 bounded-end propagation):
+ *   safe end bounded-above (no finite target) ⇒ ON_TRACK impossible; the
+ *     state falls out of the likely end alone and gapToSafe is null;
+ *   both ends unresolvable ⇒ gap omitted entirely (null).
+ *
+ * @param {object} args
+ *   currentMeanCorrects: unrounded mean of deduped per-GT corrects (number)
+ *   required: requiredCorrectsNeetPg/IniCet output (perClosing length ≥ 2,
+ *             [safe(tightest closing), likely(loosest closing)])
+ */
+function computeGap({ currentMeanCorrects, required }) {
+  if (!required || !Array.isArray(required.perClosing) || required.perClosing.length < 2) {
+    return null;
+  }
+  const [safeEntry, likelyEntry] = required.perClosing;
+  const tSafe = typeof safeEntry.corrects === 'number' ? safeEntry.corrects : null;
+  const tLikely = typeof likelyEntry.corrects === 'number' ? likelyEntry.corrects : null;
+  const bounded = { safe: safeEntry.bounded === true, likely: likelyEntry.bounded === true };
+
+  if (currentMeanCorrects === null || currentMeanCorrects === undefined) {
+    return { status: 'NO_CURRENT_DATA', gapToSafe: null, gapToLikely: null, bounded };
+  }
+  if (!Number.isFinite(currentMeanCorrects)) {
+    throw new TypeError('computeGap needs a numeric currentMeanCorrects');
+  }
+  // Both ends above-bounded (no finite target anywhere): omit the gap (D7).
+  if (tSafe === null && tLikely === null) {
+    return null;
+  }
+
+  let status;
+  if (tSafe !== null && currentMeanCorrects >= tSafe) {
+    status = 'ON_TRACK';
+  } else if (tLikely !== null && currentMeanCorrects >= tLikely) {
+    // also the only reachable branch when tSafe is null (safe end bounded-above)
+    status = 'WITHIN_REACH';
+  } else {
+    status = 'BELOW_TARGET';
+  }
+
+  return {
+    status,
+    gapToSafe: tSafe === null ? null : round2(currentMeanCorrects - tSafe),
+    gapToLikely: tLikely === null ? null : round2(currentMeanCorrects - tLikely),
+    bounded,
+  };
+}
+
+/**
+ * Assemble the full Desired Branch result (Phase 3 engine surface — DBP §6).
+ * Exam-agnostic composition: the strategy supplies its own
+ * `resolveRequired(closingRanks)` (official distribution vs crowd ladder) and
+ * the snapshot metadata for the method block.
+ *
+ * @param {object} args
+ *   examConfig:       EXAMS entry (id/label/quotaScope/pattern consumer)
+ *   methodVersion:    DESIRED_BRANCH.METHOD_VERSION_*
+ *   kind:             'NEET_PG' | 'INI_CET' (drives the §9 weak-step warnings)
+ *   indexes:          counselling indexes (cached per strategy)
+ *   validated:        validateDesiredBranchRequest output
+ *   resolveRequired:  (closingRanks) => required resolver output
+ *   reverseDataMeta:  { distribution?: snapshotId, prior?: priorId }
+ */
+function buildDesiredBranchResult({
+  examConfig,
+  methodVersion,
+  kind,
+  indexes,
+  validated,
+  resolveRequired,
+  reverseDataMeta = {},
+}) {
+  const target = resolveTarget({
+    indexes,
+    branchKey: validated.branchKey,
+    category: validated.category.value,
+    pwd: validated.category.pwd,
+    quota: validated.quota,
+  });
+
+  let required = null;
+  if (target.targetRankRange) {
+    required = resolveRequired(target.targetRankRange);
+  }
+
+  let current = null;
+  let gap = null;
+  let aggregation = null;
+  if (validated.gts) {
+    aggregation = aggregate(validated.gts);
+    current = {
+      gts: aggregation.perGt,
+      aggregation: summarizeAggregation(aggregation),
+      // display-rounded; gap states use the UNROUNDED mean (D7)
+      meanCorrects: round2(aggregation.stats.mean),
+    };
+    gap = computeGap({ currentMeanCorrects: aggregation.stats.mean, required });
+  } else if (required) {
+    gap = computeGap({ currentMeanCorrects: null, required });
+  }
+
+  // --- warnings (§14-style: codes the UI renders; never confidence %) ---
+  const warnings = [];
+  if (target.variability && target.variability.high) {
+    warnings.push({ code: 'HIGH_VARIABILITY', note: DESIRED_BRANCH.HIGH_VARIABILITY_NOTE });
+  }
+  if (current) {
+    if (current.aggregation.n <= LOW_GT_COUNT.max) {
+      warnings.push({ code: 'LOW_GT_COUNT', note: LOW_GT_COUNT.note });
+    }
+    if (aggregation.perGt.some((g) => g.selected && g.selected.skippedCount > 0)) {
+      warnings.push({
+        code: 'NO_SKIP_ASSUMPTION_WEAKENED',
+        note:
+          'One or more selected Grand Test attempts had skipped questions; the no-skip assumption (and therefore the current average) is weakened for those GTs.',
+      });
+    }
+  }
+  if (kind === 'INI_CET' && required) {
+    // §9 labelling — in the reverse direction the crowd ladder is the
+    // load-bearing step (AIIMS has never published marks)
+    warnings.push({
+      code: 'CROWD_SOURCED_PRIOR',
+      note:
+        'AIIMS has never published INI-CET marks. The rank→marks step behind these required-corrects numbers uses a crowd-sourced ladder (Dr Mayukh Hazra compilations) as a labelled prior — an estimate with no official ground truth.',
+    });
+    if (validated.category.value !== 'UR') {
+      warnings.push({
+        code: 'PRIOR_UR_ONLY',
+        note:
+          `The crowd-sourced prior behind the rank→marks step is UR-only; for category ${validated.category.value} the estimate is weaker still (spec §9).`,
+      });
+    }
+  }
+
+  // --- notes: target + required, order-preserving dedupe ---
+  const seen = new Set();
+  const notes = [];
+  for (const note of [...target.notes, ...(required ? required.notes : [])]) {
+    if (!seen.has(note)) {
+      seen.add(note);
+      notes.push(note);
+    }
+  }
+
+  return {
+    exam: examConfig.id,
+    examLabel: examConfig.label,
+    method: {
+      version: methodVersion,
+      stage: 'REQUIRED_PERFORMANCE',
+      assumptions: ['no-skip', 'full-length-standard-pattern', 'difficulty-parity'],
+      datasetSnapshots: {
+        counselling: target.dataCoverage.snapshotIds,
+        distribution: reverseDataMeta.distribution || null,
+        prior: reverseDataMeta.prior || null,
+      },
+    },
+    input: {
+      branch: target.branch,
+      category: validated.category,
+      pwd: validated.category.pwd,
+      quota: validated.quota,
+      quotaLabel: examConfig.quotaScope.label,
+      gts: current ? current.gts : null,
+    },
+    target,
+    required,
+    current,
+    gap,
+    warnings,
+    notes,
+  };
+}
+
 module.exports = {
   normalizeKey,
   buildBranchCatalog,
   resolveTarget,
   requiredCorrectsNeetPg,
   requiredCorrectsIniCet,
+  computeGap,
+  buildDesiredBranchResult,
 };

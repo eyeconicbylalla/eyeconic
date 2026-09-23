@@ -1,7 +1,8 @@
 import axios, { AxiosError } from 'axios';
 import { API_BASE_URL } from '../config/api';
 import type {
-  BranchesResponse, BranchBand, GtInput, GtsResponse, OutcomePutResponse, OutcomeStatusResponse,
+  BranchCatalog, BranchesResponse, BranchBand, DesiredBranchRequestBody, DesiredBranchResponse,
+  GtInput, GtsResponse, OutcomePutResponse, OutcomeStatusResponse,
   OutcomeSubmission, PredictResponse, PredictionsListResponse,
   PredictorExam, StoredPredictionResponse,
 } from '../types/predictor';
@@ -101,4 +102,19 @@ export const predictorEndpoints = {
     predictorApi
       .delete<{ predictionId: string; deleted: boolean }>(`/predictions/${predictionId}/outcome`)
       .then((r) => r.data),
+  /** Desired Branch Predictor (Feature 02): the selectable branch catalog. */
+  branchCatalog: (exam: string) =>
+    predictorApi.get<BranchCatalog>('/branches', { params: { exam } }).then((r) => r.data),
+  /** Desired Branch Predictor: branch → target rank range → required corrects. */
+  desiredBranch: (body: DesiredBranchRequestBody) =>
+    predictorApi.post<DesiredBranchResponse>('/desired-branch', body).then((r) => r.data),
 };
+
+/** Near-miss suggestions from an UNKNOWN_BRANCH response, if any. */
+export function branchSuggestions(error: unknown): string[] {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data as { code?: string; suggestions?: string[] } | undefined;
+    if (data?.code === 'UNKNOWN_BRANCH' && Array.isArray(data.suggestions)) return data.suggestions;
+  }
+  return [];
+}
