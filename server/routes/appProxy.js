@@ -160,6 +160,21 @@ router.get('/analytics/me', async (req, res) => {
   }
 });
 
+// Anonymous cohort comparison (student self): own latest finalized attempt
+// vs aggregate statistics of the same test's cohort. The App API computes
+// and anonymises everything — this proxy forwards no parameters.
+router.get('/analytics/me/comparison', async (req, res) => {
+  try {
+    const data = await callAppApi('/quizzes/analytics/me/comparison', {
+      userToken: req.appSession.token,
+      requestId: req.requestId,
+    });
+    return res.json(data);
+  } catch (error) {
+    return sendAppError(res, error, req.requestId);
+  }
+});
+
 // ---- Quiz detail / lifecycle (per quiz) -------------------------------------
 //
 // NOTE: routes are declared FLAT on this router on purpose — Express 4 does

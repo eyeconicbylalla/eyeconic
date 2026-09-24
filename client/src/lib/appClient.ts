@@ -1,7 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import { API_BASE_URL } from '../config/api';
 import type {
-  AnalyticsMe, AttemptState, DailyPyqHistoryPayload, DailyPyqSubmitPayload,
+  AnalyticsMe, AttemptState, ComparisonPayload, DailyPyqHistoryPayload, DailyPyqSubmitPayload,
   DailyPyqTodayPayload, DailyPyqAttempt, QuizDetail, QuizListItem, ResultsPayload,
   StartAttemptResponse, SubmitResponse,
 } from '../types/app';
@@ -99,6 +99,10 @@ export const appQuizApi = {
     appApi.post(`/quizzes/${quizId}/attempt/${attemptId}/request-retest`, {}).then((r) => r.data),
   analyticsMe: (params?: { range?: string; page?: number; limit?: number }) =>
     appApi.get<AnalyticsMe>('/analytics/me', { params }).then((r) => r.data),
+  // Anonymous cohort comparison for the caller's latest finalized test —
+  // computed and anonymised entirely by the App backend.
+  analyticsMeComparison: () =>
+    appApi.get<ComparisonPayload>('/analytics/me/comparison').then((r) => r.data),
 };
 
 // ---- Daily PYQ surface ------------------------------------------------------

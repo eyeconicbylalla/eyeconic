@@ -1,18 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Activity, BookOpen, CheckCircle2, Flame, LogOut, RefreshCw, Target, TrendingUp, Trophy } from 'lucide-react';
+import { AlertTriangle, BookOpen, Flame, LogOut, RefreshCw, Target, TrendingUp, Trophy } from 'lucide-react';
 import { appErrorMessage, appQuizApi, dailyPyqApi, isAppUnavailable } from '../lib/appClient';
 import { useAppAuth } from '../context/AppAuthContext';
-import type { AnalyticsMe, DailyPyqTodayPayload } from '../types/app';
+import type { AnalyticsMe, ComparisonPayload, DailyPyqTodayPayload } from '../types/app';
+import CohortComparisonCard from '../components/app/CohortComparisonCard';
 import OpenInAppButton from '../components/app/OpenInAppButton';
-
-const dateLabel = (value?: string) =>
-  value ? new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '—';
 
 /**
  * Integrated student dashboard: identity, tests and results come from the
  * Eyeconic App backend (same data as the mobile app), served through the
  * website's authenticated proxy.
+ *
+ * The primary card is the anonymous "Individual Rank vs. Average Score of
+ * All" comparison (own latest finalized test vs the same test's cohort).
+ * The former "Recent results" list was replaced by it — per-attempt history
+ * still lives on /tests and the results pages.
  */
 const Dashboard: React.FC = () => {
   const { user, logout } = useAppAuth();
@@ -20,22 +23,37 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [unavailable, setUnavailable] = useState(false);
-  // Daily PYQ loads independently — its failure must never hide the rest of
-  // the dashboard.
+  // Daily PYQ and the cohort comparison load independently — their failure
+  // must never hide the rest of the dashboard.
   const [daily, setDaily] = useState<DailyPyqTodayPayload | null>(null);
+  const [comparison, setComparison] = useState<ComparisonPayload | null>(null);
+  const [comparisonLoading, setComparisonLoading] = useState(true);
+  const [comparisonError, setComparisonError] = useState('');
+  const [comparisonUnavailable, setComparisonUnavailable] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     setUnavailable(false);
+    setComparisonLoading(true);
+    setComparisonError('');
+    setComparisonUnavailable(false);
     const dailyLoad = dailyPyqApi.today().then(setDaily).catch(() => setDaily(null));
+    const comparisonLoad = appQuizApi.analyticsMeComparison()
+      .then(setComparison)
+      .catch((err) => {
+        setComparison(null);
+        setComparisonError(appErrorMessage(err, 'Could not load your comparison.'));
+        setComparisonUnavailable(isAppUnavailable(err));
+      })
+      .finally(() => setComparisonLoading(false));
     try {
       setAnalytics(await appQuizApi.analyticsMe({ limit: 10 }));
     } catch (err) {
       setError(appErrorMessage(err, 'Could not load your performance data.'));
       setUnavailable(isAppUnavailable(err));
     } finally {
-      await dailyLoad;
+      await Promise.all([dailyLoad, comparisonLoad]);
       setLoading(false);
     }
   }, []);
@@ -96,7 +114,6 @@ const Dashboard: React.FC = () => {
               </h3>
               {daily.status === 'completed' && daily.attempt ? (
                 <p className="text-sm text-[#94A3B8] mt-1.5 flex items-center gap-1.5 flex-wrap">
-                  <CheckCircle2 size={14} className="text-emerald-400" />
                   Completed today · <span className="text-[#4DD7C8] font-medium">{daily.attempt.correctCount}/{daily.attempt.totalQuestions}</span> correct
                   · {daily.attempt.score}/{daily.attempt.maxScore} marks
                 </p>
@@ -116,6 +133,14 @@ const Dashboard: React.FC = () => {
           </div>
         )}
 
+        {!loading && error && (
+          <div className="dark-banner-error text-sm mb-6">
+            <p>{error}</p>
+            {unavailable && <p className="text-xs mt-1 opacity-80">The Eyeconic service may be waking up — this can take up to a minute.</p>}
+            <button onClick={load} className="btn btn-outline text-xs px-3 py-1.5 mt-3">Try Again</button>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           {summaryCards.map((card) => (
             <div key={card.label} className="bg-[#18222E] border border-white/[0.06] rounded-2xl p-5">
@@ -128,64 +153,14 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-[#18222E] border border-white/[0.06] rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-[#4DD7C8] flex items-center gap-2"><Activity size={16} /> Recent results</h3>
-              <Link to="/tests" className="text-sm text-[#18B6A4] hover:text-[#1CC8B5]">View all tests →</Link>
-            </div>
-
-            {loading && (
-              <div className="space-y-2">
-                {[0, 1, 2].map((i) => <div key={i} className="h-12 bg-[#151E29] rounded-xl animate-pulse" />)}
-              </div>
-            )}
-
-            {!loading && error && (
-              <div className="dark-banner-error text-sm">
-                <p>{error}</p>
-                {unavailable && <p className="text-xs mt-1 opacity-80">The Eyeconic service may be waking up — this can take up to a minute.</p>}
-                <button onClick={load} className="btn btn-outline text-xs px-3 py-1.5 mt-3">Try Again</button>
-              </div>
-            )}
-
-            {!loading && !error && attempts.length === 0 && (
-              <div className="text-center py-10">
-                <BookOpen className="w-9 h-9 text-[#18B6A4] mx-auto mb-3" />
-                <p className="text-[#CBD5E1] text-sm">No test results yet.</p>
-                <Link to="/tests" className="btn btn-primary text-sm mt-4">Browse My Tests</Link>
-              </div>
-            )}
-
-            {!loading && !error && attempts.length > 0 && (
-              <div className="space-y-2">
-                {attempts.map((attempt) => {
-                  const quizTitle = typeof attempt.quiz === 'object' && attempt.quiz ? attempt.quiz.title : 'Test';
-                  const quizId = typeof attempt.quiz === 'object' && attempt.quiz ? attempt.quiz._id : '';
-                  const percent = attempt.scorePercentage ?? 0;
-                  return (
-                    <Link
-                      key={attempt._id}
-                      to={quizId ? `/tests/${quizId}/results/${attempt._id}` : '/tests'}
-                      className="flex items-center justify-between gap-4 bg-[#151E29] border border-white/[0.06] rounded-xl px-4 py-3 hover:border-[#18B6A4]/30 transition-colors"
-                    >
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium text-[#F8FAFC] truncate">{quizTitle}</div>
-                        <div className="text-xs text-[#94A3B8]">{dateLabel(attempt.endTime)}</div>
-                      </div>
-                      <div className="flex items-center gap-4 shrink-0">
-                        <div className="text-right">
-                          <div className="text-sm font-bold text-[#4DD7C8]">{attempt.marksObtained}/{attempt.totalMarks}</div>
-                          <div className="text-xs text-[#94A3B8]">{percent}%</div>
-                        </div>
-                        <div className="w-20 h-1.5 rounded-full bg-[#0A0F14] overflow-hidden hidden sm:block">
-                          <div className="h-full bg-[#18B6A4]" style={{ width: `${Math.min(100, percent)}%` }} />
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
+          <div className="lg:col-span-2">
+            <CohortComparisonCard
+              payload={comparison}
+              loading={comparisonLoading}
+              error={comparisonError}
+              unavailable={comparisonUnavailable}
+              onRetry={load}
+            />
           </div>
 
           <div className="space-y-6">

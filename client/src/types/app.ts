@@ -196,6 +196,58 @@ export interface AnalyticsMe {
   }[];
 }
 
+// ---- Cohort comparison (own latest test vs the same test's cohort) ----------
+
+export interface ComparisonScoreBucket {
+  label: string;
+  min: number;
+  max: number;
+  count: number;
+}
+
+export interface ComparisonSubjectRow {
+  subjectName: string;
+  questionCount: number;
+  myMarks: number | null;
+  myCorrect: number | null;
+  myIncorrect: number | null;
+  mySkipped: number | null;
+  avgMarks: number;
+  cohortAttempts: number;
+}
+
+export interface ComparisonPayload {
+  hasEligibleAttempt: boolean;
+  quiz?: { _id: string; title: string; testType?: TestType; totalMarks?: number };
+  attempt?: {
+    _id: string;
+    status: string;
+    endTime?: string;
+    marksObtained: number;
+    totalMarks: number;
+    scorePercentage?: number | null;
+    accuracy?: number | null;
+    correct: number;
+    incorrect: number;
+    skipped: number;
+    attempted: number;
+    totalQuestions: number;
+  };
+  cohort?: {
+    totalStudents: number;
+    minCohortSize: number;
+    sufficient: boolean;
+    averageMarks: number | null;
+    averageScorePercentage: number | null;
+    highestMarks: number | null;
+    percentile: number | null;
+    topPercent: number | null;
+    scoreDistribution: ComparisonScoreBucket[] | null;
+    subjectWise: ComparisonSubjectRow[] | null;
+  };
+  generatedAt?: string;
+}
+
 // ---- Daily PYQ (10 past questions per IST calendar day) ---------------------
 
 export interface DailyPyqStreak {
