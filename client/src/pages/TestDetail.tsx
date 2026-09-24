@@ -5,7 +5,7 @@ import { appErrorMessage, appQuizApi } from '../lib/appClient';
 import type { QuizDetail as QuizDetailType } from '../types/app';
 import OpenInAppButton from '../components/app/OpenInAppButton';
 
-const TEST_TYPE_LABEL: Record<string, string> = { daily: 'Daily Test', weekly: 'Weekly Test', grand: 'Grand Test' };
+const TEST_TYPE_LABEL: Record<string, string> = { daily: 'Daily Test', weekly: 'Weekly Test', grand: 'Grand Test', mini: 'Mini CCT' };
 
 const TestDetail: React.FC = () => {
   const { quizId = '' } = useParams();

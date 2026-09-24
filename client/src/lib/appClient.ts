@@ -2,7 +2,8 @@ import axios, { AxiosError } from 'axios';
 import { API_BASE_URL } from '../config/api';
 import type {
   AnalyticsMe, AttemptState, ComparisonPayload, DailyPyqHistoryPayload, DailyPyqSubmitPayload,
-  DailyPyqTodayPayload, DailyPyqAttempt, QuizDetail, QuizListItem, ResultsPayload,
+  DailyPyqTodayPayload, DailyPyqAttempt, MiniCctAnalysis, MiniCctHistoryPayload,
+  MiniCctLatestPayload, QuizDetail, QuizListItem, ResultsPayload,
   StartAttemptResponse, SubmitResponse,
 } from '../types/app';
 
@@ -105,7 +106,22 @@ export const appQuizApi = {
     appApi.get<ComparisonPayload>('/analytics/me/comparison').then((r) => r.data),
 };
 
+// ---- Mini CCT surface --------------------------------------------------------
+
+export const miniCctApi = {
+  // Dashboard card payload: latest visible Mini CCT + the caller's status.
+  latest: () => appApi.get<MiniCctLatestPayload>('/mini-cct/latest').then((r) => r.data),
+  // Own finalized Mini CCT attempts (paginated summaries).
+  history: (params?: { page?: number; limit?: number }) =>
+    appApi.get<MiniCctHistoryPayload>('/mini-cct/attempts', { params }).then((r) => r.data),
+  // One own attempt's analysis dashboard (scoring, averages, percentile and
+  // free-user gating all happen server-side in the App API).
+  analysis: (attemptId: string) =>
+    appApi.get<MiniCctAnalysis>(`/mini-cct/attempts/${attemptId}/analysis`).then((r) => r.data),
+};
+
 // ---- Daily PYQ surface ------------------------------------------------------
+
 
 export const dailyPyqApi = {
   today: () => appApi.get<DailyPyqTodayPayload>('/daily-pyq/today').then((r) => r.data),

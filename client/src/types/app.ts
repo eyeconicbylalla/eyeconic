@@ -9,7 +9,7 @@ export interface AppUser {
   profilePicture: string | null;
 }
 
-export type TestType = 'daily' | 'weekly' | 'grand';
+export type TestType = 'daily' | 'weekly' | 'grand' | 'mini';
 
 export interface AttemptStatus {
   hasAttempted: boolean;
@@ -244,6 +244,143 @@ export interface ComparisonPayload {
     topPercent: number | null;
     scoreDistribution: ComparisonScoreBucket[] | null;
     subjectWise: ComparisonSubjectRow[] | null;
+  };
+  generatedAt?: string;
+}
+
+// ---- Mini CCT (30-question mini grand test, 3 subjects) ----------------------
+
+export interface MiniCctLatestQuiz {
+  _id: string;
+  title: string;
+  testType: 'mini';
+  duration: number;
+  totalMarks: number;
+  positiveMarks?: number;
+  negativeMarks?: number;
+  scheduledDate?: string | null;
+  expiryDate?: string | null;
+  questionCount: number;
+  subjectNames: string[];
+  createdAt?: string;
+  attemptStatus: {
+    hasAttempted: boolean;
+    attemptId?: string;
+    status?: 'in_progress' | 'completed' | 'auto_submitted';
+    marksObtained?: number;
+    totalMarks?: number;
+    score?: number;
+    totalQuestions?: number;
+    endTime?: string | null;
+  };
+}
+
+export interface MiniCctLatestPayload {
+  quiz: MiniCctLatestQuiz | null;
+}
+
+export interface MiniCctAttemptSummary {
+  _id: string;
+  quizId: string;
+  quizTitle: string;
+  status: 'completed' | 'auto_submitted';
+  score: number;
+  totalQuestions: number;
+  marksObtained: number;
+  totalMarks: number;
+  endTime: string;
+}
+
+export interface MiniCctHistoryPayload {
+  attempts: MiniCctAttemptSummary[];
+  total: number;
+  page: number;
+  pages: number;
+}
+
+export interface MiniCctHeatmapCell {
+  questionIndex: number;
+  questionId?: string | null;
+  subjectName: string;
+  topicName?: string | null;
+  status: 'correct' | 'incorrect' | 'skipped';
+}
+
+export interface MiniCctSubjectRow {
+  subjectName: string;
+  questionCount: number;
+  correct: number;
+  incorrect: number;
+  skipped: number;
+  attempted: number;
+  accuracy: number | null;
+  marks: number;
+  cohortAvgMarks: number | null;
+  cohortAvgAccuracy: number | null;
+  cohortAttempts: number;
+}
+
+export interface MiniCctTopicRow {
+  label: string;
+  subjectName: string;
+  questionCount: number;
+  attempted: number;
+  correct: number;
+  incorrect: number;
+  skipped: number;
+  accuracy: number | null;
+}
+
+export interface MiniCctTagRow extends MiniCctTopicRow {
+  subjects: string[];
+  status: 'weak' | 'strong' | 'neutral';
+}
+
+export interface MiniCctAnalysis {
+  quiz: { _id: string; title: string; testType: string; totalMarks: number };
+  attempt: { _id: string; status: string; startTime: string; endTime?: string | null; timeTakenSeconds: number };
+  summary: {
+    correct: number;
+    incorrect: number;
+    skipped: number;
+    attempted: number;
+    totalQuestions: number;
+    marksObtained: number;
+    totalMarks: number;
+    scorePercentage: number | null;
+    accuracy: number | null;
+    timeTakenSeconds: number;
+  };
+  heatmap?: MiniCctHeatmapCell[];
+  subjects: MiniCctSubjectRow[];
+  overall: {
+    scorePercentage: number | null;
+    accuracy: number | null;
+    cohortAvgScorePercentage: number | null;
+    cohortAvgAccuracy: number | null;
+  };
+  cohort: {
+    totalStudents: number;
+    minCohortSize: number;
+    sufficient: boolean;
+    percentile: number | null;
+    topPercent: number | null;
+    averageMarks: number | null;
+    averageScorePercentage: number | null;
+    highestMarks: number | null;
+  };
+  insight: {
+    tier: { key: string; label: string } | null;
+    strongestSubject: { subjectName: string; accuracy: number | null } | null;
+    weakestSubject: { subjectName: string; accuracy: number | null } | null;
+    message: string;
+  };
+  topics?: MiniCctTopicRow[];
+  tags?: MiniCctTagRow[];
+  access: {
+    level: 'full' | 'limited';
+    gatedSections: string[];
+    message?: string;
   };
   generatedAt?: string;
 }

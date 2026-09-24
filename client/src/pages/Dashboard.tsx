@@ -5,6 +5,7 @@ import { appErrorMessage, appQuizApi, dailyPyqApi, isAppUnavailable } from '../l
 import { useAppAuth } from '../context/AppAuthContext';
 import type { AnalyticsMe, ComparisonPayload, DailyPyqTodayPayload } from '../types/app';
 import CohortComparisonCard from '../components/app/CohortComparisonCard';
+import MiniCctCard from '../components/app/MiniCctCard';
 import OpenInAppButton from '../components/app/OpenInAppButton';
 
 /**
@@ -132,6 +133,8 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         )}
+
+        <MiniCctCard />
 
         {!loading && error && (
           <div className="dark-banner-error text-sm mb-6">

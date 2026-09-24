@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, CheckCircle2, Loader2, RotateCcw } from 'lucide-react';
 import { appErrorMessage, appQuizApi } from '../lib/appClient';
 import type { ResultsPayload } from '../types/app';
+import MiniCctAnalysis from '../components/app/MiniCctAnalysis';
 import OpenInAppButton from '../components/app/OpenInAppButton';
 
 const Metric: React.FC<{ label: string; value: React.ReactNode; tone?: string }> = ({ label, value, tone = 'text-[#F8FAFC]' }) => (
@@ -72,6 +73,10 @@ const TestResults: React.FC = () => {
   }
 
   const { summary, attempt, quiz } = payload;
+  // Mini CCT results open the dedicated analysis dashboard (Features 04/05)
+  // instead of the generic score/performance blocks — the analysis carries the
+  // score summary, subject comparison, heatmap, topics and tags itself.
+  const isMiniCct = quiz.testType === 'mini';
 
   return (
     <section className="py-10 md:py-16 bg-[#0A0F14] min-h-screen">
@@ -94,23 +99,29 @@ const TestResults: React.FC = () => {
             </span>
           </div>
 
-          <div className="text-center mb-8">
-            <div className="text-5xl font-bold text-[#4DD7C8]">
-              {summary.marksObtained}
-              <span className="text-xl text-[#94A3B8]"> / {summary.totalMarks}</span>
-            </div>
-            <div className="text-sm text-[#94A3B8] mt-1">{summary.scorePercentage}% · {summary.accuracy}% accuracy</div>
-          </div>
+          {!isMiniCct && (
+            <>
+              <div className="text-center mb-8">
+                <div className="text-5xl font-bold text-[#4DD7C8]">
+                  {summary.marksObtained}
+                  <span className="text-xl text-[#94A3B8]"> / {summary.totalMarks}</span>
+                </div>
+                <div className="text-sm text-[#94A3B8] mt-1">{summary.scorePercentage}% · {summary.accuracy}% accuracy</div>
+              </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Metric label="Correct" value={summary.correct} tone="text-emerald-300" />
-            <Metric label="Incorrect" value={summary.incorrect} tone="text-rose-300" />
-            <Metric label="Skipped" value={summary.skipped} tone="text-[#94A3B8]" />
-            <Metric label="Attempted" value={`${summary.attempted}/${summary.totalQuestions}`} />
-          </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <Metric label="Correct" value={summary.correct} tone="text-emerald-300" />
+                <Metric label="Incorrect" value={summary.incorrect} tone="text-rose-300" />
+                <Metric label="Skipped" value={summary.skipped} tone="text-[#94A3B8]" />
+                <Metric label="Attempted" value={`${summary.attempted}/${summary.totalQuestions}`} />
+              </div>
+            </>
+          )}
         </div>
 
-        {attempt.sectionPerformance.length > 0 && (
+        {isMiniCct && <MiniCctAnalysis attemptId={attemptId} />}
+
+        {!isMiniCct && attempt.sectionPerformance.length > 0 && (
           <div className="bg-[#18222E] border border-white/[0.06] rounded-2xl p-6 md:p-8 mb-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-[#4DD7C8]">Performance</h3>

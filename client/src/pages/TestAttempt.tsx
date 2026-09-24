@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { AlertTriangle, Bookmark, ChevronLeft, ChevronRight, Clock, Loader2, ListChecks } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Bookmark, ChevronLeft, ChevronRight, Clock, Loader2, ListChecks } from 'lucide-react';
 import { appErrorMessage, appQuizApi } from '../lib/appClient';
 import type { Question, QuizDetail, SectionState, StartAttemptResponse } from '../types/app';
 
