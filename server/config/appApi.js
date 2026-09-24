@@ -195,6 +195,9 @@ async function callAppApi(path, options = {}) {
       status: response.status,
       message: (data && (data.message || data.msg)) || null,
       code: (data && (data.code || data.errorCode)) || null,
+      // Narrow passthrough for the Daily PYQ date-rollover hint (the App API
+      // returns today's date so the client can refetch immediately).
+      currentDate: data && typeof data.currentDate === 'string' ? data.currentDate : null,
     };
     // 4xx from the App API is a meaningful answer (bad credentials, locked
     // section, not found…); 5xx is an outage — degrade, don't leak internals.

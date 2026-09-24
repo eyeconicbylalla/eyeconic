@@ -24,7 +24,10 @@ const Navbar: React.FC = () => {
   const [studentLoginOpen, setStudentLoginOpen] = useState(false);
   const location = useLocation();
   const { user: appUser, logout: appLogout } = useAppAuth();
-  const isStudentArea = location.pathname === '/dashboard' || location.pathname.startsWith('/tests');
+  const isStudentArea =
+    location.pathname === '/dashboard' ||
+    location.pathname.startsWith('/tests') ||
+    location.pathname.startsWith('/daily-pyq');
   const isAppAuthed = Boolean(appUser);
   const navRef = useRef<HTMLElement>(null);
 
@@ -114,6 +117,16 @@ const Navbar: React.FC = () => {
                     Dashboard
                   </Link>
                 </li>
+                <li>
+                  <Link
+                    to="/daily-pyq"
+                    className={`font-medium transition-colors ${
+                      isActive('/daily-pyq') ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
+                    }`}
+                  >
+                    Daily PYQ
+                  </Link>
+                </li>
               </>
             ) : (
               <>
@@ -199,6 +212,17 @@ const Navbar: React.FC = () => {
                       }`}
                     >
                       Dashboard
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/daily-pyq"
+                      onClick={() => setIsMenuOpen(false)}
+                      className={`font-medium transition-colors block ${
+                        isActive('/daily-pyq') ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
+                      }`}
+                    >
+                      Daily PYQ
                     </Link>
                   </li>
                 </>

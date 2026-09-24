@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Activity, BookOpen, LogOut, RefreshCw, Target, TrendingUp, Trophy } from 'lucide-react';
-import { appErrorMessage, appQuizApi, isAppUnavailable } from '../lib/appClient';
+import { AlertTriangle, Activity, BookOpen, CheckCircle2, Flame, LogOut, RefreshCw, Target, TrendingUp, Trophy } from 'lucide-react';
+import { appErrorMessage, appQuizApi, dailyPyqApi, isAppUnavailable } from '../lib/appClient';
 import { useAppAuth } from '../context/AppAuthContext';
-import type { AnalyticsMe } from '../types/app';
+import type { AnalyticsMe, DailyPyqTodayPayload } from '../types/app';
 import OpenInAppButton from '../components/app/OpenInAppButton';
 
 const dateLabel = (value?: string) =>
@@ -20,17 +20,22 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [unavailable, setUnavailable] = useState(false);
+  // Daily PYQ loads independently — its failure must never hide the rest of
+  // the dashboard.
+  const [daily, setDaily] = useState<DailyPyqTodayPayload | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     setUnavailable(false);
+    const dailyLoad = dailyPyqApi.today().then(setDaily).catch(() => setDaily(null));
     try {
       setAnalytics(await appQuizApi.analyticsMe({ limit: 10 }));
     } catch (err) {
       setError(appErrorMessage(err, 'Could not load your performance data.'));
       setUnavailable(isAppUnavailable(err));
     } finally {
+      await dailyLoad;
       setLoading(false);
     }
   }, []);
@@ -77,6 +82,39 @@ const Dashboard: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {daily && (
+          <div className="bg-[#18222E] border border-[#18B6A4]/25 rounded-2xl p-5 sm:p-6 mb-8 flex flex-wrap items-center justify-between gap-4">
+            <div className="min-w-0">
+              <h3 className="font-semibold text-[#F8FAFC] flex items-center gap-2 text-lg">
+                Daily PYQ
+                {daily.streak.current > 0 && (
+                  <span className="inline-flex items-center gap-1 text-xs text-orange-300 bg-orange-500/10 border border-orange-500/20 rounded-full px-2.5 py-1">
+                    <Flame size={12} /> {daily.streak.current}-day streak
+                  </span>
+                )}
+              </h3>
+              {daily.status === 'completed' && daily.attempt ? (
+                <p className="text-sm text-[#94A3B8] mt-1.5 flex items-center gap-1.5 flex-wrap">
+                  <CheckCircle2 size={14} className="text-emerald-400" />
+                  Completed today · <span className="text-[#4DD7C8] font-medium">{daily.attempt.correctCount}/{daily.attempt.totalQuestions}</span> correct
+                  · {daily.attempt.score}/{daily.attempt.maxScore} marks
+                </p>
+              ) : (
+                <p className="text-sm text-[#94A3B8] mt-1.5">{daily.totalQuestions} Questions · Today's Challenge</p>
+              )}
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <Link to="/daily-pyq/history" className="text-sm text-[#94A3B8] hover:text-[#F8FAFC] hidden sm:block">History</Link>
+              <Link
+                to="/daily-pyq"
+                className={daily.status === 'completed' ? 'btn btn-outline text-sm px-4 py-2' : 'btn btn-primary text-sm px-4 py-2'}
+              >
+                {daily.status === 'completed' ? 'Review' : 'Start Daily PYQ'}
+              </Link>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           {summaryCards.map((card) => (

@@ -75,6 +75,10 @@ function sendAppError(res, error, requestId) {
       msg: error.message,
       code: error.code,
       ...(error.upstream && error.upstream.code ? { appCode: error.upstream.code } : {}),
+      // Daily PYQ date-rollover hint so the client can refetch immediately.
+      ...(error.upstream && typeof error.upstream.currentDate === 'string'
+        ? { currentDate: error.upstream.currentDate }
+        : {}),
     });
   }
   console.error('[app-proxy] Unexpected error', {
@@ -373,6 +377,84 @@ router.post(
     }
   }
 );
+
+// ---- Daily PYQ (10 past questions per day, App API authoritative) -----------
+
+function pickDailyPyqHistoryQuery(query) {
+  const out = {};
+  const page = sanitizeInt(query.page, { min: 1, max: 1000, fallback: null });
+  if (page) out.page = page;
+  const limit = sanitizeInt(query.limit, { min: 1, max: 50, fallback: null });
+  if (limit) out.limit = limit;
+  return out;
+}
+
+// Today's frozen set (or the student's completed attempt) + streak.
+router.get('/daily-pyq/today', async (req, res) => {
+  try {
+    const data = await callAppApi('/daily-pyq/today', {
+      userToken: req.appSession.token,
+      requestId: req.requestId,
+    });
+    return res.json(data);
+  } catch (error) {
+    return sendAppError(res, error, req.requestId);
+  }
+});
+
+// Submit today's answers. Only whitelisted fields are forwarded; grading,
+// the daily set and scoring stay entirely server-side in the App API.
+router.post('/daily-pyq/submit', async (req, res) => {
+  const payload = req.body || {};
+  if (typeof payload.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(payload.date)) {
+    return res.status(400).json({ msg: 'Invalid date', code: 'VALIDATION_ERROR' });
+  }
+  if (payload.answers !== undefined && !Array.isArray(payload.answers)) {
+    return res.status(400).json({ msg: 'Invalid answers', code: 'VALIDATION_ERROR' });
+  }
+  const body = { date: payload.date, answers: Array.isArray(payload.answers) ? payload.answers : [] };
+  const timeTaken = Number(payload.timeTakenSeconds);
+  if (Number.isFinite(timeTaken) && timeTaken >= 0) {
+    body.timeTakenSeconds = Math.round(timeTaken);
+  }
+  try {
+    const data = await callAppApi('/daily-pyq/submit', {
+      method: 'POST',
+      body,
+      userToken: req.appSession.token,
+      requestId: req.requestId,
+    });
+    return res.json(data);
+  } catch (error) {
+    return sendAppError(res, error, req.requestId);
+  }
+});
+
+// Own attempt history (paginated summaries).
+router.get('/daily-pyq/history', async (req, res) => {
+  try {
+    const data = await callAppApi(
+      `/daily-pyq/history${buildQueryString(pickDailyPyqHistoryQuery(req.query))}`,
+      { userToken: req.appSession.token, requestId: req.requestId }
+    );
+    return res.json(data);
+  } catch (error) {
+    return sendAppError(res, error, req.requestId);
+  }
+});
+
+// One own attempt's graded detail.
+router.get('/daily-pyq/attempts/:attemptId', requireAttemptId, async (req, res) => {
+  try {
+    const data = await callAppApi(`/daily-pyq/attempts/${req.params.attemptId}`, {
+      userToken: req.appSession.token,
+      requestId: req.requestId,
+    });
+    return res.json(data);
+  } catch (error) {
+    return sendAppError(res, error, req.requestId);
+  }
+});
 
 // Everything not in the table is a hard 404 — no fall-through proxying.
 router.use((_req, res) =>

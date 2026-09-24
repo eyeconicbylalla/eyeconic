@@ -4,6 +4,8 @@ import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
+import DailyPyq from './pages/DailyPyq';
+import DailyPyqHistory from './pages/DailyPyqHistory';
 import Tests from './pages/Tests';
 import TestDetail from './pages/TestDetail';
 import TestAttempt from './pages/TestAttempt';
@@ -73,6 +75,8 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/app-link" element={<AppLink />} />
               <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+              <Route path="/daily-pyq" element={<RequireAuth><DailyPyq /></RequireAuth>} />
+              <Route path="/daily-pyq/history" element={<RequireAuth><DailyPyqHistory /></RequireAuth>} />
               <Route path="/tests" element={<RequireAuth><Tests /></RequireAuth>} />
               <Route path="/tests/:quizId" element={<RequireAuth><TestDetail /></RequireAuth>} />
               <Route path="/tests/:quizId/attempt" element={<RequireAuth><TestAttempt /></RequireAuth>} />

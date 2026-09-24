@@ -195,3 +195,80 @@ export interface AnalyticsMe {
     endTime?: string;
   }[];
 }
+
+// ---- Daily PYQ (10 past questions per IST calendar day) ---------------------
+
+export interface DailyPyqStreak {
+  current: number;
+  best: number;
+}
+
+/** Player-facing question — the answer key and explanation are stripped upstream. */
+export interface DailyPyqQuestion {
+  _id: string;
+  question: string;
+  questionImage?: string | null;
+  questionType: string;
+  options?: string[] | null;
+  optionImages?: (string | null)[] | null;
+  assertion?: string | null;
+  reason?: string | null;
+  subject?: { _id: string; name: string } | null;
+  topicName?: string;
+}
+
+/** Per-question snapshot stored with the attempt at submit time. */
+export interface DailyPyqAnswer {
+  question: string;
+  questionType?: string;
+  questionText: string;
+  questionImage?: string | null;
+  options?: string[] | null;
+  optionImages?: (string | null)[] | null;
+  assertion?: string | null;
+  reason?: string | null;
+  selectedAnswer: unknown;
+  correctAnswer: unknown;
+  answered: boolean;
+  isCorrect: boolean;
+  explanation: string;
+  explanationImage?: string | null;
+}
+
+export interface DailyPyqAttempt {
+  _id: string;
+  date: string;
+  score: number;
+  maxScore: number;
+  correctCount: number;
+  incorrectCount: number;
+  skippedCount: number;
+  totalQuestions: number;
+  timeTakenSeconds: number;
+  submittedAt: string;
+  /** Present on today's payload and attempt-detail fetches; absent in history summaries. */
+  answers?: DailyPyqAnswer[];
+}
+
+export interface DailyPyqTodayPayload {
+  date: string;
+  serverTime: string;
+  totalQuestions: number;
+  status: 'pending' | 'completed';
+  streak: DailyPyqStreak;
+  questions: DailyPyqQuestion[];
+  attempt: DailyPyqAttempt | null;
+}
+
+export interface DailyPyqSubmitPayload {
+  attempt: DailyPyqAttempt;
+  duplicate: boolean;
+  streak: DailyPyqStreak;
+}
+
+export interface DailyPyqHistoryPayload {
+  attempts: DailyPyqAttempt[];
+  total: number;
+  page: number;
+  pages: number;
+}

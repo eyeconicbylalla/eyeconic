@@ -1,7 +1,8 @@
 import axios, { AxiosError } from 'axios';
 import { API_BASE_URL } from '../config/api';
 import type {
-  AnalyticsMe, AttemptState, QuizDetail, QuizListItem, ResultsPayload,
+  AnalyticsMe, AttemptState, DailyPyqHistoryPayload, DailyPyqSubmitPayload,
+  DailyPyqTodayPayload, DailyPyqAttempt, QuizDetail, QuizListItem, ResultsPayload,
   StartAttemptResponse, SubmitResponse,
 } from '../types/app';
 
@@ -98,4 +99,22 @@ export const appQuizApi = {
     appApi.post(`/quizzes/${quizId}/attempt/${attemptId}/request-retest`, {}).then((r) => r.data),
   analyticsMe: (params?: { range?: string; page?: number; limit?: number }) =>
     appApi.get<AnalyticsMe>('/analytics/me', { params }).then((r) => r.data),
+};
+
+// ---- Daily PYQ surface ------------------------------------------------------
+
+export const dailyPyqApi = {
+  today: () => appApi.get<DailyPyqTodayPayload>('/daily-pyq/today').then((r) => r.data),
+  submit: (
+    date: string,
+    answers: { questionId: string; selectedAnswer: number | null }[],
+    timeTakenSeconds: number
+  ) =>
+    appApi
+      .post<DailyPyqSubmitPayload>('/daily-pyq/submit', { date, answers, timeTakenSeconds })
+      .then((r) => r.data),
+  history: (params?: { page?: number; limit?: number }) =>
+    appApi.get<DailyPyqHistoryPayload>('/daily-pyq/history', { params }).then((r) => r.data),
+  attempt: (attemptId: string) =>
+    appApi.get<{ attempt: DailyPyqAttempt }>(`/daily-pyq/attempts/${attemptId}`).then((r) => r.data),
 };
