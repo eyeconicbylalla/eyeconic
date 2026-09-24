@@ -1,9 +1,15 @@
-import React, { useState } from 'react';
+import React, { lazy, Suspense, useState } from 'react';
 import axios from 'axios';
+import { useSearchParams } from 'react-router-dom';
 import { API_BASE_URL } from '../config/api';
 import * as XLSX from 'xlsx';
 import BlogCmsPanel from '../components/admin/BlogCmsPanel';
+import RequireMentor from '../components/mentor/RequireMentor';
 import { adminLogin, clearAdminToken, getAdminAuthHeaders } from '../lib/adminAuth';
+
+// The Free Users analytics tab pulls in chart.js + xlsx — mentor-only weight
+// that Students/Blogs visitors never need, so it loads on first open.
+const MentorDashboard = lazy(() => import('./MentorDashboard'));
 
 interface Student {
   _id: string;
@@ -25,12 +31,28 @@ const calledOptions = ['Not Called', 'Called'];
 const buyOptions = ['Have to Pay', 'Will Buy', 'Paid'];
 const batchOptions = ['Arjuna', 'Nurture 3.1', 'Foundation 2.1', ''];
 
+type AdminTab = 'students' | 'blogs' | 'free-users';
+const VALID_TABS: AdminTab[] = ['students', 'blogs', 'free-users'];
+
+const PanelFallback = () => (
+  <div className="py-14 flex items-center justify-center" role="status" aria-label="Loading">
+    <div className="w-8 h-8 rounded-full border-2 border-[#18B6A4] border-t-transparent animate-spin" />
+  </div>
+);
+
 const Admin: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [students, setStudents] = useState<Student[]>([]);
   const [total, setTotal] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<'students' | 'blogs'>('students');
+
+  // Tab lives in the URL (?tab=…) so /admin links and the /mentor-dashboard
+  // redirect can deep-link straight to a section.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const activeTab: AdminTab = VALID_TABS.includes(tabParam as AdminTab)
+    ? (tabParam as AdminTab)
+    : 'students';
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -174,6 +196,17 @@ const Admin: React.FC = () => {
     XLSX.writeFile(wb, 'students.xlsx');
   };
 
+  const selectTab = (tab: AdminTab) => {
+    setSearchParams(tab === 'students' ? {} : { tab }, { replace: true });
+  };
+
+  const tabButtonClass = (tab: AdminTab) =>
+    `rounded-lg px-4 py-2 font-semibold transition-colors ${
+      activeTab === tab
+        ? 'bg-[#18B6A4] text-[#0A0F14]'
+        : 'bg-[#1E2A38] text-[#94A3B8] hover:bg-[#263445] hover:text-white'
+    }`;
+
   return (
     <section className="py-10 md:py-20 min-h-screen bg-[#0A0F14]">
       <div className="container mx-auto px-2 sm:px-4">
@@ -206,32 +239,29 @@ const Admin: React.FC = () => {
             </button>
           </form>
         ) : (
-          <div className="bg-[#18222E] p-4 md:p-8 rounded-xl shadow-card-dark border border-white/[0.06]">
-            <div className="mb-6 flex flex-wrap gap-3">
-              <button
-                className={`rounded-lg px-4 py-2 font-semibold transition-colors ${
-                  activeTab === 'students'
-                    ? 'bg-[#18B6A4] text-[#0A0F14]'
-                    : 'bg-[#1E2A38] text-[#94A3B8] hover:bg-[#263445] hover:text-white'
-                }`}
-                onClick={() => setActiveTab('students')}
-              >
-                Students
-              </button>
-              <button
-                className={`rounded-lg px-4 py-2 font-semibold transition-colors ${
-                  activeTab === 'blogs'
-                    ? 'bg-[#18B6A4] text-[#0A0F14]'
-                    : 'bg-[#1E2A38] text-[#94A3B8] hover:bg-[#263445] hover:text-white'
-                }`}
-                onClick={() => setActiveTab('blogs')}
-              >
-                Blogs
-              </button>
+          <>
+            <div className="bg-[#18222E] p-4 md:p-6 rounded-xl shadow-card-dark border border-white/[0.06] mb-6">
+              <div className="flex flex-wrap gap-3">
+                <button className={tabButtonClass('students')} onClick={() => selectTab('students')}>
+                  Students
+                </button>
+                <button className={tabButtonClass('blogs')} onClick={() => selectTab('blogs')}>
+                  Blogs
+                </button>
+                {/* Feature 08 — Free Login User Dashboard. The tab itself is
+                    gated only by the portal login above so it is always
+                    reachable; its CONTENT carries the second gate (mentor/
+                    admin App session via RequireMentor, which offers in-place
+                    sign-in) and every /api/mentor-dashboard call is
+                    re-authorized server-side regardless. */}
+                <button className={tabButtonClass('free-users')} onClick={() => selectTab('free-users')}>
+                  Free Login Users
+                </button>
+              </div>
             </div>
 
-            {activeTab === 'students' ? (
-              <>
+            {activeTab === 'students' && (
+              <div className="bg-[#18222E] p-4 md:p-8 rounded-xl shadow-card-dark border border-white/[0.06]">
                 <div className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between">
                   <h3 className="mb-2 text-xl font-bold text-[#F8FAFC] md:mb-0 md:text-2xl">
                     Total Students: {total}
@@ -352,11 +382,27 @@ const Admin: React.FC = () => {
                     </tbody>
                   </table>
                 </div>
-              </>
-            ) : (
-              <BlogCmsPanel />
+              </div>
             )}
-          </div>
+
+            {activeTab === 'blogs' && (
+              <div className="bg-[#18222E] p-4 md:p-8 rounded-xl shadow-card-dark border border-white/[0.06]">
+                <BlogCmsPanel />
+              </div>
+            )}
+
+            {/* Feature 08 — Free Login User Dashboard (mentor view). Gated on
+                two independent layers: the Admin Portal session above and the
+                mentor/admin App session here + on every /api/mentor-dashboard
+                call the panel makes. */}
+            {activeTab === 'free-users' && (
+              <RequireMentor>
+                <Suspense fallback={<PanelFallback />}>
+                  <MentorDashboard />
+                </Suspense>
+              </RequireMentor>
+            )}
+          </>
         )}
       </div>
     </section>

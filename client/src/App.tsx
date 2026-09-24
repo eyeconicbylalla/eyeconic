@@ -122,6 +122,9 @@ function App() {
                   </Suspense>
                 }
               />
+              {/* Free Login User Dashboard (Feature 08) moved into the Admin
+                  Portal as its "Free Users" tab — old links land there. */}
+              <Route path="/mentor-dashboard" element={<Navigate to="/admin?tab=free-users" replace />} />
               <Route path="/blogs" element={<Blogs />} />
               <Route path="/blogs/search" element={<Blogs />} />
               <Route path="/blogs/category/:categorySlug" element={<Blogs />} />

@@ -132,7 +132,6 @@ const features: Feature[] = [
 
 const FeaturesShowcaseSection: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [activeProgress, setActiveProgress] = useState(0);
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
   // Sync active feature when image container is scrolled
@@ -145,10 +144,8 @@ const FeaturesShowcaseSection: React.FC = () => {
 
     const rawIndex = scrollTop / clientHeight;
     const index = Math.max(0, Math.min(features.length - 1, Math.round(rawIndex)));
-    const subProgress = Math.max(0, Math.min(1, rawIndex - Math.floor(rawIndex)));
 
     setActiveIndex(index);
-    setActiveProgress(subProgress);
   };
 
   // Scoped wheel handling on the image container:

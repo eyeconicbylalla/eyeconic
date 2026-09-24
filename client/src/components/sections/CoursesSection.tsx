@@ -1,10 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
-import nurture from '../../assets/Nurture.png';
-import fateh from '../../assets/Fateh.png';
-import udaan from '../../assets/Udaan.png';
-import inicet from '../../assets/inicet.png';
+// Legacy course cards (Nurture/Fateh/Udaan/INICET) are kept commented out below
+// for reference — only the current Mentorship Program images are imported.
 import img36 from '../../assets/36.png';
 import img37 from '../../assets/37.png';
 import img38 from '../../assets/38.png';

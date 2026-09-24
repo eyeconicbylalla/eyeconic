@@ -79,6 +79,15 @@ const Navbar: React.FC = () => {
     return location.pathname.startsWith(to);
   };
 
+  // The horizontal nav only fits comfortably from lg (1024px) up: logo + up to
+  // 7 links + two action buttons need ~950px at text-sm. Below that (tablets
+  // included) the hamburger menu takes over, so the bar can never wrap,
+  // squeeze or collide at any supported width.
+  const linkClass = (to: string) =>
+    `font-medium text-sm whitespace-nowrap transition-colors ${
+      isActive(to) ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
+    }`;
+
   return (
     <nav ref={navRef} className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
       isScrolled
@@ -87,20 +96,15 @@ const Navbar: React.FC = () => {
     }`}>
       {/* py-3 lives on this bar row (not the nav) so the nav's height — and
           therefore --nav-h — is exactly the bar, unaffected by the dropdown. */}
-      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-        <Link to="/" className="flex items-center space-x-2 text-2xl font-bold text-[#18B6A4] hover:text-[#1CC8B5] transition-colors">
+      <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
+        <Link to="/" className="flex items-center space-x-2 text-2xl font-bold text-[#18B6A4] hover:text-[#1CC8B5] transition-colors shrink-0">
           <img src={logo} alt="Eyeconic Logo" className="h-8 w-8 object-contain" />
-          <span>EyeConic</span>
+          <span className="whitespace-nowrap">EyeConic</span>
         </Link>
-        <div className="hidden md:flex items-center space-x-8">
-          <ul className="flex space-x-8">
+        <div className="hidden lg:flex items-center gap-5 xl:gap-7 min-w-0">
+          <ul className="flex items-center gap-4 xl:gap-6 whitespace-nowrap">
             <li>
-              <Link
-                to="/"
-                className={`font-medium transition-colors ${
-                  isActive('/') ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
-                }`}
-              >
+              <Link to="/" className={linkClass('/')}>
                 Home
               </Link>
             </li>
@@ -108,22 +112,12 @@ const Navbar: React.FC = () => {
             {isStudentArea && isAppAuthed ? (
               <>
                 <li>
-                  <Link
-                    to="/dashboard"
-                    className={`font-medium transition-colors ${
-                      isActive('/dashboard') ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
-                    }`}
-                  >
+                  <Link to="/dashboard" className={linkClass('/dashboard')}>
                     Dashboard
                   </Link>
                 </li>
                 <li>
-                  <Link
-                    to="/daily-pyq"
-                    className={`font-medium transition-colors ${
-                      isActive('/daily-pyq') ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
-                    }`}
-                  >
+                  <Link to="/daily-pyq" className={linkClass('/daily-pyq')}>
                     Daily PYQ
                   </Link>
                 </li>
@@ -132,12 +126,7 @@ const Navbar: React.FC = () => {
               <>
                 {sectionLinks.map((item) => (
                   <li key={item.label}>
-                    <Link
-                      to={item.to}
-                      className={`font-medium transition-colors ${
-                        isActive(item.to) ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
-                      }`}
-                    >
+                    <Link to={item.to} className={linkClass(item.to)}>
                       {item.label}
                     </Link>
                   </li>
@@ -146,38 +135,42 @@ const Navbar: React.FC = () => {
             )}
           </ul>
           {/* Auth buttons */}
-          {isAppAuthed ? (
-            <>
-              {!isStudentArea && (
-                <Link to="/dashboard" className="btn btn-outline">My Dashboard</Link>
-              )}
+          <div className="flex items-center gap-3 shrink-0 whitespace-nowrap">
+            {isAppAuthed ? (
+              <>
+                {!isStudentArea && (
+                  <Link to="/dashboard" className="btn btn-outline">My Dashboard</Link>
+                )}
+                <button
+                  onClick={handleStudentLogout}
+                  className="btn btn-outline"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
               <button
-                onClick={handleStudentLogout}
-                className="btn btn-outline ml-2"
+                onClick={() => setStudentLoginOpen(true)}
+                className="btn btn-outline"
               >
-                Logout
+                Student Login
               </button>
-            </>
-          ) : (
-            <button
-              onClick={() => setStudentLoginOpen(true)}
-              className="btn btn-outline"
+            )}
+            <a
+              href="https://forms.gle/CAa6xLNsjsdhJt5M7"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-primary"
             >
-              Student Login
-            </button>
-          )}
-          <a
-            href="https://forms.gle/CAa6xLNsjsdhJt5M7"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn btn-primary"
-          >
-            Book a Call
-          </a>
+              Book a Call
+            </a>
+          </div>
         </div>
         <button
-          className="md:hidden text-[#CBD5E1] hover:text-white transition-colors"
+          className="lg:hidden text-[#CBD5E1] hover:text-white transition-colors shrink-0"
           onClick={() => setIsMenuOpen(!isMenuOpen)}
+          aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={isMenuOpen}
         >
           {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
@@ -187,7 +180,7 @@ const Navbar: React.FC = () => {
           before and so the nav's measured height (--nav-h) never changes when
           the menu opens. */}
       {isMenuOpen && (
-        <div className="md:hidden absolute top-full left-0 right-0 bg-[#0A0F14]/98 backdrop-blur-2xl border-t border-white/[0.06] z-50">
+        <div className="lg:hidden absolute top-full left-0 right-0 bg-[#0A0F14]/98 backdrop-blur-2xl border-t border-white/[0.06] z-50">
           <div className="container mx-auto px-4 py-6">
             <ul className="space-y-4">
               <li>

@@ -42,7 +42,7 @@ const Blogs: React.FC = () => {
 
         setBlogs(blogResponse.data.blogs || []);
         setFilters(filterResponse.data);
-      } catch (_error) {
+      } catch {
         setBlogs([]);
       } finally {
         setLoading(false);

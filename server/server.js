@@ -9,6 +9,7 @@ const authRoutes = require('./routes/auth');
 const blogRoutes = require('./routes/blogs');
 const appAuthRoutes = require('./routes/appAuth');
 const appProxyRoutes = require('./routes/appProxy');
+const mentorDashboardRoutes = require('./routes/mentorDashboard');
 const predictorRoutes = require('./routes/predictor');
 const { resolveAllowedOrigins } = require('./middleware/sameOrigin');
 const { isIntegrationConfigured } = require('./config/appApi');
@@ -93,6 +94,12 @@ app.use('/api/blogs', blogRoutes);
 // blog/CRM deployments keep working without the new variables.
 app.use('/api/app-auth', appAuthRoutes);
 app.use('/api/app', appProxyRoutes);
+
+// Free Login User Dashboard (Feature 08) — mentor/admin-only analytics over
+// the free-user population. Sits beside the student proxy: same App session,
+// but gated to mentor/admin roles here AND re-authorized by the App API on
+// every call; merges this server's own predictor collections into the data.
+app.use('/api/mentor-dashboard', mentorDashboardRoutes);
 
 // Rank & Branch Predictor — Phase 7 API over the Phase 3–6 engine, with
 // every served prediction persisted (Phase 9 built in). Authed by the same

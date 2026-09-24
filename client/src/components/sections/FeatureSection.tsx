@@ -6,7 +6,14 @@ import gtAnalysisImg from '../../assets/GTAnalysis.jpg';
 import personalized from '../../assets/Personalized Task.jpg';
 import live from '../../assets/Live.jpg';
 
-const features = [
+// Image-led cards open the enlarged-preview modal; icon-led cards (none
+// currently) render their icon inline — the union keeps that distinction
+// type-safe instead of casting at the render site.
+type Feature =
+  | { img: string; alt?: string; title: string; description: string }
+  | { icon: React.ReactNode; title: string; description: string };
+
+const features: Feature[] = [
   {
     img: mentorshipImg,
     alt: "One-on-One Mentorship",
@@ -104,7 +111,7 @@ const FeatureSection: React.FC = () => {
                   />
                 </div>
               ) : (
-                (feature as any).icon
+                feature.icon
               )}
               <h3 className="text-xl font-bold mb-2 text-white">{feature.title}</h3>
               <p className="text-[#94A3B8] text-sm leading-relaxed">{feature.description}</p>

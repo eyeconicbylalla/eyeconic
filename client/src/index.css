@@ -33,12 +33,12 @@
   /* Rendered height of the fixed Navbar. The Navbar component publishes the
      live measured value at runtime (ResizeObserver); these are only the
      pre-mount fallbacks — py-3 (24px) + tallest row item (logo h-8 = 32px
-     below md, .btn with py-3 = 48px from md up). Keep in sync with
+     below lg, .btn with py-3 = 48px from lg up). Keep in sync with
      Navbar.tsx if the navbar's sizing classes change. */
   --nav-h: 3.5rem;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   :root {
     --nav-h: 4.5rem;
   }

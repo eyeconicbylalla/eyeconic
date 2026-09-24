@@ -112,7 +112,7 @@ const BlogPost: React.FC = () => {
       const response = await axios.post<{ msg: string }>(`${API_BASE_URL}/blogs/slug/${slug}/comments`, comment);
       setCommentState(response.data.msg);
       setComment({ authorName: '', authorEmail: '', content: '' });
-    } catch (_error) {
+    } catch {
       setCommentState('Failed to submit comment');
     }
   };

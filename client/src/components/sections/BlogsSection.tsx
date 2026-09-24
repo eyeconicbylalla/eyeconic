@@ -32,7 +32,7 @@ const BlogsSection: React.FC = () => {
       try {
         const res = await axios.get(`${API_BASE_URL}/blogs`, { params: { limit: 3 } });
         setBlogs(res.data.blogs || []);
-      } catch (_error) {
+      } catch {
         setBlogs([]);
       } finally {
         setLoading(false);
