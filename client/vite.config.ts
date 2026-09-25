@@ -11,6 +11,12 @@ export default defineConfig({
     exclude: ['lucide-react'],
   },
   server: {
+    // The dev URL is documented as http://localhost:5173 everywhere
+    // (README, scripts/dev-all.ps1). If another project occupies the port,
+    // fail loudly instead of silently serving from :5174+ — a silent bump
+    // means the muscle-memory URL shows a different app and looks like
+    // "dev is broken".
+    strictPort: true,
     proxy: {
       '/api': {
         target: devApiTarget,

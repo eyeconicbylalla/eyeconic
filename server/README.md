@@ -66,6 +66,33 @@ Required env (see `../INTEGRATION_PHASE2.md` for the full architecture):
 - `APP_INTEGRATION_TOKEN` — shared service token, mirrored as `INTEGRATION_SERVICE_TOKEN` on the App backend
 - `SESSION_SECRET` — 32+ chars, encrypts the session cookie
 
+### Local development — the App backend must be running
+
+Every `/api/app/*` route proxies the App backend (the sibling `eyeconic-app`
+repo). Starting only this server and the client works, but the dashboard
+answers **503 `APP_UNAVAILABLE` on every card** until the App backend runs:
+
+```powershell
+# Full stack (App backend :3000, this server :5000, client :5173):
+powershell -ExecutionPolicy Bypass -File scripts\dev-all.ps1
+
+# Or the App backend alone:
+cd ..\eyeconic-app\backend
+npm run dev
+```
+
+dev-all.ps1 verifies each port with an HTTP signature probe and errors loudly
+if a foreign process holds it; the client (`vite.config.ts` `strictPort`)
+fails instead of silently moving to :5174. On boot (outside production), this
+server probes the local App API once and prints a warning with the fix if it
+is unreachable.
+
+For local app → website handoff (`POST /api/app-auth/handoff`), the tokens
+must mirror like in production: set `INTEGRATION_SERVICE_TOKEN` in
+`eyeconic-app/backend/.env` to the same value as this server's
+`APP_INTEGRATION_TOKEN` (otherwise the local backend only accepts the
+dev-default token and handoff returns 503).
+
 Endpoints:
 
 - `POST /api/app-auth/login` — student login (sets HttpOnly session)

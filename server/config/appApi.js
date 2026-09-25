@@ -44,6 +44,22 @@ function warnOnce(key, message) {
  * and shape-mismatch 503s. Detect the obvious self-reference (localhost on
  * our own PORT) and turn it into an explicit, actionable error.
  */
+/**
+ * True when the App API target is a loopback address — i.e. local
+ * development against the sibling eyeconic-app backend. Used to enrich
+ * failure logs with the target and the remediation hint; remote targets
+ * (production) keep the terse failure-class-only logging.
+ */
+function isLocalAppApiTarget(baseUrl) {
+  if (!baseUrl) return false;
+  try {
+    const host = new URL(baseUrl).hostname;
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+  } catch {
+    return false;
+  }
+}
+
 function detectSelfReference(baseUrl) {
   if (!baseUrl) return false;
   const ownPort = process.env.PORT || 5000;
@@ -170,10 +186,26 @@ async function callAppApi(path, options = {}) {
     });
   } catch (error) {
     const isAbort = error && error.name === 'AbortError';
-    // Never log tokens, bodies or full URLs — just the failure class.
+    // Never log tokens, bodies or full URLs — just the failure class. A
+    // LOCAL target is the exception: localhost:3000 carries no secrets, and
+    // an unreachable local backend is the #1 cause of dashboard-wide 503s in
+    // development, so name the target and the fix.
+    const localTarget = isLocalAppApiTarget(baseUrl);
     console.error(
       `[app-api] ${isAbort ? 'timeout' : 'network error'} calling ${method} ${path}`,
-      { requestId, name: error && error.name }
+      {
+        requestId,
+        name: error && error.name,
+        ...(localTarget
+          ? {
+              target: baseUrl,
+              hint:
+                'The local App backend is not running — every /api/app/* route returns 503 until it is. ' +
+                'Start the full stack: powershell -ExecutionPolicy Bypass -File scripts\\dev-all.ps1 ' +
+                '(or the backend alone: cd eyeconic-app\\backend && npm run dev)',
+            }
+          : {}),
+      }
     );
     throw new AppApiError(
       isAbort ? 'The Eyeconic service took too long to respond.' : APP_UNAVAILABLE_MESSAGE,
@@ -223,6 +255,7 @@ async function callAppApi(path, options = {}) {
 
 module.exports = {
   resolveAppApiBaseUrl,
+  isLocalAppApiTarget,
   isIntegrationConfigured,
   callAppApi,
   AppApiError,

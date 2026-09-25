@@ -12,7 +12,11 @@ const appProxyRoutes = require('./routes/appProxy');
 const mentorDashboardRoutes = require('./routes/mentorDashboard');
 const predictorRoutes = require('./routes/predictor');
 const { resolveAllowedOrigins } = require('./middleware/sameOrigin');
-const { isIntegrationConfigured } = require('./config/appApi');
+const {
+  isIntegrationConfigured,
+  resolveAppApiBaseUrl,
+  isLocalAppApiTarget,
+} = require('./config/appApi');
 const { ensureDbConnection } = require('./config/db');
 
 // Fail fast with a clear message when required secrets are missing — only
@@ -138,6 +142,33 @@ const redactUri = (message) =>
 // Mongo happens only when run directly.
 module.exports = app;
 
+// Development guardrail: when the App API target is local (the sibling
+// eyeconic-app backend), probe it once at boot. A missing local backend is
+// the #1 cause of dashboard-wide 503s in development — surface it here, with
+// the fix, instead of one opaque console error per /api/app/* request.
+function warnIfLocalAppApiUnreachable() {
+  const nodeEnv = process.env.NODE_ENV || '';
+  if (nodeEnv === 'production' || nodeEnv === 'test') return;
+  const baseUrl = resolveAppApiBaseUrl();
+  if (!baseUrl || !isLocalAppApiTarget(baseUrl)) return;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 4000);
+  fetch(`${baseUrl}/health`, { signal: controller.signal })
+    .then((response) => {
+      if (!response.ok) throw new Error(`health status ${response.status}`);
+    })
+    .catch(() => {
+      console.warn(
+        `[app-api] WARNING: the App API at ${baseUrl} is not reachable. Every /api/app/* route ` +
+          '(dashboard, quizzes, Daily PYQ, Mini CCT, analytics) will return 503 until it runs.\n' +
+          '  Start the full local stack: powershell -ExecutionPolicy Bypass -File scripts\\dev-all.ps1\n' +
+          '  Or the App backend alone:  cd ..\\eyeconic-app\\backend && npm run dev'
+      );
+    })
+    .finally(() => clearTimeout(timer));
+}
+
 if (require.main === module) {
   const PORT = process.env.PORT || 5000;
 
@@ -148,7 +179,10 @@ if (require.main === module) {
 
   ensureDbConnection()
     .then(() => {
-      app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+      app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+        warnIfLocalAppApiUnreachable();
+      });
     })
     .catch((err) => {
       console.error('MongoDB connection error:', redactUri(err.message));
