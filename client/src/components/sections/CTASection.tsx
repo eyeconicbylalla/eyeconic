@@ -42,7 +42,7 @@ const CTASection: React.FC = () => {
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <div className="bg-[#101720]/92 backdrop-blur-xl p-8 rounded-2xl border border-white/[0.08] shadow-[0_20px_60px_rgba(0,0,0,0.45)] text-white">
+            <div className="bg-[#101720]/95 backdrop-blur-xl p-8 rounded-2xl border border-white/[0.08] shadow-[0_20px_60px_rgba(0,0,0,0.45)] text-white">
               <h3 className="text-2xl font-bold mb-6 text-center text-white">Book Your Free Session</h3>
               
               <a

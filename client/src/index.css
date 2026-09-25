@@ -9,6 +9,11 @@
       0 2px 8px -1px rgba(0, 0, 0, 0.3);
   }
 
+  /* Mobile nav menu entrance (Navbar dropdown panel). */
+  .animate-menu-in {
+    animation: menu-in 160ms ease-out both;
+  }
+
   .shadow-large-dark {
     box-shadow:
       0 20px 40px -5px rgba(0, 0, 0, 0.7),
@@ -1570,6 +1575,24 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* Mobile nav menu: drop slightly and fade in under the navbar bar. */
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-menu-in {
+    animation: none;
   }
 }
 

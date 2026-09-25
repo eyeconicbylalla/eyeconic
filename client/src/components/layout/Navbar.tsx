@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Menu, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import LoginModal from '../auth/LoginModal';
@@ -30,6 +31,8 @@ const Navbar: React.FC = () => {
     location.pathname.startsWith('/daily-pyq');
   const isAppAuthed = Boolean(appUser);
   const navRef = useRef<HTMLElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -65,6 +68,54 @@ const Navbar: React.FC = () => {
       document.documentElement.style.removeProperty('--nav-h');
     };
   }, []);
+
+  // Any navigation (link taps already close the menu; this also covers
+  // browser back/forward and programmatic navigation) must not leave a
+  // stale open menu behind.
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [location]);
+
+  // While the mobile menu is open it behaves like a modal sheet over the
+  // page: the page behind it must not scroll, Escape closes it (returning
+  // focus to the toggle), and crossing into lg — where the hamburger no
+  // longer exists — must close it instead of leaving the body locked.
+  useEffect(() => {
+    if (!isMenuOpen) return;
+
+    const closeMenu = () => setIsMenuOpen(false);
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeMenu();
+        toggleRef.current?.focus();
+      }
+    };
+
+    const desktopQuery = window.matchMedia('(min-width: 1024px)');
+    const handleDesktopChange = (event: MediaQueryListEvent) => {
+      if (event.matches) closeMenu();
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    desktopQuery.addEventListener('change', handleDesktopChange);
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      desktopQuery.removeEventListener('change', handleDesktopChange);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMenuOpen]);
+
+  // Move focus into the menu when it opens so keyboard and screen-reader
+  // users land on the menu itself, not the dimmed page behind it.
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    menuRef.current?.querySelector<HTMLElement>('a, button')?.focus();
+  }, [isMenuOpen]);
 
   const handleStudentLogout = async () => {
     await appLogout();
@@ -167,10 +218,12 @@ const Navbar: React.FC = () => {
           </div>
         </div>
         <button
-          className="lg:hidden text-[#CBD5E1] hover:text-white transition-colors shrink-0"
+          ref={toggleRef}
+          className="lg:hidden p-2 -m-2 text-[#CBD5E1] hover:text-white transition-colors shrink-0"
           onClick={() => setIsMenuOpen(!isMenuOpen)}
           aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
           aria-expanded={isMenuOpen}
+          aria-controls="mobile-menu"
         >
           {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
@@ -178,66 +231,90 @@ const Navbar: React.FC = () => {
 
       {/* Mobile menu — out of flow (absolute) so it overlays page content as
           before and so the nav's measured height (--nav-h) never changes when
-          the menu opens. */}
+          the menu opens. The solid panel + body-level scrim make it read as a
+          proper sheet instead of loose links stamped over the hero. */}
       {isMenuOpen && (
-        <div className="lg:hidden absolute top-full left-0 right-0 bg-[#0A0F14]/98 backdrop-blur-2xl border-t border-white/[0.06] z-50">
-          <div className="container mx-auto px-4 py-6">
-            <ul className="space-y-4">
-              <li>
-                <Link
-                  to="/"
-                  onClick={() => setIsMenuOpen(false)}
-                  className={`font-medium transition-colors block ${
-                    isActive('/') ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
-                  }`}
-                >
-                  Home
-                </Link>
-              </li>
-              {isStudentArea && isAppAuthed ? (
-                <>
-                  <li>
-                    <Link
-                      to="/dashboard"
-                      onClick={() => setIsMenuOpen(false)}
-                      className={`font-medium transition-colors block ${
-                        isActive('/dashboard') ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
-                      }`}
-                    >
-                      Dashboard
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      to="/daily-pyq"
-                      onClick={() => setIsMenuOpen(false)}
-                      className={`font-medium transition-colors block ${
-                        isActive('/daily-pyq') ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
-                      }`}
-                    >
-                      Daily PYQ
-                    </Link>
-                  </li>
-                </>
-              ) : (
-                <>
-                  {sectionLinks.map((item) => (
-                    <li key={item.label}>
+        <>
+          {/* Scrim. Portaled to document.body because the nav's own
+              backdrop-blur forms a containing block for fixed descendants
+              (a fixed child of the nav would be sized to the bar instead of
+              the viewport), and held at z-40 so the navbar, its toggle and
+              the menu panel stay above it while everything else dims.
+              Tapping it closes the menu. */}
+          {createPortal(
+            <div
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+              onClick={() => setIsMenuOpen(false)}
+              aria-hidden="true"
+            />,
+            document.body
+          )}
+          {/* The panel is capped to the small-viewport height below the bar
+              and scrolls internally, so every item stays reachable on short
+              and landscape screens. (/95, not /98 — Tailwind's opacity scale
+              steps in 5s, so /98 silently compiles to nothing.) */}
+          <div
+            id="mobile-menu"
+            ref={menuRef}
+            className="lg:hidden absolute top-full left-0 right-0 bg-[#0A0F14]/95 backdrop-blur-xl border-t border-white/[0.06] shadow-large-dark max-h-[calc(100svh_-_var(--nav-h))] overflow-y-auto overscroll-contain animate-menu-in"
+          >
+            <div className="container mx-auto px-4 py-6">
+              <ul className="space-y-2">
+                <li>
+                  <Link
+                    to="/"
+                    onClick={() => setIsMenuOpen(false)}
+                    className={`font-medium transition-colors block py-2.5 ${
+                      isActive('/') ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
+                    }`}
+                  >
+                    Home
+                  </Link>
+                </li>
+                {isStudentArea && isAppAuthed ? (
+                  <>
+                    <li>
                       <Link
-                        to={item.to}
+                        to="/dashboard"
                         onClick={() => setIsMenuOpen(false)}
-                        className={`font-medium transition-colors block ${
-                          isActive(item.to) ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
+                        className={`font-medium transition-colors block py-2.5 ${
+                          isActive('/dashboard') ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
                         }`}
                       >
-                        {item.label}
+                        Dashboard
                       </Link>
                     </li>
-                  ))}
-                </>
-              )}
-            </ul>
-            <div className="mt-6 space-y-4 flex flex-col">
+                    <li>
+                      <Link
+                        to="/daily-pyq"
+                        onClick={() => setIsMenuOpen(false)}
+                        className={`font-medium transition-colors block py-2.5 ${
+                          isActive('/daily-pyq') ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
+                        }`}
+                      >
+                        Daily PYQ
+                      </Link>
+                    </li>
+                  </>
+                ) : (
+                  <>
+                    {sectionLinks.map((item) => (
+                      <li key={item.label}>
+                        <Link
+                          to={item.to}
+                          onClick={() => setIsMenuOpen(false)}
+                          className={`font-medium transition-colors block py-2.5 ${
+                            isActive(item.to) ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
+                          }`}
+                        >
+                          {item.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </>
+                )}
+              </ul>
+              <div className="mt-6 space-y-4 flex flex-col">
               {isAppAuthed ? (
                 <>
                   {!isStudentArea && (
@@ -275,9 +352,10 @@ const Navbar: React.FC = () => {
               >
                 Book a Call
               </a>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       <StudentLoginModal

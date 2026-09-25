@@ -72,7 +72,7 @@ const HeroSection: React.FC = () => {
           >
             <div className="relative flex flex-col items-center justify-center h-full min-h-[300px]">
               {!isLoggedIn && (
-                <div className="bg-[#101720]/92 backdrop-blur-xl rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.45)] border border-white/[0.08] p-8 text-center max-w-md mx-auto">
+                <div className="bg-[#101720]/95 backdrop-blur-xl rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.45)] border border-white/[0.08] p-8 text-center max-w-md mx-auto">
                     <h3 className="text-2xl font-bold text-white mb-3">Unlock Free NEET PG Tools!</h3>
                     <p className="text-white mb-4 text-sm">
                     <span className="font-semibold">Sign up to access:</span>

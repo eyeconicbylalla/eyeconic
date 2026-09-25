@@ -151,11 +151,13 @@ function App() {
             </Routes>
           </main>
           <Footer />
+          {/* z-40 (below the navbar's mobile-menu scrim and modal backdrops)
+              keeps the floating button from painting over an open menu. */}
           <a
             href="https://wa.me/919116303037?text=Hey!%20I%20would%20like%20to%20know%20more%20about%20the%20mentorship%20program!"
             target="_blank"
             rel="noopener noreferrer"
-            className="fixed bottom-6 right-6 z-50 transition-transform duration-300 hover:scale-110 block w-14 h-14"
+            className="fixed bottom-6 right-6 z-40 transition-transform duration-300 hover:scale-110 block w-14 h-14"
           >
             <img src={waIcon} alt="WhatsApp" className="w-full h-full object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.35)]" />
           </a>
