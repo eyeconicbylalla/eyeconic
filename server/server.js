@@ -11,6 +11,7 @@ const appAuthRoutes = require('./routes/appAuth');
 const appProxyRoutes = require('./routes/appProxy');
 const mentorDashboardRoutes = require('./routes/mentorDashboard');
 const predictorRoutes = require('./routes/predictor');
+const platformChoiceRoutes = require('./routes/platformChoice');
 const { resolveAllowedOrigins } = require('./middleware/sameOrigin');
 const {
   isIntegrationConfigured,
@@ -109,6 +110,12 @@ app.use('/api/mentor-dashboard', mentorDashboardRoutes);
 // every served prediction persisted (Phase 9 built in). Authed by the same
 // App student session as the proxy surface; needs Mongo for persistence.
 app.use('/api/predictor', predictorRoutes);
+
+// Platform Choice Recommender (Feature 06) — three tiered platform
+// recommendations from a configurable scoring matrix (platformChoice/config).
+// Same App student session; merges Mini CCT signals (App API) with this
+// server's predictor collections; recommendations are persisted before serving.
+app.use('/api/platform-choice', platformChoiceRoutes);
 if (!isIntegrationConfigured()) {
   console.warn(
     'App integration not configured — set APP_API_BASE_URL, APP_INTEGRATION_TOKEN and SESSION_SECRET to enable student sign-in and quizzes.'

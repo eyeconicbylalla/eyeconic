@@ -7,6 +7,7 @@ import type { AnalyticsMe, ComparisonPayload, DailyPyqTodayPayload } from '../ty
 import CohortComparisonCard from '../components/app/CohortComparisonCard';
 import MiniCctCard from '../components/app/MiniCctCard';
 import OpenInAppButton from '../components/app/OpenInAppButton';
+import PlatformChoiceCard from '../components/app/PlatformChoiceCard';
 
 /**
  * Integrated student dashboard: identity, tests and results come from the
@@ -136,6 +137,8 @@ const Dashboard: React.FC = () => {
 
         <MiniCctCard />
 
+        <PlatformChoiceCard />
+
         {!loading && error && (
           <div className="dark-banner-error text-sm mb-6">
             <p>{error}</p>
@@ -175,6 +178,9 @@ const Dashboard: React.FC = () => {
                 </Link>
                 <Link to="/blogs" className="block bg-[#151E29] border border-white/[0.06] rounded-xl px-4 py-3 text-sm text-[#CBD5E1] hover:border-[#18B6A4]/30 hover:text-[#F8FAFC] transition-colors">
                   📚 Eyeconic Blogs — NEET PG guides & insights
+                </Link>
+                <Link to="/platform-choice" className="block bg-[#151E29] border border-white/[0.06] rounded-xl px-4 py-3 text-sm text-[#CBD5E1] hover:border-[#18B6A4]/30 hover:text-[#F8FAFC] transition-colors">
+                  🧭 Platform Finder — which prep platform fits you
                 </Link>
                 <a
                   href="https://wa.me/919116303037?text=Hey!%20I%20have%20a%20question%20about%20my%20Eyeconic%20account."

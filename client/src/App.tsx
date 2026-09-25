@@ -29,6 +29,8 @@ import waIcon from './assets/WA Icon.png';
 const Predictor = lazy(() => import('./pages/Predictor'));
 const PredictorHistory = lazy(() => import('./pages/PredictorHistory'));
 const SignInGate = lazy(() => import('./pages/predictor/SignInGate'));
+// Platform Choice Recommender (Feature 06) — self-contained student surface.
+const PlatformChoice = lazy(() => import('./pages/PlatformChoice'));
 // The admin console pulls in xlsx + a rich-text editor — visitors never need
 // it on first paint, so it ships only when /admin is opened.
 const Admin = lazy(() => import('./pages/Admin'));
@@ -76,6 +78,14 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/app-link" element={<AppLink />} />
               <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+              <Route
+                path="/platform-choice"
+                element={
+                  <Suspense fallback={<RouteFallback />}>
+                    <RequireAuth><PlatformChoice /></RequireAuth>
+                  </Suspense>
+                }
+              />
               <Route path="/daily-pyq" element={<RequireAuth><DailyPyq /></RequireAuth>} />
               <Route path="/daily-pyq/history" element={<RequireAuth><DailyPyqHistory /></RequireAuth>} />
               <Route path="/mini-cct/history" element={<RequireAuth><MiniCctHistory /></RequireAuth>} />
