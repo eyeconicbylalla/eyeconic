@@ -1,0 +1,190 @@
+{
+  "anchorSetRuleId": "readiness-anchors-v1",
+  "generatedAt": "2026-09-26",
+  "anchors": {
+    "anchorSetRuleId": "readiness-anchors-v1",
+    "NEET_PG": {
+      "QUALIFY": {
+        "id": "QUALIFY",
+        "role": "context",
+        "rank": 115503,
+        "definition": "The worst All-India Rank that still scored the official UR qualifying score (276/800) in the official NEET PG 2025 result distribution — the last rank inside that score band.",
+        "source": {
+          "kind": "distribution",
+          "snapshotId": "DS-NEETPG-DISTRIBUTION-2025-v1",
+          "qualifyingScoreAnchor": 276,
+          "qualifyingScoreProvenance": "Phase-4 golden (UR/EWS 50th percentile = 276, 800-scale)"
+        },
+        "band": {
+          "minRank": 114989,
+          "maxRank": 115503,
+          "count": 515
+        },
+        "crossCheck": {
+          "pinnedPercentileAtBandTop": 49.8023,
+          "pinnedPercentileAtBandBottom": 50.0256,
+          "bandStraddles50thPercentile": true
+        }
+      },
+      "ANY_SEAT": {
+        "id": "ANY_SEAT",
+        "role": "default",
+        "rank": 182260,
+        "definition": "The worst (deepest) UR final-state closing rank in the 2025 All-India-Quota counselling — the rank of the last UR seat awarded at the end of counselling.",
+        "source": {
+          "kind": "counselling",
+          "snapshotId": "DS-NEETPG-COUNSELLING-2025-v1",
+          "filters": {
+            "quota": "AIQ",
+            "category": "UR",
+            "pwd": false
+          },
+          "loadedSnapshotId": "DS-NEETPG-COUNSELLING-2025-v1"
+        },
+        "evidence": {
+          "rowsMatched": 4425,
+          "holder": {
+            "institute": "VSS INSTITUTE OF MEDICAL SCIENCES AND RESEARCH,BURLA,VSS INSTITUTE OF MEDICAL SCIENCES AND RESEARCH,BURLA, Odisha, 768017",
+            "course": "MD/MS (Anatomy)"
+          }
+        }
+      },
+      "STRONG": {
+        "id": "STRONG",
+        "role": "context",
+        "rank": 13,
+        "definition": "The tightest (best) UR closing rank among General Medicine groups in the 2025 All-India-Quota counselling — what the most sought-after clinical seat demanded.",
+        "source": {
+          "kind": "counselling",
+          "snapshotId": "DS-NEETPG-COUNSELLING-2025-v1",
+          "filters": {
+            "quota": "AIQ",
+            "category": "UR",
+            "pwd": false
+          },
+          "loadedSnapshotId": "DS-NEETPG-COUNSELLING-2025-v1"
+        },
+        "evidence": {
+          "rowsMatched": 312,
+          "courseVariantsMatched": [
+            "M.D. (GENERAL MEDICINE)"
+          ],
+          "holder": {
+            "institute": "PGIMER, DR. RML Hospital, Cannaught Place, New Delhi , ABVIMS, DR. RML Hospital, Baba Kharak Singh Marg, Cannaught Place, New Delhi",
+            "course": "M.D. (GENERAL MEDICINE)"
+          }
+        }
+      }
+    },
+    "INI_CET": {
+      "ANY_SEAT": {
+        "id": "ANY_SEAT",
+        "role": "default",
+        "rank": 44418,
+        "definition": "The worst (deepest) UR closing rank across the trailing 4 INI-CET counselling sessions — the rank of the last UR seat awarded in the single INI pool.",
+        "source": {
+          "kind": "counselling",
+          "snapshotIds": [
+            "DS-INICET-COUNSELLING-202407-v1",
+            "DS-INICET-COUNSELLING-202501-v1",
+            "DS-INICET-COUNSELLING-202507-v1",
+            "DS-INICET-COUNSELLING-202601-v1"
+          ],
+          "filters": {
+            "quota": "INI",
+            "category": "UR",
+            "pwd": false
+          },
+          "trailingSessions": 4
+        },
+        "evidence": {
+          "sessionsScanned": [
+            "2024-07",
+            "2025-01",
+            "2025-07",
+            "2026-01"
+          ],
+          "perSessionMax": [
+            {
+              "session": "2024-07",
+              "snapshotId": "DS-INICET-COUNSELLING-202407-v1",
+              "rank": 40967,
+              "holder": {
+                "institute": "AIIMS MANGALAGIRI",
+                "course": "PHYSIOLOGY"
+              },
+              "rowsMatched": 273
+            },
+            {
+              "session": "2025-01",
+              "snapshotId": "DS-INICET-COUNSELLING-202501-v1",
+              "rank": 31277,
+              "holder": {
+                "institute": "JIPMER PUDUCHERRY",
+                "course": "ANAESTHESIOLOGY"
+              },
+              "rowsMatched": 304
+            },
+            {
+              "session": "2025-07",
+              "snapshotId": "DS-INICET-COUNSELLING-202507-v1",
+              "rank": 44418,
+              "holder": {
+                "institute": "JIPMER PUDUCHERRY",
+                "course": "PSYCHIATRY"
+              },
+              "rowsMatched": 285
+            },
+            {
+              "session": "2026-01",
+              "snapshotId": "DS-INICET-COUNSELLING-202601-v1",
+              "rank": 28705,
+              "holder": {
+                "institute": "AIIMS RAJKOT",
+                "course": "ANATOMY"
+              },
+              "rowsMatched": 325
+            }
+          ],
+          "holder": {
+            "institute": "JIPMER PUDUCHERRY",
+            "course": "PSYCHIATRY"
+          },
+          "holderSession": "2025-07"
+        }
+      },
+      "STRONG": {
+        "id": "STRONG",
+        "role": "context",
+        "rank": 4,
+        "definition": "The tightest (best) UR closing rank among General Medicine groups across the trailing 4 INI-CET counselling sessions.",
+        "source": {
+          "kind": "counselling",
+          "snapshotIds": [
+            "DS-INICET-COUNSELLING-202407-v1",
+            "DS-INICET-COUNSELLING-202501-v1",
+            "DS-INICET-COUNSELLING-202507-v1",
+            "DS-INICET-COUNSELLING-202601-v1"
+          ],
+          "filters": {
+            "quota": "INI",
+            "category": "UR",
+            "pwd": false
+          },
+          "trailingSessions": 4
+        },
+        "evidence": {
+          "rowsMatched": 66,
+          "courseVariantsMatched": [
+            "GENERAL MEDICINE"
+          ],
+          "holder": {
+            "institute": "AIIMS NEW DELHI",
+            "course": "GENERAL MEDICINE"
+          },
+          "holderSession": "2025-07"
+        }
+      }
+    }
+  }
+}

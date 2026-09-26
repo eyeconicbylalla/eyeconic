@@ -31,6 +31,8 @@ const PredictorHistory = lazy(() => import('./pages/PredictorHistory'));
 const SignInGate = lazy(() => import('./pages/predictor/SignInGate'));
 // Platform Choice Recommender (Feature 06) — self-contained student surface.
 const PlatformChoice = lazy(() => import('./pages/PlatformChoice'));
+// Readiness Score (Feature 09) — self-contained student surface.
+const Readiness = lazy(() => import('./pages/readiness/Readiness'));
 // The admin console pulls in xlsx + a rich-text editor — visitors never need
 // it on first paint, so it ships only when /admin is opened.
 const Admin = lazy(() => import('./pages/Admin'));
@@ -83,6 +85,14 @@ function App() {
                 element={
                   <Suspense fallback={<RouteFallback />}>
                     <RequireAuth><PlatformChoice /></RequireAuth>
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/readiness"
+                element={
+                  <Suspense fallback={<RouteFallback />}>
+                    <RequireAuth><Readiness /></RequireAuth>
                   </Suspense>
                 }
               />

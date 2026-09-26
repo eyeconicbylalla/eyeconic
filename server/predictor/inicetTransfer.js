@@ -164,10 +164,25 @@ function buildIniCetEstimate({ perGt, pattern, priorModel, rpModel, category }) 
   } else if (abovePrior) {
     coverage = 'above-prior';
     pBest = 100;
-    pWorst = rpModel.percentileForRank(Math.round(airWorst)).lo;
+    // R9 crash fix (2026-09-26, docs/READINESS_SCORE.md §18.3/§25): when the
+    // ENTIRE range is above the ladder, airWorst is null too and
+    // Math.round(null) = 0 made percentileForRank throw (Phase-0 repro: a
+    // single 200/200 GT → "percentileForRank: invalid rank 0"). The honest
+    // bound is the ladder's BEST rung: every rank in the range is better than
+    // it, so the worst percentile is bounded by that rung's percentile. Only
+    // the previously-THROWING path changes — no result a student ever received
+    // is altered (crash fix, not a methodology change; no version bump).
+    pWorst = rpModel.percentileForRank(
+      airWorst === null ? Math.min(...priorModel.airSpan) : Math.round(airWorst)
+    ).lo;
   } else if (belowPrior) {
     coverage = 'below-prior';
-    pBest = rpModel.percentileForRank(Math.round(airBest)).hi;
+    // R9 symmetric guard: whole range BELOW the ladder ⇒ airBest is null
+    // (e.g. corrects ≈ 0) — bound the best percentile by the ladder FLOOR
+    // rung, mirroring the above-prior case. Same crash class, same reasoning.
+    pBest = rpModel.percentileForRank(
+      airBest === null ? Math.max(...priorModel.airSpan) : Math.round(airBest)
+    ).hi;
     pWorst = 0;
   } else if (airBest === null || airWorst === null) {
     // one end exactly at a ladder edge (airForMarks is null only outside span)

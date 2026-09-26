@@ -6,8 +6,11 @@ const express = require('express');
 const Prediction = require('../models/Prediction');
 const OutcomeCapture = require('../models/OutcomeCapture');
 const DesiredBranchQuery = require('../models/DesiredBranchQuery');
+const ReadinessQuery = require('../models/ReadinessQuery');
 const { ensureDbConnection } = require('../config/db');
 const { createPredictorEngine } = require('../predictor');
+const { computeReadiness } = require('../predictor/readiness');
+const readinessCalendar = require('../predictor/readinessCalendar');
 const { EXAMS } = require('../predictor/config');
 const { PredictorError, CODES } = require('../predictor/errors');
 const { BAND_ORDER } = require('../predictor/branchMatching');
@@ -43,6 +46,11 @@ const router = express.Router();
  * (score / percentile / rank + counselling outcome / allotted branch) linked
  * to the stored prediction via a capture-time linkage snapshot. Assembled
  * into the evaluation dataset by scripts/phase10b/assemble_evaluation_dataset.js.
+ *
+ * Readiness Score (Feature 09, docs/READINESS_SCORE.md §15):
+ * GET /readiness/calendar (pure config, no DB) + POST /readiness and GET
+ * /readiness/:id (persist-before-serve on the ReadinessQuery model, R8) —
+ * the same chassis: session auth, CSRF guard, own rate budget, requireDb.
  */
 
 // Singleton engine. No cohortProvider: GT-cohort stats for Tier 2 would have
@@ -62,6 +70,11 @@ const DESIRED_MAX_PER_USER = 60;
 // Outcome submissions are low-volume by nature; a modest protective budget.
 const OUTCOME_WINDOW_MS = 60 * 60 * 1000;
 const OUTCOME_MAX_PER_USER = 30;
+
+// Readiness queries (Feature 09 §15): their own budget too — 30/hr, failing
+// open like the sibling budgets so a limiter outage never invents an error.
+const READINESS_WINDOW_MS = 60 * 60 * 1000;
+const READINESS_MAX_PER_USER = 30;
 
 // GT auto-fill paging bounds (analytics endpoint caps limit at 100).
 const GT_PAGE_LIMIT = 100;
@@ -115,6 +128,9 @@ function sendPredictorError(res, error) {
   const statusByCode = {
     [CODES.INVALID_INPUT]: 400,
     [CODES.EXAM_NOT_AVAILABLE]: 400,
+    [CODES.INPUT_MODE_CONFLICT]: 400, // Readiness §19: corrects XOR score
+    [CODES.SCORE_OUT_OF_RANGE]: 400, // Readiness §19: pattern-derived bounds
+    [CODES.NO_UPCOMING_EXAM]: 409, // Readiness §19: calendar exhausted — never a silent guess
     [CODES.STEP_NOT_IMPLEMENTED]: 500,
     [CODES.DATA_INTEGRITY]: 500,
   };
@@ -529,6 +545,261 @@ router.get('/desired-branch/:id', async (req, res) => {
       gap: doc.gap,
       warnings: doc.warnings,
       notes: doc.notes,
+    },
+  });
+});
+
+// ---- Readiness Score (Feature 09, docs/READINESS_SCORE.md §15; R8 persist) ----
+
+/**
+ * The stage set stored + hashed for a served readiness result (§16). Every
+ * derived stage of the §10 record except the raw request echo (stored
+ * unhashed, like every sibling model) — so tampering with any stored stage
+ * breaks the hash the retriever recomputes. Key order is part of the hash;
+ * GET /readiness/:id rebuilds this exact shape.
+ */
+function readinessStages(result) {
+  return {
+    method: result.method,
+    input: result.input,
+    standing: result.standing,
+    calendar: result.calendar,
+    anchors: result.anchors,
+    target: result.target,
+    gap: result.gap,
+    state: result.state,
+    warnings: result.warnings,
+    notes: result.notes,
+    explanation: result.explanation,
+  };
+}
+
+/**
+ * §18.2 session-rollover detection: a client-sent `session` that has already
+ * taken place at request time (page loaded before the exam, submitted after).
+ * The calendar's strict INVALID_INPUT is the detection primitive — only the
+ * past-session error carries the entry's examDate in its details (an unknown
+ * session key does not), so the two cases stay distinguishable here.
+ */
+function isPastSessionError(error) {
+  return (
+    error instanceof PredictorError &&
+    error.code === CODES.INVALID_INPUT &&
+    error.details &&
+    error.details.field === 'session' &&
+    typeof error.details.examDate === 'string'
+  );
+}
+
+// Calendar for the dashboard-card countdown + form banner (§15). Session-auth'd
+// via the router gate; pure config — no database, no rate budget (§23.8). A
+// routine-empty exam is a 200-shaped null, never a 4xx (Phase-10a lesson).
+router.get('/readiness/calendar', (_req, res) => {
+  res.json(readinessCalendar.calendarSnapshot());
+});
+
+router.post('/readiness', async (req, res) => {
+  const userId = req.appSession.user.id;
+
+  // Persist-before-serve is a hard requirement here too (R8): an unpersisted
+  // readiness result is a lost calibration sample.
+  if (!(await requireDb(res))) return;
+
+  let limited;
+  try {
+    limited = await hitRateLimit(`predictor:readiness:${userId}`, {
+      windowMs: READINESS_WINDOW_MS,
+      max: READINESS_MAX_PER_USER,
+    });
+  } catch {
+    limited = { allowed: true }; // limiter outage must not invent an error
+  }
+  if (!limited.allowed) {
+    return res.status(429).json({
+      msg: 'Too many readiness checks from this account. Try again later.',
+      code: 'RATE_LIMITED',
+    });
+  }
+
+  // Calendar resolution happens INSIDE the engine at request time (FR-3) —
+  // the client only ever names an exam (and optionally a listed session);
+  // every derived quantity (date, days, anchors, rates, budget, state) is
+  // server-computed from versioned config + the committed snapshot store.
+  let result;
+  let rollover = null;
+  try {
+    result = computeReadiness(req.body);
+  } catch (error) {
+    // §18.2 rollover: the session the client targeted has passed since page
+    // load — the server's default resolution wins and the response notes it.
+    // The persisted request is the stripped body the engine actually consumed
+    // (re-derivation must resolve cleanly); the client's session survives in
+    // the rollover annotation.
+    if (
+      isPastSessionError(error) &&
+      req.body &&
+      typeof req.body === 'object' &&
+      !Array.isArray(req.body)
+    ) {
+      const { session, ...rest } = req.body;
+      void session;
+      try {
+        result = computeReadiness(rest);
+        rollover = {
+          requestedSession: session,
+          resolvedSession: result.calendar.session,
+          note: `The session you targeted (${session}) has already taken place — this result uses the next upcoming session (${result.calendar.session}), resolved by the server at request time.`,
+        };
+      } catch (retryError) {
+        return sendPredictorError(res, retryError);
+      }
+    } else {
+      return sendPredictorError(res, error);
+    }
+  }
+
+  const stages = readinessStages(result);
+
+  // Persist BEFORE serving: a failed write must mean no result served.
+  let doc;
+  try {
+    doc = await ReadinessQuery.create({
+      userId,
+      exam: result.exam,
+      request: result.request, // byte-faithful echo of what the engine consumed
+      methodVersion: result.methodVersion,
+      ...stages,
+      examLabel: result.examLabel,
+      rollover,
+      resultHash: hashResult(stages),
+    });
+  } catch (error) {
+    console.error('[readiness] Persistence failed — result NOT served', {
+      userId,
+      message: error && error.message,
+    });
+    return res.status(500).json({
+      msg: 'Could not save the readiness check, so it was not generated. Please try again.',
+      code: 'READINESS_NOT_STORED',
+    });
+  }
+
+  return res.status(201).json({
+    readinessId: doc._id,
+    persisted: true,
+    ...(rollover ? { rollover } : {}),
+    result,
+  });
+});
+
+/**
+ * Retrieve one stored readiness result (own-only) with the integrity check.
+ *
+ * Re-derives deterministically from the stored request — pinned to the IST
+ * date the original computation ran on (the stored calendar.asOfIstDate),
+ * because daysRemaining/months/budget are date-dependent and a fresh clock
+ * would drift even with nothing changed. A later method, calendar, or data
+ * change surfaces verified:false with an explicit diff, never silently (the
+ * DBP §9 case-19 pattern).
+ */
+router.get('/readiness/:id', async (req, res) => {
+  if (!(await requireDb(res))) return;
+  let doc;
+  try {
+    doc = await ReadinessQuery.findOne({
+      _id: req.params.id,
+      userId: req.appSession.user.id,
+    }).lean();
+  } catch {
+    doc = null;
+  }
+  if (!doc) {
+    return res.status(404).json({ msg: 'Readiness result not found.', code: 'NOT_FOUND' });
+  }
+
+  // Integrity over exactly the stages the stored hash covered (same shape —
+  // and key order — readinessStages built at serve time).
+  const recomputedHash = hashResult({
+    method: doc.method,
+    input: doc.input,
+    standing: doc.standing,
+    calendar: doc.calendar,
+    anchors: doc.anchors,
+    target: doc.target,
+    gap: doc.gap,
+    state: doc.state,
+    warnings: doc.warnings,
+    notes: doc.notes,
+    explanation: doc.explanation,
+  });
+
+  let recomputed = null;
+  const asOf =
+    doc.calendar && typeof doc.calendar.asOfIstDate === 'string' ? doc.calendar.asOfIstDate : null;
+  if (asOf) {
+    try {
+      recomputed = computeReadiness(doc.request, { now: asOf });
+    } catch (error) {
+      return sendPredictorError(res, error);
+    }
+  }
+
+  const methodMatches = Boolean(recomputed) && recomputed.methodVersion === doc.methodVersion;
+  const calendarMatches =
+    Boolean(recomputed) &&
+    recomputed.calendar.calendarVersion === (doc.calendar && doc.calendar.calendarVersion);
+  const stageDigest = (r) =>
+    JSON.stringify({
+      state: r.state,
+      session: r.calendar ? r.calendar.session : null,
+      daysRemaining: r.calendar ? r.calendar.daysRemaining : null,
+      meanCorrects: r.input ? r.input.meanCorrects : null,
+      requiredCorrects: r.target ? r.target.requiredCorrects : null,
+      gap: r.gap ? [r.gap.gapCorrects, r.gap.budget] : null,
+    });
+  const stagesMatch = Boolean(recomputed) && stageDigest(recomputed) === stageDigest(doc);
+  const verified = Boolean(recomputed) && methodMatches && calendarMatches && stagesMatch;
+
+  return res.json({
+    readinessId: doc._id,
+    integrity: {
+      resultHash: doc.resultHash,
+      recomputedHash,
+      matches: recomputedHash === doc.resultHash,
+    },
+    verified,
+    ...(!verified
+      ? {
+          verification: {
+            methodMatches,
+            calendarMatches,
+            stagesMatch,
+            storedMethodVersion: doc.methodVersion,
+            currentMethodVersion: recomputed ? recomputed.methodVersion : null,
+            storedCalendarVersion: doc.calendar ? doc.calendar.calendarVersion : null,
+            currentCalendarVersion: recomputed ? recomputed.calendar.calendarVersion : null,
+            note: 'This result was re-derived with the CURRENT engine/calendar and may differ from the originally served result.',
+          },
+        }
+      : {}),
+    result: {
+      exam: doc.exam,
+      examLabel: doc.examLabel,
+      methodVersion: doc.methodVersion,
+      method: doc.method,
+      request: doc.request,
+      input: doc.input,
+      standing: doc.standing,
+      calendar: doc.calendar,
+      anchors: doc.anchors,
+      target: doc.target,
+      gap: doc.gap,
+      state: doc.state,
+      warnings: doc.warnings,
+      notes: doc.notes,
+      explanation: doc.explanation,
+      ...(doc.rollover ? { rollover: doc.rollover } : {}),
+      createdAt: doc.createdAt,
     },
   });
 });

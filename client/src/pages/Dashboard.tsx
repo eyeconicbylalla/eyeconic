@@ -8,6 +8,7 @@ import CohortComparisonCard from '../components/app/CohortComparisonCard';
 import MiniCctCard from '../components/app/MiniCctCard';
 import OpenInAppButton from '../components/app/OpenInAppButton';
 import PlatformChoiceCard from '../components/app/PlatformChoiceCard';
+import ReadinessCard from '../components/app/ReadinessCard';
 
 /**
  * Integrated student dashboard: identity, tests and results come from the
@@ -138,6 +139,8 @@ const Dashboard: React.FC = () => {
         <MiniCctCard />
 
         <PlatformChoiceCard />
+
+        <ReadinessCard />
 
         {!loading && error && (
           <div className="dark-banner-error text-sm mb-6">

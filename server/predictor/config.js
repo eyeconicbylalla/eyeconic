@@ -312,6 +312,143 @@ const DESIRED_BRANCH = Object.freeze({
     'The historical closing-rank range for this branch is wide (loosest closing is at least twice the tightest): the two ends imply materially different required-corrects targets. Scope expectations accordingly.',
 });
 
+/**
+ * Readiness Score (Feature 09 — docs/READINESS_SCORE.md; decisions R1–R9
+ * approved 2026-09-26, §25).
+ *
+ * This block carries the anchor DEFINITIONS and time-allowance constants the
+ * readiness pipeline consumes. Anchor RANKS are never stored here — they are
+ * derived from the committed snapshot store by
+ * server/predictor/readinessAnchors.js and golden-pinned in
+ * server/tests/predictor/readinessAnchors.golden.json (Phase 1), so a number
+ * can only change via a re-verified snapshot or an approved config change.
+ */
+const READINESS = Object.freeze({
+  METHOD_VERSION_NEET_PG: 'readiness-neetpg-v1',
+  METHOD_VERSION_INI_CET: 'readiness-inicet-v1',
+  /** Time-allowance rule id (§9.4): BUDGET = RATE × min(monthsRemaining, CAP). */
+  TIME_ALLOWANCE_RULE_ID: 'readiness-linear-monthly-v1',
+  /** Anchor-set rule id (§21): bumped when any anchor definition changes. */
+  ANCHOR_SET_RULE_ID: 'readiness-anchors-v1',
+  /** The anchor the three-state decision is computed against (R1). */
+  DEFAULT_ANCHOR: 'ANY_SEAT',
+  /** Display-only annotation threshold (R4): gap > factor × budget. */
+  SIGNIFICANT_GAP_FACTOR: 2,
+  /** Exam-calendar horizon (§7.2): no resolvable session beyond this ⇒ NO_UPCOMING_EXAM. */
+  CALENDAR: Object.freeze({ HORIZON_DAYS: 548 }),
+  /**
+   * Time allowance (§9.4, decision R3 approved 2026-09-26 WITH this
+   * documentation as a condition): the rates and cap are PROVISIONAL
+   * ASSUMPTIONS, NOT EMPIRICAL FACTS — no dataset measures typical
+   * month-over-month GT improvement. They are configurable, versioned
+   * planning-rubric constants (change = TIME_ALLOWANCE_RULE_ID bump), echoed
+   * into every served result's method block and displayed in-product as a
+   * rule of thumb; calibration path = readiness records × OutcomeCapture
+   * (same gate as predictor Phase 11).
+   */
+  TIME_ALLOWANCE: Object.freeze({
+    provisional: true,
+    /** Corrects per month, per exam, in exam-native corrects units. */
+    RATE_CORRECTS_PER_MONTH: Object.freeze({ NEET_PG: 6, INI_CET: 5 }),
+    CAP_MONTHS: 9,
+    NOTE:
+      'Time allowance assumes up to ~6 corrects of improvement per month of preparation for NEET PG (~5 for INI-CET), capped at 9 months. This is a planning rule of thumb, not a measured average — no calibration data exists yet.',
+  }),
+  /**
+   * Anchor definitions (§9.3, R1 approved). `source` pins WHERE the rank is
+   * derived from; readinessAnchors.js guards that the named snapshot is the
+   * one actually loaded.
+   */
+  ANCHORS: Object.freeze({
+    NEET_PG: [
+      Object.freeze({
+        id: 'QUALIFY',
+        role: 'context',
+        definition:
+          'The worst All-India Rank that still scored the official UR qualifying score (276/800) in the official NEET PG 2025 result distribution — the last rank inside that score band.',
+        source: Object.freeze({ kind: 'distribution' }),
+        /** Phase-4 golden: UR/EWS 50th percentile → 276 (NBEMS result notice via secondary reports, exact agreement with the primary distribution at percentile ranks). */
+        qualifyingScoreAnchor: 276,
+        qualifyingScoreProvenance: 'Phase-4 golden (UR/EWS 50th percentile = 276, 800-scale)',
+      }),
+      Object.freeze({
+        id: 'ANY_SEAT',
+        role: 'default',
+        definition:
+          'The worst (deepest) UR final-state closing rank in the 2025 All-India-Quota counselling — the rank of the last UR seat awarded at the end of counselling.',
+        source: Object.freeze({
+          kind: 'counselling',
+          snapshotId: 'DS-NEETPG-COUNSELLING-2025-v1',
+          examYear: 2025,
+          filters: Object.freeze({ quota: 'AIQ', category: 'UR', pwd: false }),
+        }),
+      }),
+      Object.freeze({
+        id: 'STRONG',
+        role: 'context',
+        definition:
+          'The tightest (best) UR closing rank among General Medicine groups in the 2025 All-India-Quota counselling — what the most sought-after clinical seat demanded.',
+        source: Object.freeze({
+          kind: 'counselling',
+          snapshotId: 'DS-NEETPG-COUNSELLING-2025-v1',
+          examYear: 2025,
+          filters: Object.freeze({ quota: 'AIQ', category: 'UR', pwd: false }),
+        }),
+      }),
+    ],
+    INI_CET: [
+      Object.freeze({
+        id: 'ANY_SEAT',
+        role: 'default',
+        definition:
+          'The worst (deepest) UR closing rank across the trailing 4 INI-CET counselling sessions — the rank of the last UR seat awarded in the single INI pool.',
+        source: Object.freeze({
+          kind: 'counselling',
+          filters: Object.freeze({ quota: 'INI', category: 'UR', pwd: false }),
+        }),
+      }),
+      Object.freeze({
+        id: 'STRONG',
+        role: 'context',
+        definition:
+          'The tightest (best) UR closing rank among General Medicine groups across the trailing 4 INI-CET counselling sessions.',
+        source: Object.freeze({
+          kind: 'counselling',
+          filters: Object.freeze({ quota: 'INI', category: 'UR', pwd: false }),
+        }),
+      }),
+    ],
+  }),
+  /** Normalized course-display key that selects "General Medicine" groups (name-normalization-v1 substring match). */
+  GENMED_COURSE_KEY: 'general medicine',
+  /** How many trailing INI-CET counselling sessions the ANY_SEAT/STRONG window spans (§9.3 R1). */
+  INI_TRAILING_SESSIONS: 4,
+  /**
+   * Readiness display copy (§11 state readings verbatim, §9.4 sensitivity
+   * honesty, §5.3/§6.3 off-lattice, §6.5 UR caveat, §18.3 headroom note).
+   * PRESENTATION strings only — nothing here feeds a decision or threshold.
+   * HEADROOM's {headroom} placeholder is filled by readiness.js with the
+   * negative-gap corrects magnitude (display rounding only).
+   */
+  NOTES: Object.freeze({
+    STATE_READY:
+      'Your current GT level is already at or above what the target historically required.',
+    STATE_MODERATELY_READY:
+      'You are within reach: the remaining months are enough to close the gap at the assumed pace.',
+    STATE_BARELY_READY:
+      'The gap exceeds what the remaining time plausibly closes — treat readiness as at-risk.',
+    SIGNIFICANT_GAP:
+      'The gap is more than twice the improvement budget the remaining time allows (SIGNIFICANT_GAP).',
+    HEADROOM: 'You already clear the target bar with {headroom} corrects of headroom.',
+    INI_UR_CAVEAT:
+      'This version takes no category input and the INI-CET standing transfer is calibrated on UR (Unreserved) data — reserved-category students should treat the standing as an approximation.',
+    SCORE_OFF_LATTICE:
+      'An entered score is not exactly achievable under the exam’s all-questions-attempted marking (achievable scores move in steps of whole corrects); it was converted to the nearest whole corrects and the residue is treated as rounding noise of skipped-question reality.',
+    NO_SKIP_ASSUMPTION_STRAINED:
+      'An entered score sits more than half a correct away from any achievable score — the all-questions-attempted assumption is strained for that entry.',
+  }),
+});
+
 /** Assumption + methodology note strings (spec §3.4, §13, §14) — engine-echoed, rendered by Phase 8 UI. */
 const NOTES = Object.freeze({
   NO_SKIP:
@@ -342,5 +479,6 @@ module.exports = {
   BRANCH_BANDS,
   LOW_GT_COUNT,
   DESIRED_BRANCH,
+  READINESS,
   NOTES,
 };

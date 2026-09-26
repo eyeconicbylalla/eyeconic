@@ -6,6 +6,9 @@ import type {
   OutcomeSubmission, PredictResponse, PredictionsListResponse,
   PredictorExam, StoredPredictionResponse,
 } from '../types/predictor';
+import type {
+  ReadinessCalendarResponse, ReadinessRequestBody, ReadinessResponse,
+} from '../types/readiness';
 
 /**
  * Client for the Rank & Branch Predictor API (/api/predictor/*). Auth is the
@@ -108,6 +111,12 @@ export const predictorEndpoints = {
   /** Desired Branch Predictor: branch → target rank range → required corrects. */
   desiredBranch: (body: DesiredBranchRequestBody) =>
     predictorApi.post<DesiredBranchResponse>('/desired-branch', body).then((r) => r.data),
+  /** Readiness Score (Feature 09): the server-resolved exam calendar (§15). */
+  readinessCalendar: () =>
+    predictorApi.get<ReadinessCalendarResponse>('/readiness/calendar').then((r) => r.data),
+  /** Readiness Score: corrects XOR score → the three-state record (persisted). */
+  readiness: (body: ReadinessRequestBody) =>
+    predictorApi.post<ReadinessResponse>('/readiness', body).then((r) => r.data),
 };
 
 /** Near-miss suggestions from an UNKNOWN_BRANCH response, if any. */

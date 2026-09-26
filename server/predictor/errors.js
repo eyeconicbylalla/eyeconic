@@ -12,6 +12,17 @@
  *                          branches → P6); callable so the interface is real, but
  *                          refuses to produce a half-built result
  *   DATA_INTEGRITY       — predictor-data snapshot failed its MANIFEST hash check
+ *   NO_UPCOMING_EXAM     — Readiness Score exam calendar has no session for the
+ *                          exam within its horizon (Feature 09,
+ *                          docs/READINESS_SCORE.md §7.2/§19); the API layer maps
+ *                          it to 409 — the system never guesses a date silently
+ *   INPUT_MODE_CONFLICT   — Readiness request valued both input modes (or
+ *                          neither): corrects XOR score, one per request
+ *                          (Feature 09 §15/§18.1)
+ *   SCORE_OUT_OF_RANGE    — Readiness score outside the exam pattern's
+ *                          achievable range [−negative×total, maxMarks]
+ *                          (Feature 09 §18.1; bounds derived from config,
+ *                          never literals)
  */
 
 const CODES = Object.freeze({
@@ -19,6 +30,9 @@ const CODES = Object.freeze({
   EXAM_NOT_AVAILABLE: 'EXAM_NOT_AVAILABLE',
   STEP_NOT_IMPLEMENTED: 'STEP_NOT_IMPLEMENTED',
   DATA_INTEGRITY: 'DATA_INTEGRITY',
+  NO_UPCOMING_EXAM: 'NO_UPCOMING_EXAM',
+  INPUT_MODE_CONFLICT: 'INPUT_MODE_CONFLICT',
+  SCORE_OUT_OF_RANGE: 'SCORE_OUT_OF_RANGE',
 });
 
 class PredictorError extends Error {
@@ -55,6 +69,18 @@ function dataIntegrity(message, details = {}) {
   return new PredictorError(CODES.DATA_INTEGRITY, message, details);
 }
 
+function noUpcomingExam(message, details = {}) {
+  return new PredictorError(CODES.NO_UPCOMING_EXAM, message, details);
+}
+
+function inputModeConflict(message, details = {}) {
+  return new PredictorError(CODES.INPUT_MODE_CONFLICT, message, details);
+}
+
+function scoreOutOfRange(message, details = {}) {
+  return new PredictorError(CODES.SCORE_OUT_OF_RANGE, message, details);
+}
+
 module.exports = {
   CODES,
   PredictorError,
@@ -62,4 +88,7 @@ module.exports = {
   examNotAvailable,
   stepNotImplemented,
   dataIntegrity,
+  noUpcomingExam,
+  inputModeConflict,
+  scoreOutOfRange,
 };
