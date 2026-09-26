@@ -11,7 +11,12 @@ const {
   readSession,
 } = require('../services/appSession');
 const { hitRateLimit, clientIp } = require('../services/rateLimiter');
-const { isValidEmail } = require('../utils/validation');
+const {
+  isValidEmail,
+  isValidPassword,
+  isValidPhone,
+  normalizePhone,
+} = require('../utils/validation');
 
 const router = express.Router();
 
@@ -91,6 +96,88 @@ router.post('/login', async (req, res) => {
     // same user-facing outcome, standard semantics for the web client.
     if (error instanceof AppApiError && (error.status === 400 || error.status === 401)) {
       return res.status(401).json({ msg: error.message || 'Invalid email or password.', code: 'INVALID_CREDENTIALS' });
+    }
+    return appErrorResponse(res, error);
+  }
+});
+
+// POST /api/app-auth/signup { name, email, phone, password }
+//
+// Free visitor sign-up (the "GT Score Predictor" funnel). Creates the
+// account in the App API — the same identity store /api/app-auth/login
+// authenticates against — so an account created here can immediately log
+// in. Deliberately does NOT set the session cookie: the client shows a
+// clear success notice and the user logs in as an explicit next step.
+router.post('/signup', async (req, res) => {
+  try {
+    if (!isIntegrationConfigured()) return notConfigured(res);
+
+    // Read at request time (Vercel invocations re-read env; keeps the value
+    // live for tests and dashboard tweaks without a cold start).
+    const signupMax = Number(process.env.SIGNUP_MAX_PER_IP_HOURLY || 5);
+    const limit = await hitRateLimit(`signup:ip:${clientIp(req)}`, {
+      windowMs: 60 * 60 * 1000,
+      max: signupMax,
+    });
+    if (!limit.allowed) {
+      return res.status(429).json({
+        msg: 'Too many signups from this network. Please try again later.',
+        code: 'RATE_LIMITED',
+      });
+    }
+
+    const body = req.body || {};
+    const name = String(body.name || '').trim();
+    const email = String(body.email || '').trim().toLowerCase();
+    const phone = normalizePhone(body.phone);
+    const password = typeof body.password === 'string' ? body.password : '';
+
+    if (!name || name.length < 2 || name.length > 80) {
+      return res.status(400).json({ msg: 'Name must be 2-80 characters', code: 'VALIDATION_ERROR' });
+    }
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ msg: 'A valid email is required', code: 'VALIDATION_ERROR' });
+    }
+    if (!isValidPhone(typeof body.phone === 'string' ? body.phone : '')) {
+      return res.status(400).json({ msg: 'A valid phone number is required', code: 'VALIDATION_ERROR' });
+    }
+    if (!isValidPassword(password)) {
+      return res.status(400).json({ msg: 'Password must be 6-72 characters', code: 'VALIDATION_ERROR' });
+    }
+
+    const data = await callAppApi('/integration/v1/free-user/signup', {
+      method: 'POST',
+      body: { name, email, phone, password },
+      serviceAuth: true,
+      requestId: req.requestId,
+    });
+
+    if (!data || typeof data.user !== 'object' || !data.user) {
+      // Log the response SHAPE only — never the body (user PII).
+      console.error('[app-auth] Free-user signup response missing user', {
+        requestId: req.requestId,
+        responseType: data === null ? 'null' : typeof data,
+        responseKeys: data && typeof data === 'object' ? Object.keys(data).slice(0, 10) : [],
+      });
+      return res.status(503).json({ msg: 'Sign-up is temporarily unavailable.', code: 'APP_UNAVAILABLE' });
+    }
+
+    return res.status(201).json({ user: buildSessionUser(data.user) });
+  } catch (error) {
+    if (error instanceof AppApiError && error.code === 'EMAIL_TAKEN') {
+      return res.status(400).json({
+        msg: 'An account with this email already exists. Try logging in instead.',
+        code: 'EMAIL_TAKEN',
+      });
+    }
+    // An App API that answers 404 here is running a build without the
+    // free-user signup endpoint (deploy-order mismatch) — an availability
+    // problem, not a user error.
+    if (error instanceof AppApiError && error.status === 404) {
+      return res.status(503).json({
+        msg: 'Sign-up is temporarily unavailable. Please try again in a few minutes.',
+        code: 'APP_UNAVAILABLE',
+      });
     }
     return appErrorResponse(res, error);
   }

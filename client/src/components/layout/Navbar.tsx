@@ -21,6 +21,7 @@ const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
   const [signupOpen, setSignupOpen] = useState(false);
   const [studentLoginOpen, setStudentLoginOpen] = useState(false);
   const location = useLocation();
@@ -362,24 +363,30 @@ const Navbar: React.FC = () => {
         isOpen={studentLoginOpen}
         onClose={() => setStudentLoginOpen(false)}
         onSuccess={() => window.location.assign('/dashboard')}
-        onSwitchToLegacy={() => {
+        onSwitchToVisitor={() => {
           setStudentLoginOpen(false);
           setLoginOpen(true);
         }}
       />
       <LoginModal
+        key={`navbar-login-${loginEmail}`}
         isOpen={loginOpen}
         onClose={() => setLoginOpen(false)}
-        onLoginSuccess={() => window.location.reload()}
+        onSuccess={() => window.location.assign('/predictor')}
         onSwitchToSignup={() => {
           setLoginOpen(false);
           setSignupOpen(true);
         }}
+        defaultEmail={loginEmail}
       />
       <SignupModal
         isOpen={signupOpen}
         onClose={() => setSignupOpen(false)}
-        onSignupSuccess={() => window.location.reload()}
+        onContinueToLogin={(email) => {
+          setSignupOpen(false);
+          setLoginEmail(email);
+          setLoginOpen(true);
+        }}
         onSwitchToLogin={() => {
           setSignupOpen(false);
           setLoginOpen(true);

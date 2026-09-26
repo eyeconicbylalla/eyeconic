@@ -99,6 +99,44 @@ function startMockAppApi() {
       });
     });
 
+    // Free visitor sign-up (website funnel). Mirrors the real App endpoint:
+    // service-authed, creates role:'student' + isFreeUser:true, no token.
+    // Fault modes are keyed off the email because the website route proxies
+    // only the four validated fields upstream.
+    mock.post('/integration/v1/free-user/signup', (req, res) => {
+      if (!acceptedServiceTokens.includes(req.header('Authorization') || '')) {
+        return res.status(401).json({ success: false, message: 'Invalid service credentials.' });
+      }
+      const body = req.body || {};
+      const email = String(body.email || '').trim().toLowerCase();
+      if (email === 'taken@example.com') {
+        return res.status(400).json({
+          success: false,
+          message: 'An account with this email already exists.',
+          code: 'EMAIL_TAKEN',
+        });
+      }
+      if (email === 'upstream-error@example.com') {
+        return res.status(500).json({ success: false, message: 'boom' });
+      }
+      if (email === 'badshape@example.com') {
+        return res.status(201).json({ success: true });
+      }
+      if (email === 'notfound@example.com') {
+        return res.status(404).json({ message: 'The requested resource was not found.' });
+      }
+      return res.status(201).json({
+        success: true,
+        user: {
+          _id: '507f1f77bcf86cd7994d0e01',
+          name: body.name,
+          email,
+          role: 'student',
+          isFreeUser: true,
+        },
+      });
+    });
+
     mock.get('/quizzes', requireUser, (_req, res) => {
       res.json([
         {
@@ -192,6 +230,9 @@ beforeAll(async () => {
   // covered by the dedicated rate-limit behaviour in the App backend.
   process.env.APP_LOGIN_MAX_PER_IP = '500';
   process.env.APP_HANDOFF_MAX_PER_IP = '500';
+  // Signup is rate-limited per IP BEFORE validation; the suite exercises
+  // many invalid payloads from one IP.
+  process.env.SIGNUP_MAX_PER_IP_HOURLY = '500';
 
   // The website's rate limiter persists counters in Mongo (serverless-safe),
   // so tests need a live database just like production.
@@ -365,6 +406,114 @@ describe('POST /api/app-auth/login', () => {
     process.env.APP_API_BASE_URL = saved;
     if (savedTimeout) process.env.APP_API_TIMEOUT_MS = savedTimeout;
     else delete process.env.APP_API_TIMEOUT_MS;
+  });
+});
+
+describe('POST /api/app-auth/signup (free visitor accounts)', () => {
+  const validBody = {
+    name: 'Free Visitor',
+    email: 'free-visitor@example.com',
+    phone: '9876543210',
+    password: 'secret123',
+  };
+
+  it('creates the account in the App API without starting a session', async () => {
+    const response = await request(app).post('/api/app-auth/signup').send(validBody);
+
+    expect(response.status).toBe(201);
+    expect(response.body.user).toMatchObject({
+      id: '507f1f77bcf86cd7994d0e01',
+      name: 'Free Visitor',
+      role: 'student',
+      isFreeUser: true,
+    });
+    // Sign-up is a separate step from sign-in on the website.
+    expect(response.body.token).toBeUndefined();
+    expect(response.headers['set-cookie']).toBeUndefined();
+  });
+
+  it('maps upstream EMAIL_TAKEN to a friendly, actionable message', async () => {
+    const response = await request(app)
+      .post('/api/app-auth/signup')
+      .send({ ...validBody, email: 'taken@example.com' });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe('EMAIL_TAKEN');
+    expect(response.body.msg).toContain('already exists');
+    expect(response.body.msg.toLowerCase()).toContain('log');
+  });
+
+  it('validates input before calling the App API', async () => {
+    const cases = [
+      { ...validBody, name: 'x' },
+      { ...validBody, email: 'not-an-email' },
+      { ...validBody, phone: 'abc' },
+      { ...validBody, password: '123' },
+      { name: 'No Email', password: 'secret123' },
+    ];
+    for (const body of cases) {
+      const response = await request(app).post('/api/app-auth/signup').send(body);
+      expect(response.status).toBe(400);
+      expect(response.body.code).toBe('VALIDATION_ERROR');
+    }
+  });
+
+  it('sends the service token upstream (service-authed creation)', async () => {
+    // The mock rejects calls without the correct service Authorization.
+    const response = await request(app).post('/api/app-auth/signup').send(validBody);
+    expect(response.status).toBe(201);
+  });
+
+  it('degrades to 503 when the App API is unreachable', async () => {
+    const saved = process.env.APP_API_BASE_URL;
+    process.env.APP_API_BASE_URL = 'http://127.0.0.1:9/api'; // nothing listens here
+
+    const response = await request(app).post('/api/app-auth/signup').send(validBody);
+    expect([502, 503, 504]).toContain(response.status);
+
+    process.env.APP_API_BASE_URL = saved;
+  });
+
+  it('degrades to 503 when the App API errors', async () => {
+    const response = await request(app)
+      .post('/api/app-auth/signup')
+      .send({ ...validBody, email: 'upstream-error@example.com' });
+
+    expect(response.status).toBe(503);
+    expect(response.body.code).toBe('APP_UNAVAILABLE');
+  });
+
+  it('guards against an unexpected upstream response shape', async () => {
+    const response = await request(app)
+      .post('/api/app-auth/signup')
+      .send({ ...validBody, email: 'badshape@example.com' });
+
+    expect(response.status).toBe(503);
+    expect(response.body.code).toBe('APP_UNAVAILABLE');
+  });
+
+  it('maps an upstream 404 (deploy-order mismatch) to 503, not a user error', async () => {
+    const response = await request(app)
+      .post('/api/app-auth/signup')
+      .send({ ...validBody, email: 'notfound@example.com' });
+
+    expect(response.status).toBe(503);
+    expect(response.body.code).toBe('APP_UNAVAILABLE');
+  });
+
+  it('rate limits signup attempts per IP', async () => {
+    const savedMax = process.env.SIGNUP_MAX_PER_IP_HOURLY;
+    process.env.SIGNUP_MAX_PER_IP_HOURLY = '2';
+    // Exhaust the limit with two attempts, the third must be rejected
+    // without touching the App API.
+    await request(app).post('/api/app-auth/signup').send(validBody);
+    await request(app).post('/api/app-auth/signup').send(validBody);
+    const third = await request(app).post('/api/app-auth/signup').send(validBody);
+
+    expect(third.status).toBe(429);
+    expect(third.body.code).toBe('RATE_LIMITED');
+
+    process.env.SIGNUP_MAX_PER_IP_HOURLY = savedMax || '500';
   });
 });
 

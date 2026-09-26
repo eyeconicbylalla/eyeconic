@@ -7,7 +7,8 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
-  onSwitchToLegacy?: () => void;
+  /** Opens the visitor (GT Score Predictor) login — a free Eyeconic account. */
+  onSwitchToVisitor?: () => void;
 }
 
 /**
@@ -15,7 +16,7 @@ interface Props {
  * mobile app. Authenticates against the App backend through the website
  * server's encrypted HttpOnly session (no token in JS or URLs).
  */
-const StudentLoginModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, onSwitchToLegacy }) => {
+const StudentLoginModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, onSwitchToVisitor }) => {
   const { login } = useAppAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -73,12 +74,12 @@ const StudentLoginModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, onSwit
           Don&apos;t have an account? Ask your mentor to add you to Eyeconic.
         </p>
         <div className="flex items-center justify-center gap-3 mt-3 text-xs text-[#94A3B8]">
-          {onSwitchToLegacy && (
-            <button onClick={onSwitchToLegacy} className="text-[#18B6A4] hover:text-[#1CC8B5] underline">
+          {onSwitchToVisitor && (
+            <button onClick={onSwitchToVisitor} className="text-[#18B6A4] hover:text-[#1CC8B5] underline">
               Visitor account (GT Score Predictor)
             </button>
           )}
-          {onSwitchToLegacy && <span>&bull;</span>}
+          {onSwitchToVisitor && <span>&bull;</span>}
           <a href="/admin" className="text-[#94A3B8] hover:text-[#18B6A4] transition-colors underline">
             Admin Portal
           </a>

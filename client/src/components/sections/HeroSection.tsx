@@ -3,12 +3,16 @@ import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import SignupModal from '../auth/SignupModal';
 import LoginModal from '../auth/LoginModal';
+import { useAppAuth } from '../../context/AppAuthContext';
 
 const HeroSection: React.FC = () => {
-  // Check if user is logged in
-  const isLoggedIn = Boolean(localStorage.getItem('token'));
+  // Hide the sign-up card for anyone already signed in (the authenticated
+  // student area — navbar — already links them to the tools).
+  const { status } = useAppAuth();
+  const isLoggedIn = status === 'authenticated';
   const [signupOpen, setSignupOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
 
   return (
     <section id="home" className="pt-16 pb-20 bg-gradient-to-b from-teal-900 to-teal-500 text-white relative overflow-hidden">
@@ -103,20 +107,26 @@ const HeroSection: React.FC = () => {
               <SignupModal
                 isOpen={signupOpen}
                 onClose={() => setSignupOpen(false)}
-                onSignupSuccess={() => window.location.reload()}
+                onContinueToLogin={(email) => {
+                  setSignupOpen(false);
+                  setLoginEmail(email);
+                  setLoginOpen(true);
+                }}
                 onSwitchToLogin={() => {
                   setSignupOpen(false);
                   setLoginOpen(true);
                 }}
               />
               <LoginModal
+                key={`hero-login-${loginEmail}`}
                 isOpen={loginOpen}
                 onClose={() => setLoginOpen(false)}
-                onLoginSuccess={() => window.location.reload()}
+                onSuccess={() => window.location.assign('/predictor')}
                 onSwitchToSignup={() => {
                   setLoginOpen(false);
                   setSignupOpen(true);
                 }}
+                defaultEmail={loginEmail}
               />
             </div>
           </motion.div>

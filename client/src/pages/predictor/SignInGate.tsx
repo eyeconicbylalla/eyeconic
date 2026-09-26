@@ -1,15 +1,23 @@
 import React, { useState } from 'react';
 import { LogIn, Target } from 'lucide-react';
 import StudentLoginModal from '../../components/auth/StudentLoginModal';
+import LoginModal from '../../components/auth/LoginModal';
+import SignupModal from '../../components/auth/SignupModal';
 
 /**
  * P3 — anonymous visitors opening /predictor (e.g. via a shared link) used to
  * be silently redirected to the homepage. This gate explains what they're
  * looking at and offers App sign-in right here; after a successful login the
  * auth context flips and the predictor renders in place (no navigation away).
+ *
+ * Both account flavours are offered: Eyeconic Mentorship students and free
+ * visitor accounts (with sign-up, for people who arrived without one).
  */
 const SignInGate: React.FC = () => {
   const [open, setOpen] = useState(false);
+  const [visitorLoginOpen, setVisitorLoginOpen] = useState(false);
+  const [visitorLoginEmail, setVisitorLoginEmail] = useState('');
+  const [signupOpen, setSignupOpen] = useState(false);
 
   return (
     <section className="ec-predictor py-16 md:py-24 bg-[#0A0F14] min-h-screen">
@@ -30,7 +38,41 @@ const SignInGate: React.FC = () => {
             Same account as your Eyeconic mobile app. Your predictions stay private to your account.
           </p>
         </div>
-        <StudentLoginModal isOpen={open} onClose={() => setOpen(false)} />
+
+        {/* No account yet? The visitor sign-up funnel is one tap away. */}
+        <StudentLoginModal
+          isOpen={open}
+          onClose={() => setOpen(false)}
+          onSwitchToVisitor={() => {
+            setOpen(false);
+            setVisitorLoginOpen(true);
+          }}
+        />
+        <LoginModal
+          key={`gate-login-${visitorLoginEmail}`}
+          isOpen={visitorLoginOpen}
+          onClose={() => setVisitorLoginOpen(false)}
+          /* No onSuccess navigation: the auth context flip renders the
+             predictor right here. */
+          onSwitchToSignup={() => {
+            setVisitorLoginOpen(false);
+            setSignupOpen(true);
+          }}
+          defaultEmail={visitorLoginEmail}
+        />
+        <SignupModal
+          isOpen={signupOpen}
+          onClose={() => setSignupOpen(false)}
+          onContinueToLogin={(email) => {
+            setSignupOpen(false);
+            setVisitorLoginEmail(email);
+            setVisitorLoginOpen(true);
+          }}
+          onSwitchToLogin={() => {
+            setSignupOpen(false);
+            setVisitorLoginOpen(true);
+          }}
+        />
       </div>
     </section>
   );

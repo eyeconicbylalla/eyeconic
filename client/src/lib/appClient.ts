@@ -61,6 +61,17 @@ export const appAuth = {
     );
     return response.data.user;
   },
+  /**
+   * Free visitor sign-up (GT Score Predictor funnel). Creates the account in
+   * the same identity system login authenticates against; does NOT start a
+   * session — the UI sends the user to the login step afterwards.
+   */
+  async signup(name: string, email: string, phone: string, password: string) {
+    const response = await axios.post<{ user: import('../types/app').AppUser }>(
+      `${API_BASE_URL}/app-auth/signup`, { name, email, phone, password }, { withCredentials: true }
+    );
+    return response.data.user;
+  },
   async session() {
     // Contract: 200 {user: null} when anonymous — the probe must never fail.
     const response = await axios.get<{ user: import('../types/app').AppUser | null; stale?: boolean }>(
