@@ -1,0 +1,10 @@
+{
+  "name": "eyeconic-main",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Eyeconic website (client/ + server/). The integrated /dashboard serves all quiz/analytics data through the website server's /api/app/* proxy, which forwards to the sibling eyeconic-app backend -- starting ONLY the server leaves every dashboard call returning 503 APP_UNAVAILABLE. Run 'npm run dev' HERE to start the full stack (app backend :3000 + server :5000 + client :5173) via scripts/dev-all.ps1, which verifies each service by an HTTP signature probe.",
+  "scripts": {
+    "dev": "powershell -ExecutionPolicy Bypass -File scripts/dev-all.ps1",
+    "dev:check": "powershell -ExecutionPolicy Bypass -File scripts/dev-all.ps1 -SkipSpawn"
+  }
+}

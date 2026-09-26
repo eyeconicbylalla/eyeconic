@@ -169,7 +169,7 @@ function warnIfLocalAppApiUnreachable() {
       console.warn(
         `[app-api] WARNING: the App API at ${baseUrl} is not reachable. Every /api/app/* route ` +
           '(dashboard, quizzes, Daily PYQ, Mini CCT, analytics) will return 503 until it runs.\n' +
-          '  Start the full local stack: powershell -ExecutionPolicy Bypass -File scripts\\dev-all.ps1\n' +
+          '  Start the full local stack: npm run dev   (at the eyeconic-main repo root; runs scripts/dev-all.ps1)\n' +
           '  Or the App backend alone:  cd ..\\eyeconic-app\\backend && npm run dev'
       );
     })

@@ -201,8 +201,8 @@ async function callAppApi(path, options = {}) {
               target: baseUrl,
               hint:
                 'The local App backend is not running — every /api/app/* route returns 503 until it is. ' +
-                'Start the full stack: powershell -ExecutionPolicy Bypass -File scripts\\dev-all.ps1 ' +
-                '(or the backend alone: cd eyeconic-app\\backend && npm run dev)',
+                'Start the full stack: npm run dev at the eyeconic-main repo root (scripts/dev-all.ps1), ' +
+                'or the backend alone: cd eyeconic-app\\backend && npm run dev',
             }
           : {}),
       }
