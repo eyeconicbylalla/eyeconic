@@ -157,8 +157,8 @@
   "distribution/ini-cet-2025-07/v1/rank-percentile.json": "ca6cc73c4cc73ea767e9f84123086ff1d5654135b00cb4145ad4da7c1423f0ac",
   "distribution/ini-cet-2026-01/v1/rank-percentile.json": "c11698f30e8d907d87a5081be1a6aae7486bbd760ea5e11d34f3837c2121f12f",
   "distribution/neet-pg-2025/v1/score-rank-bands.json": "cab1e8e6dc39a9136cb48cf42cb14c309a45f2ce244831b9e2bfbc66910ff813",
-  "golden/v1/goldens.json": "feef2c8b9ba96db9855824e5c1fd59caa2167351b40b2ce0356e763caeb03806",
-  "priors/inicet/v1/hazra-corrects-air.json": "8d5ef4da763b02f09fa0a2a7f7e4eade999f6c42c0b5f7c039006e0fbfc1cb77"
+  "golden/v1/goldens.json": "cf4eea2f2f4f04ceda79a270a421aa7c07663a04d57f5605779ec6a73d922814",
+  "priors/inicet/v1/hazra-corrects-air.json": "0d5087b7faaedd4c47fb74e9b1bbdd7ff418748ecb13457fd0df6e92f2239ee4"
  },
  "golden_version": "golden-v1",
  "dictionaries": [

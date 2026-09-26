@@ -250,7 +250,9 @@ def build_distribution(session: str):
     assert snap["validation"]["percentile_nonincreasing"]
     dest = PD / "distribution" / f"ini-cet-{session}" / "v1" / "rank-percentile.json"
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(json.dumps(snap), encoding="utf-8")
+    # newline="\n": the store is byte-hash-verified (MANIFEST + .gitattributes
+    # -text) — never emit platform line endings into it.
+    dest.write_text(json.dumps(snap), encoding="utf-8", newline="\n")
     print(f"distribution {session}: {len(rows)} rows, max_rank {rows[-1]['rank']}, "
           f"gaps {snap['validation']['rank_gaps']}, pct {rows[0]['percentile']}..{rows[-1]['percentile']}")
     return dest
@@ -357,7 +359,7 @@ def build_counselling(session: str):
     assert all(0 <= r[0] < len(institutes) and 0 <= r[1] < len(specialties) for r in out_rows)
     dest = PD / "counselling" / f"ini-cet-{session}" / "v1" / "closing-ranks.json"
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(json.dumps(snap), encoding="utf-8")
+    dest.write_text(json.dumps(snap), encoding="utf-8", newline="\n")
     print(f"counselling {session}: {len(out_rows)} groups over {len(final)} final candidates "
           f"({pools.get('GENERAL', 0)} general-pool) | institutes {len(institutes)} specialties {len(specialties)}")
     return dest
@@ -391,7 +393,7 @@ def update_manifest(new_files):
     goldens_rel = "golden/v1/goldens.json"
     if goldens_rel in man["file_hashes"]:
         man["file_hashes"][goldens_rel] = sha256_file(PD / goldens_rel)
-    man_path.write_text(json.dumps(man, indent=1), encoding="utf-8")
+    man_path.write_text(json.dumps(man, indent=1), encoding="utf-8", newline="\n")
     print(f"MANIFEST updated: {len(man['snapshots'])} snapshots")
 
 

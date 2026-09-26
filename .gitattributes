@@ -1,0 +1,7 @@
+# server/predictor-data snapshots are SHA-256-verified byte-for-byte against
+# MANIFEST.json (server/predictor/store.js) at load time. Git line-ending
+# conversion (core.autocrlf / eol attributes) would silently change the bytes
+# between platforms and break those hash checks in whichever environment
+# converts. Treat the whole store as byte-exact: no eol conversion anywhere,
+# working tree always equals the committed blob.
+server/predictor-data/** -text

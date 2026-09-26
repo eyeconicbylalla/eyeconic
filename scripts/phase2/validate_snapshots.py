@@ -1,6 +1,9 @@
 """P2.7 — Validate predictor-data snapshots against golden fixtures.
 
 Re-runnable, read-only. Checks:
+  - MANIFEST.json file_hashes match the on-disk bytes AND the committed git
+    blob (production reads the blob bytes — a hash derived from locally
+    line-ending-converted bytes passes local checks and fails in production)
   - snapshot files parse and carry required metadata (provenance, ids)
   - structural invariants (row widths, enum consistency, closing>=opening)
   - golden-verified values (counts, bands, dictionary mappings, official anchors)
@@ -8,7 +11,9 @@ Exit code 0 = all green.
 
 Usage: python scripts/phase2/validate_snapshots.py
 """
+import hashlib
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -23,7 +28,45 @@ def check(cond, label):
         failures.append(label)
 
 
+def sha256_bytes(b: bytes) -> str:
+    return hashlib.sha256(b).hexdigest()
+
+
+def git_blob(rel: str):
+    """Committed blob bytes at HEAD for a store-relative path, or None if
+    git is unavailable / the file is not tracked yet (fresh ingestion)."""
+    try:
+        proc = subprocess.run(
+            ["git", "cat-file", "blob", f"HEAD:server/predictor-data/{rel}"],
+            cwd=ROOT, capture_output=True)
+    except OSError:
+        return None
+    return proc.stdout if proc.returncode == 0 else None
+
+
 def main():
+    # --- MANIFEST integrity: MANIFEST == disk bytes == committed blob --------
+    # server/predictor/store.js SHA-256-verifies every file against
+    # MANIFEST.json at load time in whatever environment runs it; production
+    # (Vercel, Linux) reads the git blob exactly as committed. A manifest hash
+    # derived from a Windows working tree (CRLF via core.autocrlf) passes every
+    # local check and then 500s in production. .gitattributes pins the store to
+    # -text so the three byte streams cannot diverge; this proves they haven't.
+    man = json.loads((PD / "MANIFEST.json").read_text(encoding="utf-8"))
+    for rel, expected in sorted(man["file_hashes"].items()):
+        p = PD / rel
+        if not p.exists():
+            check(False, f"manifest hash: {rel} exists on disk")
+            continue
+        check(sha256_bytes(p.read_bytes()) == expected,
+              f"manifest hash: {rel} disk bytes match MANIFEST")
+        blob = git_blob(rel)
+        if blob is None:
+            print(f"WARN  manifest hash: {rel} not at HEAD (uncommitted?) - blob check skipped")
+        else:
+            check(sha256_bytes(blob) == expected,
+                  f"manifest hash: {rel} committed blob matches MANIFEST (deploy bytes)")
+
     gold = json.loads((PD / "golden/v1/goldens.json").read_text(encoding="utf-8"))["checks"]
     dist = json.loads((PD / "distribution/neet-pg-2025/v1/score-rank-bands.json").read_text(encoding="utf-8"))
     c25 = json.loads((PD / "counselling/neet-pg-2025/v1/closing-ranks.json").read_text(encoding="utf-8"))
