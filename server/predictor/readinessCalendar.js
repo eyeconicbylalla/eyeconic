@@ -24,6 +24,18 @@ const { PredictorError, invalidInput, dataIntegrity, noUpcomingExam } = require(
  *      status/sourceUrl/verifiedAsOf + daysRemaining.
  *   6. an explicit `session` targets that listed session (planning mode);
  *      unknown/past session keys are INVALID_INPUT (§18.1).
+ *   7. an explicit `targetYear` targets the student's intended EXAM YEAR
+ *      (target-exam selection): candidates are the entries whose session key
+ *      carries that year (NEET PG '2028'; INI-CET '2028-01'/'2028-07' — the
+ *      admission-session year, matching the product's session naming), and
+ *      the earliest STILL-UPCOMING one wins, so a year whose first session
+ *      passed falls forward to its next session. The allowed window is
+ *      [current IST year, current IST year + TARGET_YEAR_SPAN] — the student's
+ *      explicit pick inside that window replaces the §7.2-rule-4 horizon (the
+ *      honesty mechanism for a far pick is the expected-date labeling, and the
+ *      §9.4 budget caps at CAP_MONTHS regardless). Years outside the window,
+ *      non-integer values, a `session`+`targetYear` combination, or a year
+ *      with no upcoming calendar entry are INVALID_INPUT (§18.1).
  *
  * Timezone rule (§7.4): exam dates are IST calendar dates. daysRemaining is a
  * difference of IST CIVIL DATES (date granularity, never hour granularity), so
@@ -40,7 +52,12 @@ const { PredictorError, invalidInput, dataIntegrity, noUpcomingExam } = require(
  * Maintenance SOP (§7.3): when AIIMS/NBEMS publishes a date, a maintainer
  * updates the entry (status 'announced', real date, sourceUrl, verifiedAsOf),
  * bumps CALENDAR_VERSION, and the change ships as a normal reviewed commit.
- * No env vars are involved (deliberately, §23).
+ * No env vars are involved (deliberately, §23). The seed must also KEEP PACE
+ * with the target-year window: rule 7 offers every year in
+ * [current year, current year + TARGET_YEAR_SPAN], so as the window rolls
+ * forward a maintainer adds the next cadence-derived `expected` placeholder
+ * (R2) for each exam — a missing year simply isn't offered (INVALID_INPUT),
+ * never guessed.
  *
  * Engine-layer purity (§14.2): zero dependencies beyond config/errors; never
  * imports routes or models. Phase 4's rollover handling (§18.2 — "server's
@@ -50,7 +67,7 @@ const { PredictorError, invalidInput, dataIntegrity, noUpcomingExam } = require(
  */
 
 /** Bump on ANY calendar entry edit (spec §21 version table; SOP §7.3). */
-const CALENDAR_VERSION = 'readiness-calendar-v1';
+const CALENDAR_VERSION = 'readiness-calendar-v2';
 
 /** Spec §8 pins 30.44 (mean Gregorian month) — monthsRemaining = days / 30.44. */
 const DAYS_PER_MONTH = 30.44;
@@ -79,7 +96,10 @@ const DATE_EXPECTED_NOTE =
  *  - NEET PG runs ONCE a year in the late-summer window (verified cadence:
  *    2024-08-11, 2025-08-03, 2026-08-30 — all Sundays). NEET PG 2027 is
  *    unannounced and seeds as an `expected` placeholder ~mid-Aug 2027 (R2),
- *    replaced on announcement.
+ *    replaced on announcement. NEET PG 2028 seeds the same way (mid-Aug
+ *    Sunday placeholder) so the target-year window [current year, +2] stays
+ *    fully selectable — 2026 is deliberately ABSENT: that edition already
+ *    took place (2026-08-30) and is never a targetable year again.
  */
 const SEED = [
   {
@@ -117,6 +137,15 @@ const SEED = [
     sourceUrl: 'https://natboard.edu.in/',
     verifiedAsOf: '2026-09-26',
     note: 'NEET PG 2027 is unannounced. Cadence-derived placeholder (status expected): NEET PG runs once a year in the late-summer window (2024-08-11, 2025-08-03, 2026-08-30 — Phase 0 §7.3). Mid-August Sunday placeholder for the 2027 edition — replaced with the official date on announcement (SOP §7.3).',
+  },
+  {
+    exam: 'NEET_PG',
+    session: '2028',
+    examDate: '2028-08-13',
+    status: 'expected',
+    sourceUrl: 'https://natboard.edu.in/',
+    verifiedAsOf: '2026-09-27',
+    note: 'NEET PG 2028 is unannounced. Cadence-derived placeholder (status expected), same R2 policy as the 2027 entry: NEET PG runs once a year in the late-summer window (2024-08-11, 2025-08-03, 2026-08-30 — Phase 0 §7.3). Mid-August Sunday placeholder for the 2028 edition, seeded so the target-year window [current year, current year + 2] stays fully selectable — replaced with the official date on announcement (SOP §7.3).',
   },
 ];
 
@@ -297,7 +326,7 @@ function createCalendar(entries, options = {}) {
     }
   }
 
-  function resultFor(prepared, todayNum, todayCivil) {
+  function resultFor(prepared, todayNum, todayCivil, targetYear = null) {
     const { entry, day } = prepared;
     const daysRemaining = day - todayNum; // ≥ 0 by construction (§8)
     const result = {
@@ -314,6 +343,7 @@ function createCalendar(entries, options = {}) {
       asOfIstDate: isoOfCivil(todayCivil),
       calendarVersion,
       horizonDays,
+      targetYear, // the selected target year, or null for default/session resolution
     };
     if (entry.status === 'expected') {
       result.warnings.push({ code: 'DATE_EXPECTED', note: DATE_EXPECTED_NOTE });
@@ -322,12 +352,20 @@ function createCalendar(entries, options = {}) {
   }
 
   /**
-   * Resolve the upcoming exam session (§7.2 rules 1–6).
+   * Resolve the upcoming exam session (§7.2 rules 1–7).
    * @param {string} examId EXAMS key
    * @param {Date|string|number} [now] injectable clock (tests); absent ⇒ now
-   * @param {object} [opts] { session } — explicit listed session (planning
-   *   mode): unknown or already-past ⇒ INVALID_INPUT (§18.1); listed but
-   *   beyond the horizon ⇒ NO_UPCOMING_EXAM (same rules, §7.2 rule 6)
+   * @param {object} [opts] { session, targetYear } — exactly one targeting
+   *   mechanism at a time:
+   *   - session: explicit listed session (planning mode); unknown or
+   *     already-past ⇒ INVALID_INPUT (§18.1); listed but beyond the horizon ⇒
+   *     NO_UPCOMING_EXAM (same rules, §7.2 rule 6)
+   *   - targetYear: the student's intended exam year (rule 7) — integer
+   *     (numeric strings normalize) inside [current IST year, current year +
+   *     TARGET_YEAR_SPAN]; resolves the earliest still-upcoming session whose
+   *     session key carries that year; NO horizon check (the window is the
+   *     bound). Outside the window / non-integer / no upcoming entry for the
+   *     year / combined with session ⇒ INVALID_INPUT (§18.1)
    * @returns {object} deterministic resolution result (echo contract §7.2.5)
    * @throws {PredictorError} INVALID_INPUT | NO_UPCOMING_EXAM
    */
@@ -337,6 +375,54 @@ function createCalendar(entries, options = {}) {
     const todayCivil = istCivilDate(nowDate.getTime());
     const todayNum = civilDayNumber(todayCivil);
     const forExam = sorted.filter((s) => s.entry.exam === examId);
+
+    const hasSession = opts.session !== undefined && opts.session !== null;
+    const hasTargetYear = opts.targetYear !== undefined && opts.targetYear !== null;
+    if (hasSession && hasTargetYear) {
+      throw invalidInput('Pass either session or targetYear — not both.', {
+        field: 'targetYear',
+        session: opts.session,
+        targetYear: opts.targetYear,
+      });
+    }
+
+    if (hasTargetYear) {
+      const raw = opts.targetYear;
+      const year =
+        typeof raw === 'string' && /^\d{4}$/.test(raw.trim()) ? Number(raw.trim()) : raw;
+      if (typeof year !== 'number' || !Number.isFinite(year) || !Number.isInteger(year)) {
+        throw invalidInput('Target year must be a whole year, like 2027.', {
+          field: 'targetYear',
+          targetYear: raw,
+        });
+      }
+      const minYear = todayCivil.year; // IST current year — the window rolls with the clock
+      const maxYear = minYear + READINESS.CALENDAR.TARGET_YEAR_SPAN;
+      if (year < minYear || year > maxYear) {
+        throw invalidInput(`Choose a target year between ${minYear} and ${maxYear}.`, {
+          field: 'targetYear',
+          targetYear: year,
+          minYear,
+          maxYear,
+        });
+      }
+      // Rule 7: session keys start with their year under both conventions
+      // ('2028' / '2028-01'), and `sorted` is examDate-ascending — the first
+      // still-upcoming match is the year's earliest targetable session, so a
+      // year whose first session passed falls forward to its next one.
+      const prefix = String(year);
+      const upcoming = forExam.find((s) => s.entry.session.startsWith(prefix) && s.day >= todayNum);
+      if (upcoming) {
+        return resultFor(upcoming, todayNum, todayCivil, year);
+      }
+      const anyForYear = forExam.some((s) => s.entry.session.startsWith(prefix));
+      throw invalidInput(
+        anyForYear
+          ? `${EXAMS[examId].label} ${year} has already taken place — target an upcoming year.`
+          : `${EXAMS[examId].label} ${year} is not on the exam calendar yet — pick a listed target year.`,
+        { field: 'targetYear', targetYear: year, exam: examId }
+      );
+    }
 
     if (opts.session !== undefined && opts.session !== null) {
       if (typeof opts.session !== 'string') {
@@ -395,13 +481,27 @@ function createCalendar(entries, options = {}) {
 
   /**
    * Snapshot for GET /api/predictor/readiness/calendar (§15):
-   * { calendarVersion, exams: { <examId>: { next: <result|null>, horizonDays } } }
+   * { calendarVersion, exams: { <examId>: { next: <result|null>, horizonDays,
+   * targets: [<result>, …] } } } — `targets` (additive) is the authoritative
+   * target-year menu: every year of the [current year, +SPAN] window that
+   * resolves, ascending, each entry the full §7.2.5 echo with its targetYear.
+   * Years with no upcoming entry are simply absent (a 200-shaped menu, never
+   * a 4xx — the Phase-10a lesson, same as `next`).
    */
   function snapshot(now) {
     const nowDate = normalizeNow(now);
+    const currentYear = istCivilDate(nowDate.getTime()).year;
     const exams = {};
     for (const examId of Object.keys(EXAMS)) {
-      exams[examId] = { next: nextExam(examId, nowDate), horizonDays };
+      const targets = [];
+      for (let year = currentYear; year <= currentYear + READINESS.CALENDAR.TARGET_YEAR_SPAN; year += 1) {
+        try {
+          targets.push(resolve(examId, nowDate, { targetYear: year }));
+        } catch {
+          // Year not targetable (past/no entry) — not offered in the menu.
+        }
+      }
+      exams[examId] = { next: nextExam(examId, nowDate), horizonDays, targets };
     }
     return { calendarVersion, exams };
   }

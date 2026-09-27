@@ -31,7 +31,9 @@ export interface ReadinessPattern {
 /**
  * One resolved calendar session (the calendar module's echo contract, §7.2.5).
  * examDate is an IST calendar date 'YYYY-MM-DD'; daysRemaining/monthsRemaining
- * are server-computed — the client only formats them.
+ * are server-computed — the client only formats them. targetYear carries the
+ * student's selected exam year (calendar rule 7), or null when the server used
+ * its default earliest-upcoming resolution.
  */
 export interface ReadinessCalendarEntry {
   exam: string;
@@ -47,12 +49,22 @@ export interface ReadinessCalendarEntry {
   asOfIstDate: string;
   calendarVersion: string;
   horizonDays: number;
+  targetYear: number | null;
 }
+
+/**
+ * One selectable target year (calendar rule 7): the full resolution echo for
+ * that year's session, with targetYear always set.
+ */
+export type ReadinessCalendarTarget = ReadinessCalendarEntry & { targetYear: number };
 
 /** GET /readiness/calendar — routine-empty exams are a 200-shaped null. */
 export interface ReadinessCalendarResponse {
   calendarVersion: string;
-  exams: Record<string, { next: ReadinessCalendarEntry | null; horizonDays: number }>;
+  exams: Record<
+    string,
+    { next: ReadinessCalendarEntry | null; horizonDays: number; targets: ReadinessCalendarTarget[] }
+  >;
 }
 
 // ---- Request bodies (§15) ---------------------------------------------------------
@@ -80,6 +92,13 @@ export interface ReadinessRequestBody {
    * annotates a rollover if the page's session passed meanwhile.
    */
   session?: string;
+  /**
+   * The student's selected target exam year (target-exam selection, calendar
+   * rule 7). The SERVER derives everything from exam + targetYear — the exam
+   * date is never trusted from the client — and validates the year against
+   * its own [current year, current year + 2] window.
+   */
+  targetYear?: number;
 }
 
 // ---- Result record (the engine's §10 output, served verbatim) ----------------------

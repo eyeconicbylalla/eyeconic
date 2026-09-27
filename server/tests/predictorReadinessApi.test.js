@@ -646,7 +646,8 @@ describe('readiness API — frozen-clock behaviors (§7.2, §18.2, §19, Phase-1
   it('answers NO_UPCOMING_EXAM with 409 and actionable copy once the horizon is exhausted (§19)', async () => {
     const before = await ReadinessQuery.countDocuments({ userId: STUDENT._id });
     // Session minted inside the frozen window (cookie expiry is clock-checked).
-    const res = await withFrozenClock('2028-01-05T06:00:00Z', async () => {
+    // 2028-08-20: past every seeded date incl. NEET '2028' (2028-08-13).
+    const res = await withFrozenClock('2028-08-20T06:00:00Z', async () => {
       const frozenCookie = await login();
       return postReadiness(frozenCookie, { exam: 'NEET_PG', gts: [{ corrects: 100 }] });
     });
@@ -656,15 +657,136 @@ describe('readiness API — frozen-clock behaviors (§7.2, §18.2, §19, Phase-1
     expect(await ReadinessQuery.countDocuments({ userId: STUDENT._id })).toBe(before); // nothing stored for a refused request
   });
 
-  it('serves a routine-empty calendar as a 200 with null nexts, never a 4xx (Phase-10a lesson)', async () => {
-    const res = await withFrozenClock('2028-01-05T06:00:00Z', async () => {
+  it('serves a routine-empty calendar as a 200 with null nexts and an empty target menu, never a 4xx (Phase-10a lesson)', async () => {
+    const res = await withFrozenClock('2028-08-20T06:00:00Z', async () => {
       const frozenCookie = await login();
       return request(app).get('/api/predictor/readiness/calendar').set('Cookie', frozenCookie);
     });
     expect(res.status).toBe(200);
     expect(res.body.calendarVersion).toBe(readinessCalendar.CALENDAR_VERSION);
-    expect(res.body.exams.NEET_PG).toMatchObject({ next: null, horizonDays: 548 });
-    expect(res.body.exams.INI_CET).toMatchObject({ next: null, horizonDays: 548 });
+    expect(res.body.exams.NEET_PG).toMatchObject({ next: null, horizonDays: 548, targets: [] });
+    expect(res.body.exams.INI_CET).toMatchObject({ next: null, horizonDays: 548, targets: [] });
+  });
+});
+
+describe('readiness API — target-year selection (calendar rule 7)', () => {
+  it('serves the authoritative target-year menu on the calendar snapshot (frozen clock)', async () => {
+    const cookie = await login();
+    const res = await withFrozenClock('2026-10-01T04:00:00Z', () =>
+      request(app).get('/api/predictor/readiness/calendar').set('Cookie', cookie)
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.exams.NEET_PG.targets.map((t) => [t.targetYear, t.session])).toEqual([
+      [2027, '2027'],
+      [2028, '2028'],
+    ]); // 2026 is inside the window but that edition already took place ⇒ absent
+    expect(res.body.exams.INI_CET.targets.map((t) => [t.targetYear, t.session])).toEqual([
+      [2027, '2027-01'],
+      [2028, '2028-01'],
+    ]);
+    for (const examId of ['NEET_PG', 'INI_CET']) {
+      // The menu's first entry is the default resolution — no target ⇒ same exam.
+      expect(res.body.exams[examId].targets[0].session).toBe(res.body.exams[examId].next.session);
+      expect(res.body.exams[examId].targets[0].daysRemaining).toBe(res.body.exams[examId].next.daysRemaining);
+    }
+  });
+
+  it('computes the check against the SELECTED year end-to-end and persists the pick (NEET PG 2028)', async () => {
+    let res;
+    let doc;
+    let frozenCookie;
+    await withFrozenClock('2026-10-01T04:00:00Z', async () => {
+      frozenCookie = await login();
+      res = await postReadiness(frozenCookie, {
+        exam: 'NEET_PG',
+        gts: [{ corrects: 100 }],
+        targetYear: 2028,
+      });
+      doc = res.status === 201 ? await ReadinessQuery.findById(res.body.readinessId).lean() : null;
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.result.calendar).toMatchObject({
+      targetYear: 2028,
+      session: '2028',
+      examDate: '2028-08-13',
+      status: 'expected',
+      daysRemaining: daysBetween('2026-10-01', '2028-08-13'),
+      asOfIstDate: '2026-10-01',
+    });
+    // 687 days ⇒ months capped at 9 ⇒ B = 6 × 9 = 54 (the year changed the budget).
+    expect(res.body.result.gap).toMatchObject({ budget: 54, capped: true });
+    expect(res.body.result.request).toMatchObject({ targetYear: 2028 });
+    // The persisted record is distinguishable from a 2027 check…
+    expect(doc.request).toMatchObject({ targetYear: 2028 });
+    expect(doc.calendar).toMatchObject({ targetYear: 2028, session: '2028' });
+    // …and re-derives verified against the SAME year, not the nearest exam
+    // (the frozen-minted cookie is still readable at the real clock).
+    const got = await request(app)
+      .get(`/api/predictor/readiness/${res.body.readinessId}`)
+      .set('Cookie', frozenCookie);
+    expect(got.status).toBe(200);
+    expect(got.body.verified).toBe(true);
+    expect(got.body.result.calendar).toMatchObject({ targetYear: 2028, session: '2028' });
+  });
+
+  it('INI-CET target year picks the admission-year session; different year ⇒ different budget', async () => {
+    let y2027;
+    let y2028;
+    await withFrozenClock('2026-10-01T04:00:00Z', async () => {
+      const frozenCookie = await login();
+      y2027 = await postReadiness(frozenCookie, {
+        exam: 'INI_CET',
+        gts: [{ corrects: 104 }, { corrects: 105 }],
+        targetYear: 2027,
+      });
+      y2028 = await postReadiness(frozenCookie, {
+        exam: 'INI_CET',
+        gts: [{ corrects: 104 }, { corrects: 105 }],
+        targetYear: 2028,
+      });
+    });
+    expect(y2027.status).toBe(201);
+    expect(y2027.body.result.calendar).toMatchObject({ targetYear: 2027, session: '2027-01', daysRemaining: 31 });
+    expect(y2027.body.result.gap.budget).toBe(5); // floor(5 × 31/30.44)
+    expect(y2028.status).toBe(201);
+    expect(y2028.body.result.calendar).toMatchObject({ targetYear: 2028, session: '2028-01', daysRemaining: 409 });
+    expect(y2028.body.result.gap).toMatchObject({ budget: 45, capped: true }); // months 13.4 > 9 cap
+    // Same performance (c̄ 104.5 ⇒ G 5.5), different year ⇒ the verdict flips.
+    expect(y2027.body.result.state).toBe('BARELY_READY'); // G 5.5 > B 5
+    expect(y2028.body.result.state).toBe('MODERATELY_READY'); // G 5.5 ≤ B 45
+  });
+
+  it('rejects invalid target years server-side (past, beyond the window, malformed, unseeded, combined)', async () => {
+    const before = await ReadinessQuery.countDocuments({ userId: STUDENT3._id });
+    const cookie = await login(STUDENT3.email);
+    for (const body of [
+      { exam: 'NEET_PG', gts: [{ corrects: 100 }], targetYear: 2025 }, // before the current year
+      { exam: 'NEET_PG', gts: [{ corrects: 100 }], targetYear: 2029 }, // beyond current year + 2 (unseeded besides)
+      { exam: 'NEET_PG', gts: [{ corrects: 100 }], targetYear: 'abcd' },
+      { exam: 'NEET_PG', gts: [{ corrects: 100 }], targetYear: 2027.5 },
+      { exam: 'NEET_PG', gts: [{ corrects: 100 }], targetYear: 2026 }, // in-window but that edition already took place
+      { exam: 'INI_CET', gts: [{ corrects: 110 }], targetYear: 2026 }, // no INI 2026 session seeded
+      { exam: 'INI_CET', gts: [{ corrects: 110 }], session: '2027-07', targetYear: 2027 }, // two targeting mechanisms
+    ]) {
+      const res = await postReadiness(cookie, body);
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('INVALID_INPUT');
+      expect(res.body.field).toBe('targetYear');
+    }
+    expect(await ReadinessQuery.countDocuments({ userId: STUDENT3._id })).toBe(before); // nothing persisted for refusals
+  });
+
+  it('stays backward compatible: no targetYear ⇒ default resolution with targetYear:null', async () => {
+    const cookie = await login();
+    const res = await postReadiness(cookie, { exam: 'NEET_PG', gts: [{ corrects: 100 }] });
+    expect(res.status).toBe(201);
+    expect(res.body.result.calendar.targetYear).toBeNull();
+    expect(res.body.result.request).not.toHaveProperty('targetYear');
+    // Date-robust pin: the default resolution equals the snapshot's `next`
+    // (earliest upcoming — exactly the pre-selection behavior).
+    const cal = await request(app).get('/api/predictor/readiness/calendar').set('Cookie', cookie);
+    expect(cal.body.exams.NEET_PG.next.session).toBe(res.body.result.calendar.session);
+    expect(cal.body.exams.NEET_PG.next.daysRemaining).toBe(res.body.result.calendar.daysRemaining);
   });
 });
 

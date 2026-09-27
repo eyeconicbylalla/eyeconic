@@ -10,12 +10,13 @@ import { latestAttempt } from '../predictor/format';
 import { examDateLabel, fmtNum, patternFor, sessionLabel, timeRemainingLabel } from './constants';
 
 /**
- * Readiness Score input (Feature 09, spec §3/§17.3): exam → the server-resolved
- * upcoming session banner → performance in ONE mode (GT corrects, reusing the
- * predictor's auto-filling rows, or GT score rows). Everything derived — the
- * exam date, days left, anchors, budget, the state — is computed by the server
- * at submit time; this form only sends raw inputs (no `session` is ever sent:
- * the server re-resolves the calendar per request, FR-3).
+ * Readiness Score input (Feature 09, spec §3/§17.3): exam → target exam year
+ * (the server calendar's offered menu) → the resolved-session banner →
+ * performance in ONE mode (GT corrects, reusing the predictor's auto-filling
+ * rows, or GT score rows). Everything derived — the exam date, days left,
+ * anchors, budget, the state — is computed by the server at submit time; this
+ * form only sends raw inputs plus the selected targetYear (never a date, never
+ * a session: the server resolves the calendar per request, FR-3).
  */
 
 interface ScoreRow {
@@ -69,6 +70,7 @@ const ReadinessForm: React.FC<{ onResult: (res: ReadinessResponse) => void }> = 
   ]);
   const [examId, setExamId] = useState<PredictorExamId>('NEET_PG');
   const [mode, setMode] = useState<'corrects' | 'score'>('corrects');
+  const [targetYear, setTargetYear] = useState<number | null>(null);
   const [calendar, setCalendar] = useState<ReadinessCalendarResponse | null>(null);
 
   const pattern = patternFor(exams, examId);
@@ -113,7 +115,21 @@ const ReadinessForm: React.FC<{ onResult: (res: ReadinessResponse) => void }> = 
   }, [scoreRows, minScore, maxScore]);
   const valuedScoreRows = scoreRows.filter((row) => row.value.trim() !== '');
 
+  const examLabel = exams.find((e) => e.id === examId)?.label ?? examId;
   const nextSession = calendar?.exams?.[examId]?.next ?? null;
+  /** The server's offered target years for this exam (authoritative menu). */
+  const targets = calendar?.exams?.[examId]?.targets ?? [];
+  const targetYearsKey = targets.map((t) => t.targetYear).join(',');
+
+  // The selection defaults to the menu's first year — always the server's
+  // default resolution — and resets on exam change or menu (re)load, so a
+  // year from a previous exam can never ride along into a submit.
+  useEffect(() => {
+    setTargetYear(targetYearsKey ? Number(targetYearsKey.split(',')[0]) : null);
+  }, [examId, targetYearsKey]);
+
+  const selectedTarget = targets.find((t) => t.targetYear === targetYear) ?? null;
+  const bannerEntry: typeof nextSession = selectedTarget ?? nextSession;
 
   const updateScoreRow = (key: number, value: string) =>
     setScoreRows((prev) => prev.map((row) => (row.key === key ? { ...row, value } : row)));
@@ -128,12 +144,12 @@ const ReadinessForm: React.FC<{ onResult: (res: ReadinessResponse) => void }> = 
     setFormError('');
     if (mode === 'corrects') {
       if (!gt.hasValues) {
-        setFormError('Enter at least one Grand Test score.');
+        setFormError('Enter at least one Grand Test correct count.');
         gt.markInvalidRows();
         return;
       }
       if (!gt.markInvalidRows()) {
-        setFormError('Fix the highlighted Grand Test scores first.');
+        setFormError('Fix the highlighted Grand Test corrects first.');
         return;
       }
     } else if (valuedScoreRows.length === 0) {
@@ -149,16 +165,20 @@ const ReadinessForm: React.FC<{ onResult: (res: ReadinessResponse) => void }> = 
     setSubmitting(true);
     try {
       // Exactly one input mode valued per request (FR-2) — the toggle decides.
-      const body: ReadinessRequestBody =
-        mode === 'corrects'
-          ? { exam: examId, gts: buildReadinessGts(gt) }
+      // The selected target year names WHICH edition is targeted; the server
+      // derives its date and every downstream quantity (never trusted here).
+      const body: ReadinessRequestBody = {
+        exam: examId,
+        ...(targetYear != null ? { targetYear } : {}),
+        ...(mode === 'corrects'
+          ? { gts: buildReadinessGts(gt) }
           : {
-              exam: examId,
               score:
                 valuedScoreRows.length === 1
                   ? { value: Number(valuedScoreRows[0].value) }
                   : valuedScoreRows.map((row) => ({ value: Number(row.value) })),
-            };
+            }),
+      };
       onResult(await predictorEndpoints.readiness(body));
     } catch (err) {
       setFormError(predictorErrorMessage(err, 'Could not check your readiness. Please try again.'));
@@ -187,12 +207,50 @@ const ReadinessForm: React.FC<{ onResult: (res: ReadinessResponse) => void }> = 
     >
       <ExamPicker exams={exams} examId={examId} onSelect={setExamId} />
 
-      {/* Server-resolved upcoming session (§3 step 4): banner only — the date
-          is re-resolved by the server at submit time, never sent from here. */}
-      {nextSession ? (
+      {/* Target exam (calendar rule 7): the menu is the SERVER's offered
+          years for this exam — never a client-side year list. Changing the
+          target updates the banner below; the readiness check runs against
+          the selected edition. */}
+      {targets.length > 0 ? (
+        <div className="mb-4" data-anim="fade-up">
+          <div className="flex items-baseline justify-between gap-3 mb-2">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-[#94A3B8]">
+              Target exam
+            </span>
+            <span className="text-[11px] text-[#94A3B8]">the edition you are preparing for</span>
+          </div>
+          <div role="group" aria-label="Target exam" className="flex flex-wrap gap-2">
+            {targets.map((t) => {
+              const selected = t.targetYear === targetYear;
+              return (
+                <button
+                  key={t.targetYear}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => setTargetYear(t.targetYear)}
+                  title={`${examLabel} ${t.targetYear} · ${examDateLabel(t.examDate)}`}
+                  className={`text-sm rounded-full px-4 py-2 border transition ${
+                    selected
+                      ? 'bg-[#18B6A4]/15 text-[#4DD7C8] border-[#18B6A4]/40 font-semibold'
+                      : 'bg-[#18222E] text-[#94A3B8] border-white/10 hover:text-[#CBD5E1]'
+                  }`}
+                >
+                  {examLabel} {t.targetYear}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Server-resolved target session (§3 step 4): banner only — the date
+          is re-resolved by the server at submit time, never sent from here.
+          Shows the SELECTED year's resolution (falls back to the server's
+          default next exam while the calendar loads). */}
+      {bannerEntry ? (
         <div
           className={`mb-4 rounded-2xl border p-4 sm:p-5 flex flex-wrap items-center gap-x-5 gap-y-2 ${
-            nextSession.status === 'announced'
+            bannerEntry.status === 'announced'
               ? 'bg-[#18222E] border-[#18B6A4]/25'
               : 'bg-amber-500/[0.05] border-amber-500/25'
           }`}
@@ -200,29 +258,29 @@ const ReadinessForm: React.FC<{ onResult: (res: ReadinessResponse) => void }> = 
         >
           <span className="inline-flex items-center gap-2 text-sm text-[#F8FAFC]">
             <CalendarClock size={16} className="text-[#4DD7C8] shrink-0" />
-            Next {exams.find((e) => e.id === examId)?.label ?? examId}:{' '}
-            <strong className="font-semibold">{examDateLabel(nextSession.examDate)}</strong>
+            {selectedTarget ? 'Target' : 'Next'} {examLabel}:{' '}
+            <strong className="font-semibold">{examDateLabel(bannerEntry.examDate)}</strong>
           </span>
-          <span className="text-xs text-[#94A3B8]">{sessionLabel(nextSession.session)}</span>
+          <span className="text-xs text-[#94A3B8]">{sessionLabel(bannerEntry.session)}</span>
           <span
             className={`text-[10px] uppercase tracking-wide rounded-full px-2 py-0.5 border ${
-              nextSession.status === 'announced'
+              bannerEntry.status === 'announced'
                 ? 'bg-[#18B6A4]/15 text-[#4DD7C8] border-[#18B6A4]/40'
                 : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
             }`}
           >
-            {nextSession.status === 'announced' ? 'Announced' : 'Expected date'}
+            {bannerEntry.status === 'announced' ? 'Announced' : 'Expected date'}
           </span>
-          <span className="text-xs text-[#CBD5E1]">{timeRemainingLabel(nextSession)} left</span>
+          <span className="text-xs text-[#CBD5E1]">{timeRemainingLabel(bannerEntry)} left</span>
           <a
-            href={nextSession.sourceUrl}
+            href={bannerEntry.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="ml-auto inline-flex items-center gap-1 text-[11px] text-[#94A3B8] hover:text-[#4DD7C8]"
           >
             Official portal <ExternalLink size={11} />
           </a>
-          {nextSession.status === 'expected' ? (
+          {bannerEntry.status === 'expected' ? (
             <p className="w-full text-[11px] text-amber-300/90">
               Expected date (based on the recent-year schedule), not yet officially announced.
             </p>
@@ -255,7 +313,7 @@ const ReadinessForm: React.FC<{ onResult: (res: ReadinessResponse) => void }> = 
       {mode === 'corrects' ? (
         <GtInputSection
           gt={gt}
-          title="Your Grand Test scores"
+          title="Your Grand Test corrects"
           subtitle={`Correct answers per Grand Test (out of ${maxCorrects}). Add as many as you have — the check uses your average.`}
         />
       ) : (

@@ -622,9 +622,10 @@ router.post('/readiness', async (req, res) => {
   }
 
   // Calendar resolution happens INSIDE the engine at request time (FR-3) —
-  // the client only ever names an exam (and optionally a listed session);
-  // every derived quantity (date, days, anchors, rates, budget, state) is
-  // server-computed from versioned config + the committed snapshot store.
+  // the client only ever names an exam, plus optionally a listed session OR
+  // a target year (target-exam selection, calendar rule 7); every derived
+  // quantity (date, days, anchors, rates, budget, state) is server-computed
+  // from versioned config + the committed snapshot store.
   let result;
   let rollover = null;
   try {

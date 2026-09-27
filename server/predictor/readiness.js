@@ -163,7 +163,7 @@ function validateCorrectsRows(gts, exam) {
     });
   });
   if (usable.length === 0) {
-    throw invalidInput('Enter at least one Grand Test score.', { field: 'gts' });
+    throw invalidInput('Enter at least one Grand Test correct count.', { field: 'gts' });
   }
   return usable;
 }
@@ -333,9 +333,13 @@ function mergeNotes(...groups) {
  * Compute a readiness result (§10 steps 1–11). Phase 4 persists it
  * (persist-before-serve, R8) and computes resultHash over the stored stages.
  *
- * @param {object} request { exam, gts?: rows, score?: {value,source?}|rows, session? }
+ * @param {object} request { exam, gts?: rows, score?: {value,source?}|rows,
+ *   session?, targetYear? }
  *   — gts rows: { corrects, provenance?, attemptedAt?, gtId? } (§15)
  *   — score rows normalize to one-or-more { value, source? } entries (§3/§10)
+ *   — targetYear: the student's intended exam year (target-exam selection);
+ *     validated + resolved to that year's session by the calendar (rule 7).
+ *     Absent (with no session) ⇒ the default earliest-upcoming resolution.
  * @param {object} [opts]
  *   now:  injectable clock (Date | ISO | epoch ms) — tests pin this; default
  *         is the real clock, read ONCE per request
@@ -384,8 +388,14 @@ function computeReadiness(request, opts = {}) {
   }
 
   // --- §10 step 3: calendar resolution (cheap + pure; also validates an
-  //     explicit session against the §18.1 rules) ---
-  const session = readinessCalendar.resolve(exam.id, opts.now, { session: request.session });
+  //     explicit session or target year against the §18.1 rules). The target
+  //     year is the student's pick of WHICH edition they are preparing for —
+  //     every downstream date-derived quantity (days, months, budget, state)
+  //     follows the session it selects, never the nearest exam by default. ---
+  const session = readinessCalendar.resolve(exam.id, opts.now, {
+    session: request.session,
+    targetYear: request.targetYear,
+  });
 
   // --- §10 step 1: aggregate through the SHARED module. Each row is one GT
   //     with one completed, full-length, no-skip attempt (the inherited

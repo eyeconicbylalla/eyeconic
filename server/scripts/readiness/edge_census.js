@@ -41,8 +41,8 @@ const NOW_0926 = new Date('2026-09-26T04:00:00Z'); // IST 09:30 — INI 36 days,
 const NOW_NEET36 = new Date('2027-07-10T04:00:00Z'); // NEET 36 days, uncapped
 const NOW_INI_EXAM_DAY = new Date('2026-11-01T04:00:00Z'); // INI '2027-01' exam day (B=0)
 const NOW_DAY_AFTER_INI = new Date('2026-11-02T04:00:00Z'); // INI '2027-01' passed → rollover
-const NOW_NEET_PASSED = new Date('2027-08-20T04:00:00Z'); // NEET '2027' (8/15) passed, INI '2028-01' live
-const NOW_EXHAUSTED = new Date('2028-01-05T06:00:00Z'); // every seed entry past
+const NOW_NEET_PASSED = new Date('2027-08-20T04:00:00Z'); // NEET '2027' (8/15) passed → falls forward to '2028'; INI '2028-01' live
+const NOW_EXHAUSTED = new Date('2028-08-20T06:00:00Z'); // every seed entry past, incl. NEET '2028' (8/13)
 
 const gts = (exam, ...corrects) => ({ exam, gts: corrects.map((c) => ({ corrects: c })) });
 
@@ -145,6 +145,23 @@ function runDomainCensus() {
     assertEq(err.details.field, 'session', 'field');
   });
 
+  row('18.1.j invalid targetYear (window/malformed/combined with session) ⇒ INVALID_INPUT (field targetYear)', () => {
+    for (const targetYear of [2025, 2029, 2027.5, 'abcd', true]) {
+      const err = expectCode(
+        () => computeReadiness({ exam: 'NEET_PG', gts: [{ corrects: 100 }], targetYear }, { now: NOW_0926 }),
+        CODES.INVALID_INPUT,
+        `targetYear=${String(targetYear)}`
+      );
+      assertEq(err.details.field, 'targetYear', 'field');
+    }
+    const both = expectCode(
+      () => computeReadiness({ exam: 'INI_CET', gts: [{ corrects: 110 }], session: '2027-07', targetYear: 2027 }, { now: NOW_0926 }),
+      CODES.INVALID_INPUT,
+      'session+targetYear'
+    );
+    assertEq(both.details.field, 'targetYear', 'combined field');
+  });
+
   // --- §18.2 calendar edges (domain-relevant rows) ------------------------------
 
   row('18.2.a horizon exhausted ⇒ NO_UPCOMING_EXAM passes through, typed', () => {
@@ -158,6 +175,18 @@ function runDomainCensus() {
     assert(neet.warnings.some((w) => w.code === 'DATE_EXPECTED'), 'NEET seed is expected');
     const ini = computeReadiness(gts('INI_CET', 110), { now: NOW_0926 });
     assert(!ini.warnings.some((w) => w.code === 'DATE_EXPECTED'), 'INI seed is announced');
+  });
+
+  row('18.2.c target-year resolution: year ⇒ that year’s earliest upcoming session; falls forward within the year', () => {
+    const y2027 = computeReadiness({ exam: 'INI_CET', gts: [{ corrects: 110 }], targetYear: 2027 }, { now: NOW_0926 });
+    assertEq(y2027.calendar.session, '2027-01', '2027 ⇒ Jan 2027 session (Nov 2026 exam)');
+    assertEq(y2027.calendar.targetYear, 2027, 'year echo');
+    const rolled = computeReadiness({ exam: 'INI_CET', gts: [{ corrects: 110 }], targetYear: 2027 }, { now: NOW_DAY_AFTER_INI });
+    assertEq(rolled.calendar.session, '2027-07', 'after the Nov 2026 exam, 2027 falls forward to the July session');
+    assertEq(rolled.calendar.targetYear, 2027, 'year echo survives the fall-forward');
+    const neet2028 = computeReadiness({ exam: 'NEET_PG', gts: [{ corrects: 60 }], targetYear: 2028 }, { now: NOW_0926 });
+    assertEq(neet2028.calendar.session, '2028', 'NEET 2028 targets the 2028 edition (beyond the horizon, inside the window)');
+    assertEq(neet2028.gap.budget, 54, 'B = 6 × 9 (capped — the year changed the budget)');
   });
 
   // --- §18.3 boundary/extreme performance --------------------------------------
@@ -512,17 +541,72 @@ async function runApiCensus() {
       });
     });
 
-    await row('6.2.c expected date passed without announcement ⇒ entry ignored; NEET 409 while INI still resolves', async () => {
+    await row('6.2.c expected date passed without announcement ⇒ entry ignored; NEET falls forward to the seeded 2028 placeholder; INI to Jan 2028', async () => {
       await withFrozenClock(NOW_NEET_PASSED, async () => {
         const cookie = await login(USER_H.email);
         const neet = await postReadiness(cookie, gts('NEET_PG', 100));
-        expectStatus(neet, 409, 'NEET after 2027-08-15');
-        expectBodyCode(neet, 'NO_UPCOMING_EXAM', 'NEET after 2027-08-15');
+        expectStatus(neet, 201, 'NEET after 2027-08-15');
+        assertEq(neet.body.result.calendar.session, '2028', 'NEET falls forward to the 2028 placeholder');
+        assertEq(neet.body.result.calendar.status, 'expected', 'fallen-forward NEET entry is an expected placeholder');
         const ini = await postReadiness(cookie, gts('INI_CET', 110));
         expectStatus(ini, 201, 'INI after 2027-08-15');
         assertEq(ini.body.result.calendar.session, '2028-01', 'INI falls forward to the Jan 2028 session');
         assertEq(ini.body.result.calendar.status, 'expected', 'later INI entry is an expected placeholder');
       });
+    });
+
+    // -- target-year selection through HTTP (calendar rule 7) -----------------------
+
+    await row('6.2.e calendar snapshot serves the target-year menu (offered years, default-aligned)', async () => {
+      await withFrozenClock(NOW_0926, async () => {
+        const cookie = await login(USER_H.email);
+        const cal = await request(app).get('/api/predictor/readiness/calendar').set('Cookie', cookie);
+        expectStatus(cal, 200, 'calendar');
+        assertEq(
+          cal.body.exams.NEET_PG.targets.map((t) => `${t.targetYear}:${t.session}`),
+          ['2027:2027', '2028:2028'],
+          'NEET menu (2026 absent — that edition took place)'
+        );
+        assertEq(
+          cal.body.exams.INI_CET.targets.map((t) => `${t.targetYear}:${t.session}`),
+          ['2027:2027-01', '2028:2028-01'],
+          'INI menu'
+        );
+        for (const exam of ['NEET_PG', 'INI_CET']) {
+          assertEq(cal.body.exams[exam].targets[0].session, cal.body.exams[exam].next.session, `${exam} menu[0] = default`);
+        }
+      });
+    });
+
+    await row('6.2.f target year drives the served check: same GTs, 2027 vs 2028 differ in budget AND verdict; the pick persists', async () => {
+      await withFrozenClock(NOW_0926, async () => {
+        const cookie = await login(USER_H.email);
+        const body = { gts: [{ corrects: 104 }, { corrects: 105 }] };
+        const a = await postReadiness(cookie, { exam: 'INI_CET', ...body, targetYear: 2027 });
+        expectStatus(a, 201, '2027');
+        const b = await postReadiness(cookie, { exam: 'INI_CET', ...body, targetYear: 2028 });
+        expectStatus(b, 201, '2028');
+        assertEq(a.body.result.calendar.targetYear, 2027, '2027 echo');
+        assertEq(b.body.result.calendar.targetYear, 2028, '2028 echo');
+        assertEq(a.body.result.gap.budget, 5, 'B at 36 days');
+        assertEq(b.body.result.gap.budget, 45, 'B capped at 9 × 5');
+        assertEq(a.body.result.state, 'BARELY_READY', '2027 verdict (G 5.5 > B 5)');
+        assertEq(b.body.result.state, 'MODERATELY_READY', '2028 verdict (G 5.5 ≤ B 45)');
+        assertEq(b.body.result.request.targetYear, 2028, 'persisted request carries the pick');
+      });
+    });
+
+    await row('6.2.g invalid target years ⇒ 400 INVALID_INPUT (field targetYear); session+targetYear rejected', async () => {
+      const cookie = await login(USER_V.email);
+      for (const targetYear of [2025, 2029, 'abcd', 2027.5, 2026]) {
+        const res = await postReadiness(cookie, { exam: 'NEET_PG', gts: [{ corrects: 100 }], targetYear });
+        expectStatus(res, 400, `targetYear=${String(targetYear)}`);
+        expectBodyCode(res, 'INVALID_INPUT', `targetYear=${String(targetYear)}`);
+        assert(res.body.field === 'targetYear', `expected field 'targetYear', got ${res.body.field}`);
+      }
+      const both = await postReadiness(cookie, { exam: 'INI_CET', gts: [{ corrects: 110 }], session: '2027-07', targetYear: 2027 });
+      expectStatus(both, 400, 'session+targetYear');
+      expectBodyCode(both, 'INVALID_INPUT', 'session+targetYear');
     });
 
     await row('6.2.d announced vs expected through the served warnings (frozen seeds)', async () => {

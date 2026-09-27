@@ -81,7 +81,10 @@ const StateHero: React.FC<{ res: ReadinessResponse }> = ({ res }) => {
               : 'border-amber-400/40 bg-amber-500/10 text-amber-100'
           }`}
         >
-          {examLabelFor(r.exam, r.examLabel)} {sessionLabel(r.calendar.session)} ·{' '}
+          {/* The selected target edition (calendar rule 7); records predating
+              target-year selection fall back to the session label. */}
+          {examLabelFor(r.exam, r.examLabel)}{' '}
+          {r.calendar.targetYear != null ? r.calendar.targetYear : sessionLabel(r.calendar.session)} ·{' '}
           {r.calendar.status === 'announced' ? 'announced' : 'expected date'}
         </span>
       </div>

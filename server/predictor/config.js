@@ -334,8 +334,23 @@ const READINESS = Object.freeze({
   DEFAULT_ANCHOR: 'ANY_SEAT',
   /** Display-only annotation threshold (R4): gap > factor × budget. */
   SIGNIFICANT_GAP_FACTOR: 2,
-  /** Exam-calendar horizon (§7.2): no resolvable session beyond this ⇒ NO_UPCOMING_EXAM. */
-  CALENDAR: Object.freeze({ HORIZON_DAYS: 548 }),
+  /**
+   * Exam-calendar horizon (§7.2): no resolvable session beyond this ⇒
+   * NO_UPCOMING_EXAM. Applies to default resolution and raw explicit-session
+   * targeting; target-YEAR selection is bounded by TARGET_YEAR_SPAN instead
+   * (the student's explicit pick, always inside the window, replaces the
+   * conservative horizon — see readinessCalendar.js header).
+   */
+  CALENDAR: Object.freeze({
+    HORIZON_DAYS: 548,
+    /**
+     * Target-year window (target-exam selection): the student may target any
+     * year from the current IST year through current year + this span. Pins
+     * the product rule "current year, +1, +2" as config, never a hardcoded
+     * year list; the window rolls forward automatically each year.
+     */
+    TARGET_YEAR_SPAN: 2,
+  }),
   /**
    * Time allowance (§9.4, decision R3 approved 2026-09-26 WITH this
    * documentation as a condition): the rates and cap are PROVISIONAL
