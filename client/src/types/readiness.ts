@@ -31,13 +31,20 @@ export interface ReadinessPattern {
 /**
  * One resolved calendar session (the calendar module's echo contract, §7.2.5).
  * examDate is an IST calendar date 'YYYY-MM-DD'; daysRemaining/monthsRemaining
- * are server-computed — the client only formats them. targetYear carries the
- * student's selected exam year (calendar rule 7), or null when the server used
- * its default earliest-upcoming resolution.
+ * are server-computed — the client only formats them. targetYear/targetSession
+ * carry the student's explicit pick (calendar rules 7–8: the calendar year of
+ * the exam date, and for INI-CET which of the year's two sittings), or null
+ * when the server used its default earliest-upcoming resolution. `session`
+ * remains the store/counselling admission key ('2028-01' ≠ the exam sitting);
+ * the STUDENT-FACING session identity is the server-derived targetLabel
+ * ('November 2027'; NEET PG '2027'). The v3 fields are optional because
+ * records persisted before the v3 calendar echo them as absent.
  */
 export interface ReadinessCalendarEntry {
   exam: string;
   session: string;
+  examSession?: 'MAY' | 'NOVEMBER' | null;
+  targetLabel?: string | null;
   examDate: string;
   status: 'announced' | 'expected';
   sourceUrl: string;
@@ -50,13 +57,19 @@ export interface ReadinessCalendarEntry {
   calendarVersion: string;
   horizonDays: number;
   targetYear: number | null;
+  targetSession?: 'MAY' | 'NOVEMBER' | null;
 }
 
 /**
- * One selectable target year (calendar rule 7): the full resolution echo for
- * that year's session, with targetYear always set.
+ * One selectable target (calendar rules 7–8): the full resolution echo for
+ * that (year, session) pick, with targetYear always set. INI-CET carries one
+ * entry per sitting (targetSession 'MAY' | 'NOVEMBER'); NEET PG one per year
+ * (targetSession null).
  */
-export type ReadinessCalendarTarget = ReadinessCalendarEntry & { targetYear: number };
+export type ReadinessCalendarTarget = ReadinessCalendarEntry & {
+  targetYear: number;
+  targetSession?: 'MAY' | 'NOVEMBER' | null;
+};
 
 /** GET /readiness/calendar — routine-empty exams are a 200-shaped null. */
 export interface ReadinessCalendarResponse {
@@ -94,11 +107,19 @@ export interface ReadinessRequestBody {
   session?: string;
   /**
    * The student's selected target exam year (target-exam selection, calendar
-   * rule 7). The SERVER derives everything from exam + targetYear — the exam
-   * date is never trusted from the client — and validates the year against
-   * its own [current year, current year + 2] window.
+   * rule 7 — the calendar year of the exam date). The SERVER derives
+   * everything from exam + targetYear — the exam date is never trusted from
+   * the client — and validates the year against its own [current year,
+   * current year + 2] window.
    */
   targetYear?: number;
+  /**
+   * The student's selected INI-CET sitting of the target year (calendar
+   * rule 8): 'MAY' | 'NOVEMBER'. INI-CET only — NEET PG runs once a year and
+   * never sends this. Must ride with targetYear; the server resolves the
+   * exact session date from its authoritative calendar.
+   */
+  targetSession?: 'MAY' | 'NOVEMBER';
 }
 
 // ---- Result record (the engine's §10 output, served verbatim) ----------------------
@@ -268,11 +289,19 @@ export interface ReadinessResult {
   notes: string[];
 }
 
-/** §18.2 session-rollover annotation (server's resolution wins). */
+/**
+ * §18.2 past-target rollover annotation (server's resolution wins).
+ * requestedSession/resolvedSession are the passed/resolved store session
+ * keys; the structured requested/resolved blocks (v3) additionally carry the
+ * targeting pick and resolution, and are absent on records persisted before
+ * the v3 calendar.
+ */
 export interface ReadinessRollover {
-  requestedSession: string;
+  requestedSession: string | null;
   resolvedSession: string;
   note: string;
+  requested?: { session?: string; targetYear?: number; targetSession?: 'MAY' | 'NOVEMBER' };
+  resolved?: { session: string; targetYear: number | null; targetSession?: 'MAY' | 'NOVEMBER' | null };
 }
 
 /** POST /readiness — 201 with the persisted record. */

@@ -28,7 +28,7 @@ const { CODES } = require('../../predictor/errors');
 const NOW_0926 = new Date('2026-09-26T04:00:00Z'); // 09:30 IST
 const NOW_NEET36 = new Date('2027-07-10T04:00:00Z'); // 09:30 IST
 const NOW_INI_EXAM_DAY = new Date('2026-11-01T04:00:00Z'); // 09:30 IST
-const NOW_EXHAUSTED = new Date('2028-01-05T06:00:00Z');
+const NOW_EXHAUSTED = new Date('2028-11-13T06:00:00Z'); // past every seeded date of both exams
 
 // Phase-1 golden anchor ranks → DBP reverse-resolver outputs (printed from
 // the committed store at Phase 3; NEET: 800-scale score bridged to 720 by
@@ -341,23 +341,91 @@ describe('Readiness Score — Phase 3 domain (§10 pipeline)', () => {
       expect(r.gap).toMatchObject({ budget: 38, capped: false });
     });
 
-    test('targetYear selection flows through the whole pipeline: session → days → months → budget (rule 7)', () => {
+    test('targetYear selection flows through the whole pipeline: session → days → months → budget (rule 7, calendar-year semantics)', () => {
       // Same performance, different target year ⇒ different exam clock AND budget.
+      // v3: the year named is the CALENDAR year of the resolved exam date.
+      const y2026 = computeReadiness({ exam: 'INI_CET', gts: [{ corrects: 110 }], targetYear: 2026 }, { now: NOW_0926 });
+      expect(y2026.calendar).toMatchObject({
+        targetYear: 2026,
+        session: '2027-01',
+        examSession: 'NOVEMBER',
+        targetLabel: 'November 2026',
+        examDate: '2026-11-01',
+        daysRemaining: 36,
+      });
+      expect(y2026.gap).toMatchObject({ budget: 5, capped: false }); // floor(5 × 36/30.44) = 5
       const y2027 = computeReadiness({ exam: 'INI_CET', gts: [{ corrects: 110 }], targetYear: 2027 }, { now: NOW_0926 });
-      expect(y2027.calendar).toMatchObject({ targetYear: 2027, session: '2027-01', examDate: '2026-11-01', daysRemaining: 36 });
-      expect(y2027.gap).toMatchObject({ budget: 5, capped: false }); // floor(5 × 36/30.44) = 5
+      expect(y2027.calendar).toMatchObject({
+        targetYear: 2027,
+        session: '2027-07',
+        examSession: 'MAY',
+        targetLabel: 'May 2027',
+        examDate: '2027-05-16',
+        daysRemaining: 232,
+      });
+      expect(y2027.gap).toMatchObject({ budget: 38, capped: false }); // floor(5 × 232/30.44) = 38
       const y2028 = computeReadiness({ exam: 'INI_CET', gts: [{ corrects: 110 }], targetYear: 2028 }, { now: NOW_0926 });
-      expect(y2028.calendar).toMatchObject({ targetYear: 2028, session: '2028-01', examDate: '2027-11-14', daysRemaining: 414 });
-      expect(y2028.gap).toMatchObject({ budget: 45, capped: true }); // months 13.6 > 9 ⇒ B = RATE × CAP
-      // The state follows the budget: G is 0 at 110c for both, but a 104.5c
-      // mean is MODERATELY_READY against 2027 (G 5.5 > B 5 ⇒ actually BARELY)
-      // — use the exact boundary pair to prove the year changed the verdict.
-      const barely2027 = computeReadiness({ exam: 'INI_CET', gts: [{ corrects: 104 }, { corrects: 105 }], targetYear: 2027 }, { now: NOW_0926 });
-      expect(barely2027.state).toBe('BARELY_READY'); // G 5.5 > B 5
-      const moderate2028 = computeReadiness({ exam: 'INI_CET', gts: [{ corrects: 104 }, { corrects: 105 }], targetYear: 2028 }, { now: NOW_0926 });
-      expect(moderate2028.state).toBe('MODERATELY_READY'); // G 5.5 ≤ B 45
+      expect(y2028.calendar).toMatchObject({ targetYear: 2028, session: '2028-07', examDate: '2028-05-21', daysRemaining: 603 });
+      expect(y2028.gap).toMatchObject({ budget: 45, capped: true }); // months 19.8 > 9 ⇒ B = RATE × CAP
+      // The state follows the budget: G is 0 at 110c for all three, but a
+      // 104.5c mean is BARELY_READY against November 2026 (G 5.5 > B 5) and
+      // MODERATELY_READY against 2027 — the pick changed the verdict.
+      const barely2026 = computeReadiness({ exam: 'INI_CET', gts: [{ corrects: 104 }, { corrects: 105 }], targetYear: 2026, targetSession: 'NOVEMBER' }, { now: NOW_0926 });
+      expect(barely2026.state).toBe('BARELY_READY'); // G 5.5 > B 5
+      const moderate2027 = computeReadiness({ exam: 'INI_CET', gts: [{ corrects: 104 }, { corrects: 105 }], targetYear: 2027 }, { now: NOW_0926 });
+      expect(moderate2027.state).toBe('MODERATELY_READY'); // G 5.5 ≤ B 38
       // The request echo carries the student's pick (persisted verbatim).
       expect(y2028.request).toMatchObject({ targetYear: 2028 });
+    });
+
+    test('targetSession selection (rule 8) picks the exact INI-CET sitting — same year, different clocks and budgets', () => {
+      const may = computeReadiness(
+        { exam: 'INI_CET', gts: [{ corrects: 110 }], targetYear: 2027, targetSession: 'MAY' },
+        { now: NOW_0926 }
+      );
+      expect(may.calendar).toMatchObject({
+        targetYear: 2027,
+        targetSession: 'MAY',
+        session: '2027-07',
+        examDate: '2027-05-16',
+        targetLabel: 'May 2027',
+        daysRemaining: 232,
+      });
+      expect(may.gap).toMatchObject({ budget: 38, capped: false });
+      const november = computeReadiness(
+        { exam: 'INI_CET', gts: [{ corrects: 110 }], targetYear: 2027, targetSession: 'NOVEMBER' },
+        { now: NOW_0926 }
+      );
+      expect(november.calendar).toMatchObject({
+        targetYear: 2027,
+        targetSession: 'NOVEMBER',
+        session: '2028-01',
+        examDate: '2027-11-14',
+        targetLabel: 'November 2027',
+        daysRemaining: 414,
+      });
+      expect(november.gap).toMatchObject({ budget: 45, capped: true }); // months 13.6 > 9
+      // The sitting changes the verdict at identical performance: G 5.5 is
+      // MODERATELY_READY against May (B 38) and against November (B 45).
+      const mean1045 = [{ corrects: 104 }, { corrects: 105 }];
+      expect(
+        computeReadiness({ exam: 'INI_CET', gts: mean1045, targetYear: 2027, targetSession: 'MAY' }, { now: NOW_0926 }).state
+      ).toBe('MODERATELY_READY');
+      expect(
+        computeReadiness({ exam: 'INI_CET', gts: mean1045, targetYear: 2027, targetSession: 'NOVEMBER' }, { now: NOW_0926 }).state
+      ).toBe('MODERATELY_READY');
+      // Deterministic re-derivation (the GET /:id contract) with the pick.
+      expect(computeReadiness(november.request, { now: `${november.calendar.asOfIstDate}T04:00:00Z` })).toEqual(november);
+      // A passed sitting surfaces the typed past-target error the §18.2
+      // route-level rollover catches (details carry the entry's facts).
+      const past = thrownBy(() =>
+        computeReadiness(
+          { exam: 'INI_CET', gts: [{ corrects: 110 }], targetYear: 2026, targetSession: 'NOVEMBER' },
+          { now: new Date('2026-11-02T04:00:00Z') }
+        )
+      );
+      expect(past.code).toBe(CODES.INVALID_INPUT);
+      expect(past.details).toMatchObject({ field: 'targetSession', examDate: '2026-11-01', pastTarget: true });
     });
 
     test('NEET PG targetYear 2028: capped budget + expected-date warning (beyond the horizon, inside the window)', () => {

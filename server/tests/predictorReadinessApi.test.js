@@ -457,13 +457,18 @@ describe('readiness API — POST /readiness (persist before serve)', () => {
 
   it('targets an explicit listed session in planning mode (server-side resolution, §7.2 rule 6)', async () => {
     const cookie = await login();
-    // Pick the LATEST future INI session at the real clock — stays valid for
-    // the whole seeded horizon (a null here means the seed needs its SOP
-    // maintenance commit, which is exactly what should fail loudly).
+    // Pick the LATEST future INI session INSIDE the raw-session horizon at
+    // the real clock (rule 6 keeps the horizon for planning mode; the v3 seed
+    // reaches further, but those far sittings are targetYear/targetSession
+    // picks). A null here means the seed needs its SOP maintenance commit,
+    // which is exactly what should fail loudly.
     const istToday = Math.trunc((Date.now() + 330 * 60000) / 86400000);
     const dayOf = (iso) => Math.trunc(Date.parse(`${iso}T00:00:00Z`) / 86400000);
     const future = readinessCalendar.ENTRIES.filter(
-      (e) => e.exam === 'INI_CET' && dayOf(e.examDate) >= istToday
+      (e) =>
+        e.exam === 'INI_CET' &&
+        dayOf(e.examDate) >= istToday &&
+        dayOf(e.examDate) - istToday <= 548
     );
     expect(future.length).toBeGreaterThan(0);
     const target = future[future.length - 1];
@@ -606,12 +611,15 @@ describe('readiness API — frozen-clock behaviors (§7.2, §18.2, §19, Phase-1
       });
     });
     expect(res.status).toBe(201);
-    // The annotation names both sessions.
-    expect(res.body.rollover).toEqual({
+    // The annotation names both sessions and the structured pick/resolution.
+    expect(res.body.rollover).toMatchObject({
       requestedSession: '2027-01',
       resolvedSession: '2027-07',
+      requested: { session: '2027-01' },
+      resolved: { session: '2027-07', targetYear: null, targetSession: null },
       note: expect.any(String),
     });
+    expect(res.body.rollover.note).toMatch(/already taken place/);
     // The server's default resolution won: the next upcoming session.
     expect(res.body.result.calendar).toMatchObject({
       session: '2027-07',
@@ -643,11 +651,79 @@ describe('readiness API — frozen-clock behaviors (§7.2, §18.2, §19, Phase-1
     expect(got.body.result.rollover.requestedSession).toBe('2027-01');
   });
 
+  it('rolls a passed client-sent target session forward within its year, then to the default (§18.2 rule-8 ladder)', async () => {
+    // November 2026 sitting passed on 1 Nov; the student's page still had it
+    // selected. Ladder step 1 keeps the targetYear but drops the sitting —
+    // 2026 has no other sitting, so step 2 drops the year too and the
+    // server's default resolution wins, annotated.
+    let frozenCookie;
+    const res = await withFrozenClock('2026-11-02T04:00:00Z', async () => {
+      frozenCookie = await login();
+      return postReadiness(frozenCookie, {
+        exam: 'INI_CET',
+        gts: [{ corrects: 120 }],
+        targetYear: 2026,
+        targetSession: 'NOVEMBER',
+      });
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.rollover).toMatchObject({
+      requestedSession: '2027-01',
+      resolvedSession: '2027-07',
+      requested: { targetYear: 2026, targetSession: 'NOVEMBER' },
+      resolved: { session: '2027-07' },
+    });
+    expect(res.body.rollover.note).toMatch(/November 2026/);
+    expect(res.body.result.calendar).toMatchObject({ session: '2027-07', examDate: '2027-05-16' });
+    // The persisted request is the fully stripped body the engine consumed.
+    expect(res.body.result.request).toEqual({ exam: 'INI_CET', gts: [{ corrects: 120 }] });
+    const doc = await ReadinessQuery.findById(res.body.readinessId).lean();
+    expect(doc.request).toEqual({ exam: 'INI_CET', gts: [{ corrects: 120 }] });
+    expect(doc.rollover).toMatchObject({ requestedSession: '2027-01', resolvedSession: '2027-07' });
+  });
+
+  it('rolls a passed sitting forward to the SAME year\'s next sitting when one remains (§18.2)', async () => {
+    // May 2027 passed on 16 May; November 2027 is still ahead — the ladder's
+    // first step (drop the sitting, keep the year) lands there.
+    let frozenCookie;
+    const res = await withFrozenClock('2027-05-17T04:00:00Z', async () => {
+      frozenCookie = await login();
+      return postReadiness(frozenCookie, {
+        exam: 'INI_CET',
+        gts: [{ corrects: 120 }],
+        targetYear: 2027,
+        targetSession: 'MAY',
+      });
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.rollover).toMatchObject({
+      requestedSession: '2027-07',
+      resolvedSession: '2028-01',
+      resolved: { session: '2028-01', targetYear: 2027, targetSession: null },
+    });
+    expect(res.body.rollover.note).toMatch(/May 2027/);
+    expect(res.body.result.calendar).toMatchObject({
+      session: '2028-01',
+      examDate: '2027-11-14',
+      targetYear: 2027,
+      targetSession: null,
+    });
+    // The persisted request keeps the year (re-derivation resolves cleanly
+    // on the stored IST date: 2027 still has its November sitting).
+    expect(res.body.result.request).toEqual({ exam: 'INI_CET', gts: [{ corrects: 120 }], targetYear: 2027 });
+    const got = await request(app)
+      .get(`/api/predictor/readiness/${res.body.readinessId}`)
+      .set('Cookie', frozenCookie);
+    expect(got.status).toBe(200);
+    expect(got.body.verified).toBe(true);
+  });
+
   it('answers NO_UPCOMING_EXAM with 409 and actionable copy once the horizon is exhausted (§19)', async () => {
     const before = await ReadinessQuery.countDocuments({ userId: STUDENT._id });
     // Session minted inside the frozen window (cookie expiry is clock-checked).
-    // 2028-08-20: past every seeded date incl. NEET '2028' (2028-08-13).
-    const res = await withFrozenClock('2028-08-20T06:00:00Z', async () => {
+    // 2028-11-13: past every seeded date of both exams (NEET '2028' 8/13,
+    // INI November 2028 sitting 11/12).
+    const res = await withFrozenClock('2028-11-13T06:00:00Z', async () => {
       const frozenCookie = await login();
       return postReadiness(frozenCookie, { exam: 'NEET_PG', gts: [{ corrects: 100 }] });
     });
@@ -658,7 +734,7 @@ describe('readiness API — frozen-clock behaviors (§7.2, §18.2, §19, Phase-1
   });
 
   it('serves a routine-empty calendar as a 200 with null nexts and an empty target menu, never a 4xx (Phase-10a lesson)', async () => {
-    const res = await withFrozenClock('2028-08-20T06:00:00Z', async () => {
+    const res = await withFrozenClock('2028-11-13T06:00:00Z', async () => {
       const frozenCookie = await login();
       return request(app).get('/api/predictor/readiness/calendar').set('Cookie', frozenCookie);
     });
@@ -669,20 +745,23 @@ describe('readiness API — frozen-clock behaviors (§7.2, §18.2, §19, Phase-1
   });
 });
 
-describe('readiness API — target-year selection (calendar rule 7)', () => {
-  it('serves the authoritative target-year menu on the calendar snapshot (frozen clock)', async () => {
+describe('readiness API — target-year + target-session selection (calendar rules 7–8)', () => {
+  it('serves the authoritative (year, session) target menu on the calendar snapshot (frozen clock)', async () => {
     const cookie = await login();
     const res = await withFrozenClock('2026-10-01T04:00:00Z', () =>
       request(app).get('/api/predictor/readiness/calendar').set('Cookie', cookie)
     );
     expect(res.status).toBe(200);
-    expect(res.body.exams.NEET_PG.targets.map((t) => [t.targetYear, t.session])).toEqual([
-      [2027, '2027'],
-      [2028, '2028'],
+    expect(res.body.exams.NEET_PG.targets.map((t) => [t.targetYear, t.targetSession ?? null, t.session])).toEqual([
+      [2027, null, '2027'],
+      [2028, null, '2028'],
     ]); // 2026 is inside the window but that edition already took place ⇒ absent
-    expect(res.body.exams.INI_CET.targets.map((t) => [t.targetYear, t.session])).toEqual([
-      [2027, '2027-01'],
-      [2028, '2028-01'],
+    expect(res.body.exams.INI_CET.targets.map((t) => [t.targetYear, t.targetSession, t.targetLabel])).toEqual([
+      [2026, 'NOVEMBER', 'November 2026'], // May 2026 passed — never offered
+      [2027, 'MAY', 'May 2027'],
+      [2027, 'NOVEMBER', 'November 2027'],
+      [2028, 'MAY', 'May 2028'],
+      [2028, 'NOVEMBER', 'November 2028'],
     ]);
     for (const examId of ['NEET_PG', 'INI_CET']) {
       // The menu's first entry is the default resolution — no target ⇒ same exam.
@@ -707,6 +786,7 @@ describe('readiness API — target-year selection (calendar rule 7)', () => {
     expect(res.status).toBe(201);
     expect(res.body.result.calendar).toMatchObject({
       targetYear: 2028,
+      targetSession: null,
       session: '2028',
       examDate: '2028-08-13',
       status: 'expected',
@@ -729,34 +809,65 @@ describe('readiness API — target-year selection (calendar rule 7)', () => {
     expect(got.body.result.calendar).toMatchObject({ targetYear: 2028, session: '2028' });
   });
 
-  it('INI-CET target year picks the admission-year session; different year ⇒ different budget', async () => {
-    let y2027;
-    let y2028;
+  it('INI-CET target year + session pick the exact sitting; the sitting flips the verdict (v3 calendar-year semantics)', async () => {
+    let nov2026;
+    let may2027;
+    let nov2027;
     await withFrozenClock('2026-10-01T04:00:00Z', async () => {
       const frozenCookie = await login();
-      y2027 = await postReadiness(frozenCookie, {
-        exam: 'INI_CET',
-        gts: [{ corrects: 104 }, { corrects: 105 }],
-        targetYear: 2027,
-      });
-      y2028 = await postReadiness(frozenCookie, {
-        exam: 'INI_CET',
-        gts: [{ corrects: 104 }, { corrects: 105 }],
-        targetYear: 2028,
-      });
+      const body = { exam: 'INI_CET', gts: [{ corrects: 104 }, { corrects: 105 }] };
+      nov2026 = await postReadiness(frozenCookie, { ...body, targetYear: 2026, targetSession: 'NOVEMBER' });
+      may2027 = await postReadiness(frozenCookie, { ...body, targetYear: 2027, targetSession: 'MAY' });
+      nov2027 = await postReadiness(frozenCookie, { ...body, targetYear: 2027, targetSession: 'NOVEMBER' });
     });
-    expect(y2027.status).toBe(201);
-    expect(y2027.body.result.calendar).toMatchObject({ targetYear: 2027, session: '2027-01', daysRemaining: 31 });
-    expect(y2027.body.result.gap.budget).toBe(5); // floor(5 × 31/30.44)
-    expect(y2028.status).toBe(201);
-    expect(y2028.body.result.calendar).toMatchObject({ targetYear: 2028, session: '2028-01', daysRemaining: 409 });
-    expect(y2028.body.result.gap).toMatchObject({ budget: 45, capped: true }); // months 13.4 > 9 cap
-    // Same performance (c̄ 104.5 ⇒ G 5.5), different year ⇒ the verdict flips.
-    expect(y2027.body.result.state).toBe('BARELY_READY'); // G 5.5 > B 5
-    expect(y2028.body.result.state).toBe('MODERATELY_READY'); // G 5.5 ≤ B 45
+    // The named year is ALWAYS the exam date's year — the v2 mismatch
+    // ("INI-CET 2027" → 1 Nov 2026) cannot recur.
+    expect(nov2026.status).toBe(201);
+    expect(nov2026.body.result.calendar).toMatchObject({
+      targetYear: 2026,
+      targetSession: 'NOVEMBER',
+      targetLabel: 'November 2026',
+      session: '2027-01',
+      examDate: '2026-11-01',
+      status: 'announced',
+      daysRemaining: 31,
+    });
+    expect(nov2026.body.result.gap.budget).toBe(5); // floor(5 × 31/30.44)
+    expect(may2027.status).toBe(201);
+    expect(may2027.body.result.calendar).toMatchObject({
+      targetYear: 2027,
+      targetSession: 'MAY',
+      targetLabel: 'May 2027',
+      session: '2027-07',
+      examDate: '2027-05-16',
+      daysRemaining: 227,
+    });
+    expect(nov2027.status).toBe(201);
+    expect(nov2027.body.result.calendar).toMatchObject({
+      targetYear: 2027,
+      targetSession: 'NOVEMBER',
+      targetLabel: 'November 2027',
+      session: '2028-01',
+      examDate: '2027-11-14',
+      daysRemaining: 409,
+    });
+    expect(nov2027.body.result.gap).toMatchObject({ budget: 45, capped: true }); // months 13.4 > 9 cap
+    // Same performance (c̄ 104.5 ⇒ G 5.5), different sitting ⇒ the verdict flips.
+    expect(nov2026.body.result.state).toBe('BARELY_READY'); // G 5.5 > B 5
+    expect(may2027.body.result.state).toBe('MODERATELY_READY'); // G 5.5 ≤ B 37
+    expect(nov2027.body.result.state).toBe('MODERATELY_READY'); // G 5.5 ≤ B 45
+    // The persisted requests distinguish the sittings byte-faithfully.
+    const docs = await Promise.all(
+      [nov2026, may2027, nov2027].map((r) => ReadinessQuery.findById(r.body.readinessId).lean())
+    );
+    expect(docs.map((d) => d.request)).toEqual([
+      expect.objectContaining({ targetYear: 2026, targetSession: 'NOVEMBER' }),
+      expect.objectContaining({ targetYear: 2027, targetSession: 'MAY' }),
+      expect.objectContaining({ targetYear: 2027, targetSession: 'NOVEMBER' }),
+    ]);
   });
 
-  it('rejects invalid target years server-side (past, beyond the window, malformed, unseeded, combined)', async () => {
+  it('rejects invalid targets server-side (window, malformed, combined, session misuse)', async () => {
     const before = await ReadinessQuery.countDocuments({ userId: STUDENT3._id });
     const cookie = await login(STUDENT3.email);
     for (const body of [
@@ -765,13 +876,26 @@ describe('readiness API — target-year selection (calendar rule 7)', () => {
       { exam: 'NEET_PG', gts: [{ corrects: 100 }], targetYear: 'abcd' },
       { exam: 'NEET_PG', gts: [{ corrects: 100 }], targetYear: 2027.5 },
       { exam: 'NEET_PG', gts: [{ corrects: 100 }], targetYear: 2026 }, // in-window but that edition already took place
-      { exam: 'INI_CET', gts: [{ corrects: 110 }], targetYear: 2026 }, // no INI 2026 session seeded
       { exam: 'INI_CET', gts: [{ corrects: 110 }], session: '2027-07', targetYear: 2027 }, // two targeting mechanisms
     ]) {
       const res = await postReadiness(cookie, body);
       expect(res.status).toBe(400);
       expect(res.body.code).toBe('INVALID_INPUT');
       expect(res.body.field).toBe('targetYear');
+    }
+    for (const body of [
+      // (A past sitting pick is NOT listed here: on a live clock the route's
+      // §18.2 ladder rolls it forward to a 201 — the frozen-clock rollover
+      // tests above pin both rungs; the domain tests pin the typed 400.)
+      { exam: 'NEET_PG', gts: [{ corrects: 100 }], targetYear: 2027, targetSession: 'MAY' }, // NEET sits once a year
+      { exam: 'INI_CET', gts: [{ corrects: 110 }], targetSession: 'MAY' }, // no year
+      { exam: 'INI_CET', gts: [{ corrects: 110 }], targetYear: 2027, targetSession: 'may' }, // bad value
+      { exam: 'INI_CET', gts: [{ corrects: 110 }], session: '2027-07', targetSession: 'MAY' }, // beside a raw session
+    ]) {
+      const res = await postReadiness(cookie, body);
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('INVALID_INPUT');
+      expect(res.body.field).toBe('targetSession');
     }
     expect(await ReadinessQuery.countDocuments({ userId: STUDENT3._id })).toBe(before); // nothing persisted for refusals
   });

@@ -7,7 +7,7 @@ import type { ReadinessAnchor, ReadinessResponse } from '../../types/readiness';
 import { fmtRank } from '../predictor/format';
 import { EXAM_LABELS, RANK_COVERAGE_TEXT } from '../predictor/constants';
 import {
-  ANCHOR_META, READINESS_WARNING_SHORT, STATE_META, examDateLabel,
+  ANCHOR_META, READINESS_WARNING_SHORT, STATE_META, admissionSessionLabel, examDateLabel,
   fmtNum, sessionLabel,
 } from './constants';
 
@@ -81,11 +81,15 @@ const StateHero: React.FC<{ res: ReadinessResponse }> = ({ res }) => {
               : 'border-amber-400/40 bg-amber-500/10 text-amber-100'
           }`}
         >
-          {/* The selected target edition (calendar rule 7); records predating
-              target-year selection fall back to the session label. */}
+          {/* The selected target edition (calendar rules 7–8): the sitting's
+              server-derived label ('INI-CET November 2027'); records from
+              before the v3 calendar fall back to year/session labels. */}
           {examLabelFor(r.exam, r.examLabel)}{' '}
-          {r.calendar.targetYear != null ? r.calendar.targetYear : sessionLabel(r.calendar.session)} ·{' '}
-          {r.calendar.status === 'announced' ? 'announced' : 'expected date'}
+          {r.calendar.targetLabel ??
+            (r.calendar.targetYear != null
+              ? String(r.calendar.targetYear)
+              : sessionLabel(r.calendar))}{' '}
+          · {r.calendar.status === 'announced' ? 'announced' : 'expected date'}
         </span>
       </div>
     </div>
@@ -246,7 +250,7 @@ const RankCard: React.FC<{ res: ReadinessResponse }> = ({ res }) => {
         <div className="text-[#94A3B8] text-xs uppercase tracking-wider">Projected AIR today</div>
         <span className="shrink-0 text-[11px] text-[#94A3B8] border border-white/10 rounded-full px-2.5 py-1">
           {res.result.exam === 'INI_CET'
-            ? `AIIMS ${rank.session ? sessionLabel(rank.session) : rank.examYear} results`
+            ? `AIIMS ${rank.session ? admissionSessionLabel(rank.session) : rank.examYear} results`
             : `NEET PG ${rank.examYear} results`}
         </span>
       </div>
@@ -411,9 +415,12 @@ const ExamCard: React.FC<{ res: ReadinessResponse }> = ({ res }) => {
           </span>
         </div>
         <div>
-          <div className="text-[10px] uppercase tracking-wider text-[#94A3B8] mb-1">Session</div>
-          <div className="text-[#F8FAFC] font-semibold">
-            {examLabelFor(res.result.exam, res.result.examLabel)} {sessionLabel(cal.session)}
+          <div className="text-[10px] uppercase tracking-wider text-[#94A3B8] mb-1">Target session</div>
+          <div
+            className="text-[#F8FAFC] font-semibold"
+            title={cal.examSession ? `This sitting feeds the ${admissionSessionLabel(cal.session)} intake` : undefined}
+          >
+            {examLabelFor(res.result.exam, res.result.examLabel)} {sessionLabel(cal)}
           </div>
         </div>
         <div>

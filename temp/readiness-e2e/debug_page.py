@@ -1,0 +1,25 @@
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    b = p.chromium.launch()
+    page = b.new_page()
+    errs = []
+    page.on("console", lambda m: errs.append(f"{m.type}: {m.text}") if m.type in ("error", "warning") else None)
+    page.on("pageerror", lambda e: errs.append("PAGEERROR: " + str(e)))
+    page.goto("http://localhost:5174/predictor")
+    page.click("button:has-text('Sign in to predict')")
+    modal = page.locator(".fixed.inset-0")
+    modal.locator("input[type=email]").wait_for(timeout=15000)
+    modal.locator("input[type=email]").fill("e2e-readiness@example.com")
+    modal.locator("input[type=password]").fill("correct-password")
+    modal.locator("button[type=submit]").click()
+    page.wait_for_selector("text=Grand Test", timeout=15000)
+    page.goto("http://localhost:5174/readiness")
+    page.wait_for_timeout(4000)
+    print("URL:", page.url)
+    print("BODY:", page.inner_text("body")[:700].replace("\n", " | "))
+    status = page.evaluate("fetch('/api/predictor/readiness/calendar').then(r => r.status).catch(e => 'ERR ' + String(e))")
+    print("cal status:", status)
+    print("CONSOLE:", errs[:12])
+    page.screenshot(path="temp/readiness-e2e/debug.png", full_page=True)
+    b.close()

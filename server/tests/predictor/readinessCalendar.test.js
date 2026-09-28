@@ -51,9 +51,14 @@ const at = (utcIso) => new Date(utcIso);
 const NOW_0926 = at('2026-09-26T04:00:00Z');
 
 function fixtureEntry(overrides = {}) {
+  const session = overrides.session !== undefined ? overrides.session : '2027-07';
+  // Derive the v3 sitting from the admission key ('-01' keys are November
+  // sittings, '-07' keys May) unless the fixture pins one explicitly.
+  const derivedSession = session.endsWith('-01') ? 'NOVEMBER' : 'MAY';
   return {
     exam: 'INI_CET',
-    session: '2027-07',
+    session,
+    examSession: derivedSession,
     examDate: '2027-05-16',
     status: 'expected',
     sourceUrl: 'https://aiimsexams.ac.in/',
@@ -66,28 +71,47 @@ function fixtureEntry(overrides = {}) {
 describe('Readiness Score — Phase 2 exam calendar', () => {
   describe('seed sanity + load-time self-check (§18.2)', () => {
     test('module loads with a validated, versioned, deterministic seed', () => {
-      expect(CALENDAR_VERSION).toBe('readiness-calendar-v2');
+      expect(CALENDAR_VERSION).toBe('readiness-calendar-v3');
       expect(() => createCalendar(ENTRIES)).not.toThrow(); // the seed re-validates
       const byExam = ENTRIES.reduce(
         (acc, e) => ({ ...acc, [e.exam]: [...(acc[e.exam] || []), e.session] }),
         {}
       );
-      expect(byExam).toEqual({ INI_CET: ['2027-01', '2027-07', '2028-01'], NEET_PG: ['2027', '2028'] });
+      expect(byExam).toEqual({
+        INI_CET: ['2027-01', '2027-07', '2028-01', '2028-07', '2029-01'],
+        NEET_PG: ['2027', '2028'],
+      });
     });
 
     test('seed matches the Phase-0 findings: one announced INI-CET entry, cadence placeholders on Sundays', () => {
       const announced = ENTRIES.filter((e) => e.status === 'announced');
       expect(announced).toHaveLength(1);
-      expect(announced[0]).toMatchObject({ exam: 'INI_CET', session: '2027-01', examDate: '2026-11-01' });
+      expect(announced[0]).toMatchObject({
+        exam: 'INI_CET',
+        session: '2027-01',
+        examSession: 'NOVEMBER',
+        examDate: '2026-11-01',
+      });
       for (const e of ENTRIES.filter((x) => x.status === 'expected')) {
         expect(new Date(`${e.examDate}T00:00:00Z`).getUTCDay()).toBe(0); // Sunday cadence
         expect(e.sourceUrl).toMatch(/^https:\/\/(aiimsexams\.ac\.in|natboard\.edu\.in)\//);
-        expect(e.verifiedAsOf).toMatch(/^2026-09-2[67]$/);
+        expect(e.verifiedAsOf).toMatch(/^2026-09-2[678]$/);
       }
       // The NEET PG 2028 placeholder (target-year window) — exact shape pin.
       expect(ENTRIES).toContainEqual(
         expect.objectContaining({ exam: 'NEET_PG', session: '2028', examDate: '2028-08-13', status: 'expected' })
       );
+      // v3: every INI-CET entry carries its exam-calendar sitting, and each
+      // offered year has BOTH sittings (2026 November-only: May already
+      // happened — past sittings are never seeded).
+      const ini = ENTRIES.filter((e) => e.exam === 'INI_CET');
+      expect(ini.map((e) => [Number(e.examDate.slice(0, 4)), e.examSession])).toEqual([
+        [2026, 'NOVEMBER'],
+        [2027, 'MAY'],
+        [2027, 'NOVEMBER'],
+        [2028, 'MAY'],
+        [2028, 'NOVEMBER'],
+      ]);
     });
 
     test('duplicate session or duplicate examDate within an exam fails the load-time check', () => {
@@ -115,6 +139,25 @@ describe('Readiness Score — Phase 2 exam calendar', () => {
         expect(err.code).toBe(CODES.DATA_INTEGRITY);
       }
     });
+
+    test('v3 examSession self-checks: missing/invalid on INI, present on NEET, key contradictions, dup sitting', () => {
+      for (const bad of [
+        [fixtureEntry({ examSession: undefined })], // INI entry without a sitting
+        [fixtureEntry({ examSession: 'JUNE' })], // not a sitting name
+        [fixtureEntry({ session: '2028-01', examSession: 'MAY' })], // '-01' key must be NOVEMBER
+        [fixtureEntry({ session: '2027-01', examDate: '2026-11-01', examSession: 'MAY' })], // same, explicit date
+        [
+          // two MAY sittings of one calendar year ⇒ ambiguous (year, session)
+          [fixtureEntry({ examDate: '2027-05-16' }), fixtureEntry({ session: '2027-05', examDate: '2027-05-23', examSession: 'MAY' })],
+        ][0],
+        [{ ...fixtureEntry(), exam: 'NEET_PG', session: '2027', examSession: 'MAY' }], // NEET sits once
+      ]) {
+        const err = thrownBy(() => validateEntries(bad));
+        expect(err).not.toBeNull();
+        expect(err.code).toBe(CODES.DATA_INTEGRITY);
+        expect(err.message).toMatch(/examSession|sitting/i);
+      }
+    });
   });
 
   describe('resolution as of the Phase-0 verification day (2026-09-26)', () => {
@@ -123,6 +166,8 @@ describe('Readiness Score — Phase 2 exam calendar', () => {
       expect(r).toMatchObject({
         exam: 'INI_CET',
         session: '2027-01',
+        examSession: 'NOVEMBER',
+        targetLabel: 'November 2026',
         examDate: '2026-11-01',
         status: 'announced',
         sourceUrl: 'https://aiimsexams.ac.in/',
@@ -163,6 +208,8 @@ describe('Readiness Score — Phase 2 exam calendar', () => {
       for (const key of [
         'exam',
         'session',
+        'examSession',
+        'targetLabel',
         'examDate',
         'status',
         'sourceUrl',
@@ -174,10 +221,16 @@ describe('Readiness Score — Phase 2 exam calendar', () => {
         'asOfIstDate',
         'calendarVersion',
         'horizonDays',
+        'targetYear',
+        'targetSession',
       ]) {
         expect(r).toHaveProperty(key);
       }
       expect(typeof r.note).toBe('string');
+      // Default resolution carries no explicit pick; NEET entries have no
+      // sitting identity (one exam a year).
+      expect(resolve('INI_CET', NOW_0926)).toMatchObject({ targetYear: null, targetSession: null });
+      expect(resolve('NEET_PG', NOW_0926)).toMatchObject({ examSession: null, targetLabel: '2027' });
     });
   });
 
@@ -215,7 +268,9 @@ describe('Readiness Score — Phase 2 exam calendar', () => {
     });
 
     test('horizon exhaustion ⇒ typed NO_UPCOMING_EXAM (never a silent guess)', () => {
-      const now = at('2028-08-20T06:00:00Z'); // past every seeded date, incl. NEET '2028' (8/13)
+      // 2028-11-13 IST: past every seeded date of BOTH exams — NEET '2028'
+      // (8/13) and the INI November 2028 sitting (11/12).
+      const now = at('2028-11-13T06:00:00Z');
       for (const exam of ['NEET_PG', 'INI_CET']) {
         const err = thrownBy(() => resolve(exam, now));
         expect(err).not.toBeNull();
@@ -223,6 +278,16 @@ describe('Readiness Score — Phase 2 exam calendar', () => {
         expect(err.details).toMatchObject({ exam, horizonDays: 548 });
         expect(err.message).toMatch(/check back/i);
       }
+    });
+
+    test('NEET-only exhaustion while INI-CET still resolves (the 2028 asymmetry)', () => {
+      // 2028-08-20: NEET '2028' (8/13) passed with no later seed; INI-CET's
+      // November 2028 sitting (11/12) is still ahead.
+      const now = at('2028-08-20T06:00:00Z');
+      const neetErr = thrownBy(() => resolve('NEET_PG', now));
+      expect(neetErr.code).toBe(CODES.NO_UPCOMING_EXAM);
+      const ini = resolve('INI_CET', now);
+      expect(ini).toMatchObject({ examSession: 'NOVEMBER', examDate: '2028-11-12', targetLabel: 'November 2028' });
     });
 
     test('NEET-only exhaustion while INI-CET still resolves (per-exam calendars)', () => {
@@ -296,7 +361,7 @@ describe('Readiness Score — Phase 2 exam calendar', () => {
     });
   });
 
-  describe('target year — target-exam selection (§7.2 rule 7)', () => {
+  describe('target year — target-exam selection (§7.2 rule 7, v3 calendar-year semantics)', () => {
     test('NEET PG targetYear resolves that year’s edition; days remaining follow the year', () => {
       const r2027 = resolve('NEET_PG', NOW_0926, { targetYear: 2027 });
       expect(r2027).toMatchObject({ targetYear: 2027, session: '2027', examDate: '2027-08-15' });
@@ -314,18 +379,52 @@ describe('Readiness Score — Phase 2 exam calendar', () => {
       expect(bySession.code).toBe(CODES.NO_UPCOMING_EXAM);
     });
 
-    test('INI-CET targetYear maps to the earliest upcoming session of that admission year', () => {
+    test('INI-CET targetYear is the CALENDAR year of the exam date — the displayed year always matches the pick', () => {
+      // The v2 admission-year bug this replaces: targetYear 2027 used to
+      // resolve the Jan-2027 admission session whose exam was 1 Nov 2026.
+      const r2026 = resolve('INI_CET', NOW_0926, { targetYear: 2026 });
+      expect(r2026).toMatchObject({
+        targetYear: 2026,
+        session: '2027-01',
+        examSession: 'NOVEMBER',
+        targetLabel: 'November 2026',
+        examDate: '2026-11-01',
+      });
+      expect(r2026.daysRemaining).toBe(utcDaysBetween('2026-09-26', '2026-11-01'));
       const r2027 = resolve('INI_CET', NOW_0926, { targetYear: 2027 });
-      expect(r2027).toMatchObject({ targetYear: 2027, session: '2027-01', examDate: '2026-11-01' });
-      expect(r2027.daysRemaining).toBe(utcDaysBetween('2026-09-26', '2026-11-01'));
+      expect(r2027).toMatchObject({
+        targetYear: 2027,
+        session: '2027-07',
+        examSession: 'MAY',
+        targetLabel: 'May 2027',
+        examDate: '2027-05-16',
+      });
       const r2028 = resolve('INI_CET', NOW_0926, { targetYear: 2028 });
-      expect(r2028).toMatchObject({ targetYear: 2028, session: '2028-01', examDate: '2027-11-14' });
+      expect(r2028).toMatchObject({ targetYear: 2028, session: '2028-07', examDate: '2028-05-21' });
+      // Every resolution's exam date falls inside its picked year — always.
+      for (const year of [2026, 2027, 2028]) {
+        expect(Number(resolve('INI_CET', NOW_0926, { targetYear: year }).examDate.slice(0, 4))).toBe(year);
+      }
     });
 
-    test('a year whose first session passed falls forward to its next session', () => {
-      const now = at('2026-11-02T04:00:00Z'); // the 2027-01-session exam took place 1 Nov
+    test('a year whose first sitting passed falls forward to its next sitting', () => {
+      const now = at('2027-05-17T04:00:00Z'); // the May 2027 sitting took place 16 May
       const r = resolve('INI_CET', now, { targetYear: 2027 });
-      expect(r).toMatchObject({ targetYear: 2027, session: '2027-07', examDate: '2027-05-16' });
+      expect(r).toMatchObject({
+        targetYear: 2027,
+        session: '2028-01',
+        examSession: 'NOVEMBER',
+        targetLabel: 'November 2027',
+        examDate: '2027-11-14',
+      });
+    });
+
+    test('a year whose sittings have ALL passed ⇒ INVALID_INPUT "already taken place" (pastTarget)', () => {
+      const now = at('2026-11-02T04:00:00Z'); // the November 2026 sitting took place 1 Nov
+      const err = thrownBy(() => resolve('INI_CET', now, { targetYear: 2026 }));
+      expect(err.code).toBe(CODES.INVALID_INPUT);
+      expect(err.details).toMatchObject({ field: 'targetYear', targetYear: 2026, pastTarget: true });
+      expect(err.message).toMatch(/already taken place/);
     });
 
     test('window validation: past year / beyond-span year carry the window in details', () => {
@@ -370,14 +469,6 @@ describe('Readiness Score — Phase 2 exam calendar', () => {
       expect(err.message).toMatch(/not on the exam calendar/);
     });
 
-    test('a year whose sessions have all taken place ⇒ INVALID_INPUT "already taken place"', () => {
-      const cal = createCalendar([fixtureEntry({ session: '2026-07', examDate: '2026-05-17' })]);
-      const err = thrownBy(() => cal.resolve('INI_CET', NOW_0926, { targetYear: 2026 }));
-      expect(err.code).toBe(CODES.INVALID_INPUT);
-      expect(err.details).toMatchObject({ field: 'targetYear', targetYear: 2026 });
-      expect(err.message).toMatch(/already taken place/);
-    });
-
     test('session + targetYear together ⇒ INVALID_INPUT (exactly one targeting mechanism)', () => {
       const err = thrownBy(() =>
         resolve('INI_CET', NOW_0926, { session: '2027-07', targetYear: 2027 })
@@ -390,24 +481,133 @@ describe('Readiness Score — Phase 2 exam calendar', () => {
       expect(resolve('NEET_PG', NOW_0926).targetYear).toBeNull();
       expect(resolve('INI_CET', NOW_0926, { session: '2027-07' }).targetYear).toBeNull();
     });
+  });
 
-    test('snapshot targets: the authoritative year menu (ascending, echo-complete, default-aligned)', () => {
+  describe('target session — INI-CET sitting selection (§7.2 rule 8, v3)', () => {
+    test('targetYear + targetSession resolves that exact sitting; sessions of one year differ', () => {
+      const may = resolve('INI_CET', NOW_0926, { targetYear: 2027, targetSession: 'MAY' });
+      expect(may).toMatchObject({
+        targetYear: 2027,
+        targetSession: 'MAY',
+        session: '2027-07',
+        examSession: 'MAY',
+        targetLabel: 'May 2027',
+        examDate: '2027-05-16',
+      });
+      const november = resolve('INI_CET', NOW_0926, { targetYear: 2027, targetSession: 'NOVEMBER' });
+      expect(november).toMatchObject({
+        targetYear: 2027,
+        targetSession: 'NOVEMBER',
+        session: '2028-01',
+        examSession: 'NOVEMBER',
+        targetLabel: 'November 2027',
+        examDate: '2027-11-14',
+      });
+      expect(november.daysRemaining).toBeGreaterThan(may.daysRemaining);
+      // The picked year stays the exam date's year under either sitting.
+      expect(Number(may.examDate.slice(0, 4))).toBe(2027);
+      expect(Number(november.examDate.slice(0, 4))).toBe(2027);
+    });
+
+    test('2028 offers both sittings; November 2028 resolves the far seed (beyond the raw-session horizon)', () => {
+      const may = resolve('INI_CET', NOW_0926, { targetYear: 2028, targetSession: 'MAY' });
+      expect(may).toMatchObject({ examDate: '2028-05-21', targetLabel: 'May 2028' });
+      const november = resolve('INI_CET', NOW_0926, { targetYear: 2028, targetSession: 'NOVEMBER' });
+      expect(november).toMatchObject({ examDate: '2028-11-12', session: '2029-01', targetLabel: 'November 2028' });
+    });
+
+    test('a seeded sitting that has passed ⇒ INVALID_INPUT with pastTarget + the entry (rollover primitive)', () => {
+      const err = thrownBy(() =>
+        resolve('INI_CET', at('2026-11-02T04:00:00Z'), { targetYear: 2026, targetSession: 'NOVEMBER' })
+      );
+      expect(err.code).toBe(CODES.INVALID_INPUT);
+      expect(err.details).toMatchObject({
+        field: 'targetSession',
+        targetSession: 'NOVEMBER',
+        targetYear: 2026,
+        session: '2027-01',
+        examDate: '2026-11-01',
+        targetLabel: 'November 2026',
+        pastTarget: true,
+      });
+    });
+
+    test('an unseeded MAY pick is decidable from config: upcoming NOVEMBER of the year ⇒ "already taken place"', () => {
+      // May 2026 is not seeded (past sittings never are); November 2026 is
+      // upcoming — so the May sitting is inferably past and flagged for rollover.
+      const err = thrownBy(() => resolve('INI_CET', NOW_0926, { targetYear: 2026, targetSession: 'MAY' }));
+      expect(err.code).toBe(CODES.INVALID_INPUT);
+      expect(err.details).toMatchObject({ field: 'targetSession', pastTarget: true });
+      expect(err.message).toMatch(/May session has already taken place/);
+    });
+
+    test('an unseeded later sitting (NOVEMBER with only MAY seeded) ⇒ honest "not on the calendar", no pastTarget', () => {
+      const cal = createCalendar([
+        fixtureEntry({ session: '2027-07', examDate: '2027-05-16' }),
+        fixtureEntry({ session: '2027-01', examDate: '2026-11-01' }),
+      ]);
+      const err = thrownBy(() => cal.resolve('INI_CET', NOW_0926, { targetYear: 2027, targetSession: 'NOVEMBER' }));
+      expect(err.code).toBe(CODES.INVALID_INPUT);
+      expect(err.details).toMatchObject({ field: 'targetSession', targetYear: 2027 });
+      expect(err.details.pastTarget).toBeUndefined();
+      expect(err.message).toMatch(/not on the exam calendar/);
+    });
+
+    test('targetSession is INI-CET only — NEET PG rejects it with one-session-a-year wording', () => {
+      const err = thrownBy(() => resolve('NEET_PG', NOW_0926, { targetYear: 2027, targetSession: 'MAY' }));
+      expect(err.code).toBe(CODES.INVALID_INPUT);
+      expect(err.details).toMatchObject({ field: 'targetSession', exam: 'NEET_PG' });
+      expect(err.message).toMatch(/one exam session a year/i);
+    });
+
+    test('targetSession misuse ⇒ INVALID_INPUT: bad value, without a year, beside a raw session', () => {
+      const badValue = thrownBy(() => resolve('INI_CET', NOW_0926, { targetYear: 2027, targetSession: 'may' }));
+      expect(badValue.details).toMatchObject({ field: 'targetSession', allowed: ['MAY', 'NOVEMBER'] });
+      const noYear = thrownBy(() => resolve('INI_CET', NOW_0926, { targetSession: 'MAY' }));
+      expect(noYear.details).toMatchObject({ field: 'targetSession' });
+      expect(noYear.message).toMatch(/needs its target year/i);
+      const withSession = thrownBy(() =>
+        resolve('INI_CET', NOW_0926, { session: '2027-07', targetSession: 'MAY' })
+      );
+      expect(withSession.details).toMatchObject({ field: 'targetSession' });
+    });
+
+    test('snapshot targets: the authoritative (year, session) menu (ascending, echo-complete, default-aligned)', () => {
       const snap = calendarSnapshot(NOW_0926);
-      expect(snap.exams.NEET_PG.targets.map((t) => [t.targetYear, t.session])).toEqual([
-        [2027, '2027'],
-        [2028, '2028'],
+      expect(snap.exams.NEET_PG.targets.map((t) => [t.targetYear, t.targetSession ?? null, t.session])).toEqual([
+        [2027, null, '2027'],
+        [2028, null, '2028'],
       ]); // 2026 absent: that edition already took place
-      expect(snap.exams.INI_CET.targets.map((t) => [t.targetYear, t.session])).toEqual([
-        [2027, '2027-01'],
-        [2028, '2028-01'],
+      expect(snap.exams.INI_CET.targets.map((t) => [t.targetYear, t.targetSession, t.targetLabel])).toEqual([
+        [2026, 'NOVEMBER', 'November 2026'], // May 2026 passed — never offered
+        [2027, 'MAY', 'May 2027'],
+        [2027, 'NOVEMBER', 'November 2027'],
+        [2028, 'MAY', 'May 2028'],
+        [2028, 'NOVEMBER', 'November 2028'],
       ]);
       for (const exam of Object.keys(snap.exams)) {
-        for (const key of ['targetYear', 'session', 'examDate', 'status', 'daysRemaining', 'warnings']) {
+        for (const key of ['targetYear', 'targetSession', 'targetLabel', 'session', 'examDate', 'status', 'daysRemaining', 'warnings']) {
           expect(snap.exams[exam].targets[0]).toHaveProperty(key);
         }
         // The menu's first entry is always the default resolution's session.
         expect(snap.exams[exam].targets[0].session).toBe(snap.exams[exam].next.session);
       }
+    });
+
+    test('the menu drops passed sittings automatically as the clock rolls (no hardcoded cutoffs)', () => {
+      const afterNov2026 = calendarSnapshot(at('2026-11-02T04:00:00Z'));
+      expect(afterNov2026.exams.INI_CET.targets.map((t) => [t.targetYear, t.targetSession])).toEqual([
+        [2027, 'MAY'],
+        [2027, 'NOVEMBER'],
+        [2028, 'MAY'],
+        [2028, 'NOVEMBER'],
+      ]); // calendar year 2026 gone entirely — its only sitting passed
+      const afterMay2027 = calendarSnapshot(at('2027-05-17T04:00:00Z'));
+      expect(afterMay2027.exams.INI_CET.targets.map((t) => [t.targetYear, t.targetSession])).toEqual([
+        [2027, 'NOVEMBER'], // May 2027 passed — dropped, November remains
+        [2028, 'MAY'],
+        [2028, 'NOVEMBER'],
+      ]);
     });
   });
 
@@ -437,7 +637,7 @@ describe('Readiness Score — Phase 2 exam calendar', () => {
     });
 
     test('nextExam: null on an exhausted calendar (200-shaped empty, never 4xx), typed on unknown exam', () => {
-      const now = at('2028-08-20T06:00:00Z');
+      const now = at('2028-11-13T06:00:00Z'); // past every seeded date of both exams
       expect(nextExam('NEET_PG', now)).toBeNull();
       expect(nextExam('INI_CET', now)).toBeNull();
       const err = thrownBy(() => nextExam('FMGE', now));
@@ -465,7 +665,7 @@ describe('Readiness Score — Phase 2 exam calendar', () => {
           expect(snap.exams[exam].next).toHaveProperty(key);
         }
       }
-      const empty = calendarSnapshot(at('2028-08-20T06:00:00Z'));
+      const empty = calendarSnapshot(at('2028-11-13T06:00:00Z'));
       expect(empty.exams.NEET_PG.next).toBeNull();
       expect(empty.exams.INI_CET.next).toBeNull();
       expect(empty.exams.NEET_PG.targets).toEqual([]);

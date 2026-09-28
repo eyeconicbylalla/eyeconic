@@ -334,12 +334,16 @@ function mergeNotes(...groups) {
  * (persist-before-serve, R8) and computes resultHash over the stored stages.
  *
  * @param {object} request { exam, gts?: rows, score?: {value,source?}|rows,
- *   session?, targetYear? }
+ *   session?, targetYear?, targetSession? }
  *   — gts rows: { corrects, provenance?, attemptedAt?, gtId? } (§15)
  *   — score rows normalize to one-or-more { value, source? } entries (§3/§10)
  *   — targetYear: the student's intended exam year (target-exam selection);
- *     validated + resolved to that year's session by the calendar (rule 7).
- *     Absent (with no session) ⇒ the default earliest-upcoming resolution.
+ *     validated + resolved to that year's session by the calendar (rule 7 —
+ *     the calendar year of the exam date). Absent (with no session) ⇒ the
+ *     default earliest-upcoming resolution.
+ *   — targetSession: 'MAY' | 'NOVEMBER' (INI-CET only, rule 8) — narrows the
+ *     target year to one exact sitting; rides along to the calendar and is
+ *     echoed byte-faithfully in `request`.
  * @param {object} [opts]
  *   now:  injectable clock (Date | ISO | epoch ms) — tests pin this; default
  *         is the real clock, read ONCE per request
@@ -388,13 +392,15 @@ function computeReadiness(request, opts = {}) {
   }
 
   // --- §10 step 3: calendar resolution (cheap + pure; also validates an
-  //     explicit session or target year against the §18.1 rules). The target
-  //     year is the student's pick of WHICH edition they are preparing for —
-  //     every downstream date-derived quantity (days, months, budget, state)
-  //     follows the session it selects, never the nearest exam by default. ---
+  //     explicit session, target year, or target session against the §18.1
+  //     rules). The target year/session is the student's pick of WHICH
+  //     edition they are preparing for — every downstream date-derived
+  //     quantity (days, months, budget, state) follows the sitting it
+  //     selects, never the nearest exam by default. ---
   const session = readinessCalendar.resolve(exam.id, opts.now, {
     session: request.session,
     targetYear: request.targetYear,
+    targetSession: request.targetSession,
   });
 
   // --- §10 step 1: aggregate through the SHARED module. Each row is one GT

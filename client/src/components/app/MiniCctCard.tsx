@@ -1,14 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Clock, History, Loader2, PlayCircle, RefreshCw, Zap } from 'lucide-react';
+import { AlertTriangle, Award, Clock, History, ListChecks, Loader2, PlayCircle, RefreshCw, Zap } from 'lucide-react';
 import { appErrorMessage, isAppUnavailable, miniCctApi } from '../../lib/appClient';
 import type { MiniCctLatestPayload } from '../../types/app';
 
 /**
- * Student Dashboard Mini CCT card (Feature 04): surfaces the latest Mini CCT —
- * 30 questions, 10 each from Psychiatry, Dermatology and Orthopaedics — with
- * start/resume/analysis actions. The attempt itself runs through the normal
- * /tests flow; after submission the results page embeds the Mini CCT analysis.
+ * Student Dashboard Mini CCT card (Feature 04): surfaces the latest Mini CCT
+ * as a deliberately generic card — what it is, why to take it and its fixed
+ * shape (questions / minutes / marks from the quiz payload) — with
+ * start/resume/analysis actions. Subjects and per-test titles stay off the
+ * card by design. The attempt itself runs through the normal /tests flow;
+ * after submission the results page embeds the Mini CCT analysis.
  *
  * Renders nothing when no Mini CCT is available to this student; load errors
  * stay inside the card and never hide the rest of the dashboard.
@@ -72,19 +74,16 @@ const MiniCctCard: React.FC = () => {
 
   return (
     <div className="bg-[#18222E] border border-[#18B6A4]/25 rounded-2xl p-5 sm:p-6 mb-8">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+        <div className="min-w-0 max-w-xl">
           <h3 className="font-semibold text-[#F8FAFC] flex items-center gap-2 text-lg">
-            <Zap size={18} className="text-[#4DD7C8]" /> Mini CCT
+            <Zap size={18} className="text-[#4DD7C8] shrink-0" /> Mini CCT
             <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-[#18B6A4]/15 text-[#4DD7C8] border border-[#18B6A4]/25">
               Mini Grand Test
             </span>
           </h3>
-          <p className="text-sm text-[#94A3B8] mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="font-medium text-[#CBD5E1]">{quiz.title}</span>
-            <span className="inline-flex items-center gap-1"><Clock size={12} /> {quiz.duration} min</span>
-            <span>{quiz.questionCount} questions · {quiz.totalMarks} marks</span>
-            <span>{quiz.subjectNames.join(' · ')}</span>
+          <p className="text-sm text-[#94A3B8] mt-1.5">
+            A short, focused test for regular practice — assess and strengthen your preparation.
           </p>
           {completed && (
             <p className="text-sm text-[#94A3B8] mt-1">
@@ -118,6 +117,20 @@ const MiniCctCard: React.FC = () => {
             </Link>
           )}
         </div>
+      </div>
+      <div className="mt-4 pt-4 border-t border-white/[0.06] flex flex-wrap items-center gap-x-6 gap-y-2.5">
+        <span className="inline-flex items-center gap-2 text-sm text-[#94A3B8]">
+          <ListChecks size={15} className="text-[#4DD7C8] shrink-0" />
+          <span className="font-semibold text-[#F8FAFC]">{quiz.questionCount}</span> Questions
+        </span>
+        <span className="inline-flex items-center gap-2 text-sm text-[#94A3B8]">
+          <Clock size={15} className="text-[#4DD7C8] shrink-0" />
+          <span className="font-semibold text-[#F8FAFC]">{quiz.duration}</span> Minutes
+        </span>
+        <span className="inline-flex items-center gap-2 text-sm text-[#94A3B8]">
+          <Award size={15} className="text-[#4DD7C8] shrink-0" />
+          <span className="font-semibold text-[#F8FAFC]">{quiz.totalMarks}</span> Marks
+        </span>
       </div>
     </div>
   );

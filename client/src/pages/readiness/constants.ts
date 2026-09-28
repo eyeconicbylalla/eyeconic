@@ -82,8 +82,26 @@ export const READINESS_WARNING_SHORT: Record<string, string> = {
 export const fmtNum = (value: number): string =>
   Number.isInteger(value) ? String(value) : String(Math.round(value * 100) / 100);
 
+/**
+ * The student-facing name of a resolved calendar entry's sitting. v3 entries
+ * carry the server-derived targetLabel ('November 2027'); INI sittings read
+ * as '<label> session' (the exam-calendar session), NEET PG as its year.
+ * Records persisted before v3 have no targetLabel and fall back to the
+ * admission-session-key mapping.
+ */
+export function sessionLabel(entry: {
+  session: string;
+  targetLabel?: string | null;
+  examSession?: string | null;
+}): string {
+  const label = entry.targetLabel ?? null;
+  if (label && entry.examSession) return `${label} session`;
+  if (label) return label;
+  return admissionSessionLabel(entry.session);
+}
+
 /** '2027-01' → 'January 2027 session' · '2027' → '2027' (session keys are server data). */
-export function sessionLabel(session: string): string {
+export function admissionSessionLabel(session: string): string {
   if (!session.includes('-')) return session;
   const [year, month] = session.split('-');
   const monthName =

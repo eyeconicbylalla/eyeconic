@@ -2,22 +2,71 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, CalendarClock, ExternalLink, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { errorRowIndices, predictorEndpoints, predictorErrorMessage } from '../../lib/predictorClient';
 import type { PredictorExam, PredictorExamId } from '../../types/predictor';
-import type { ReadinessCalendarResponse, ReadinessCorrectsRow, ReadinessRequestBody, ReadinessResponse } from '../../types/readiness';
+import type {
+  ReadinessCalendarResponse,
+  ReadinessCalendarTarget,
+  ReadinessCorrectsRow,
+  ReadinessRequestBody,
+  ReadinessResponse,
+} from '../../types/readiness';
 import ExamPicker from '../predictor/ExamPicker';
 import GtInputSection from '../predictor/GtInputSection';
 import { useGtInput } from '../predictor/useGtInput';
 import { latestAttempt } from '../predictor/format';
-import { examDateLabel, fmtNum, patternFor, sessionLabel, timeRemainingLabel } from './constants';
+import { admissionSessionLabel, examDateLabel, fmtNum, patternFor, sessionLabel, timeRemainingLabel } from './constants';
 
 /**
  * Readiness Score input (Feature 09, spec §3/§17.3): exam → target exam year
- * (the server calendar's offered menu) → the resolved-session banner →
- * performance in ONE mode (GT corrects, reusing the predictor's auto-filling
- * rows, or GT score rows). Everything derived — the exam date, days left,
- * anchors, budget, the state — is computed by the server at submit time; this
- * form only sends raw inputs plus the selected targetYear (never a date, never
- * a session: the server resolves the calendar per request, FR-3).
+ * → (INI-CET) target session — May or November, the exam-calendar sitting —
+ * → the resolved-session banner → performance in ONE mode (GT corrects,
+ * reusing the predictor's auto-filling rows, or GT score rows). Everything
+ * derived — the exam date, days left, anchors, budget, the state — is
+ * computed by the server at submit time; this form only sends raw inputs plus
+ * the selected targetYear/targetSession (never a date, never a raw session
+ * key: the server resolves the calendar per request, FR-3).
+ *
+ * The target pick (exam, year, session) persists across visits in
+ * localStorage and is re-validated against the SERVER's menu on every mount —
+ * a stored pick the calendar no longer offers (its sitting passed, its year
+ * rolled out of the window) silently falls back to the menu's first entry,
+ * which is always the server's default resolution.
  */
+
+/** localStorage key for the persisted target pick (see header). */
+const TARGET_STORE_KEY = 'eyeconic:readiness-target';
+
+interface StoredTarget {
+  exam: string;
+  targetYear: number;
+  targetSession: 'MAY' | 'NOVEMBER' | null;
+}
+
+function readStoredTarget(): StoredTarget | null {
+  try {
+    const raw = localStorage.getItem(TARGET_STORE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredTarget;
+    if (
+      !parsed ||
+      typeof parsed !== 'object' ||
+      typeof parsed.exam !== 'string' ||
+      !Number.isInteger(parsed.targetYear)
+    ) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null; // private mode / corrupted value — defaults apply
+  }
+}
+
+function writeStoredTarget(target: StoredTarget): void {
+  try {
+    localStorage.setItem(TARGET_STORE_KEY, JSON.stringify(target));
+  } catch {
+    // Private mode / storage full — persistence is a convenience, never a blocker.
+  }
+}
 
 interface ScoreRow {
   key: number;
@@ -68,9 +117,18 @@ const ReadinessForm: React.FC<{ onResult: (res: ReadinessResponse) => void }> = 
       pattern: { totalQuestions: 200, positive: 1, negative: 1 / 3, maxMarks: 200 },
     },
   ]);
-  const [examId, setExamId] = useState<PredictorExamId>('NEET_PG');
+  // The whole pick restores on mount — exam included, so a student who last
+  // targeted INI-CET November 2027 comes back to exactly that (§8). The ids
+  // are the fixed two-exam registry, safe to validate before the list loads.
+  const [examId, setExamId] = useState<PredictorExamId>(() => {
+    const stored = readStoredTarget();
+    return stored && (stored.exam === 'NEET_PG' || stored.exam === 'INI_CET')
+      ? (stored.exam as PredictorExamId)
+      : 'NEET_PG';
+  });
   const [mode, setMode] = useState<'corrects' | 'score'>('corrects');
   const [targetYear, setTargetYear] = useState<number | null>(null);
+  const [targetSession, setTargetSession] = useState<'MAY' | 'NOVEMBER' | null>(null);
   const [calendar, setCalendar] = useState<ReadinessCalendarResponse | null>(null);
 
   const pattern = patternFor(exams, examId);
@@ -116,19 +174,67 @@ const ReadinessForm: React.FC<{ onResult: (res: ReadinessResponse) => void }> = 
   const valuedScoreRows = scoreRows.filter((row) => row.value.trim() !== '');
 
   const examLabel = exams.find((e) => e.id === examId)?.label ?? examId;
+  const isIniCet = examId === 'INI_CET';
   const nextSession = calendar?.exams?.[examId]?.next ?? null;
-  /** The server's offered target years for this exam (authoritative menu). */
+  /** The server's offered (year, session) targets for this exam — the menu. */
   const targets = calendar?.exams?.[examId]?.targets ?? [];
-  const targetYearsKey = targets.map((t) => t.targetYear).join(',');
+  const targetsKey = targets.map((t) => `${t.targetYear}:${t.targetSession ?? '-'}`).join(',');
 
-  // The selection defaults to the menu's first year — always the server's
-  // default resolution — and resets on exam change or menu (re)load, so a
-  // year from a previous exam can never ride along into a submit.
+  /** The menu's years, first-seen order (examDate-ascending ⇒ year-ascending). */
+  const menuYears = useMemo(() => {
+    const years: number[] = [];
+    for (const t of targets) {
+      if (!years.includes(t.targetYear)) years.push(t.targetYear);
+    }
+    return years;
+  }, [targetsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** The selected year's sittings (INI-CET: up to two; NEET PG: exactly one). */
+  const yearSessions = useMemo(
+    () => targets.filter((t) => t.targetYear === targetYear),
+    [targetsKey, targetYear] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  // Selection default/restore: the stored pick when the menu still offers it,
+  // else the menu's first entry — always the server's default resolution.
+  // Re-runs on exam change or menu (re)load so a stale pick from a previous
+  // exam (or a sitting that has since passed) can never ride into a submit.
   useEffect(() => {
-    setTargetYear(targetYearsKey ? Number(targetYearsKey.split(',')[0]) : null);
-  }, [examId, targetYearsKey]);
+    if (!targets.length) {
+      setTargetYear(null);
+      setTargetSession(null);
+      return;
+    }
+    const stored = readStoredTarget();
+    const storedMatch =
+      stored && stored.exam === examId
+        ? targets.find(
+            (t) =>
+              t.targetYear === stored.targetYear &&
+              (t.targetSession ?? null) === (stored.targetSession ?? null)
+          )
+        : undefined;
+    const chosen: ReadinessCalendarTarget = storedMatch ?? targets[0];
+    setTargetYear(chosen.targetYear);
+    setTargetSession(chosen.targetSession ?? null);
+  }, [examId, targetsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const selectedTarget = targets.find((t) => t.targetYear === targetYear) ?? null;
+  // Persist the pick on every change (localStorage may throw — see writer).
+  useEffect(() => {
+    if (targetYear === null) return;
+    writeStoredTarget({ exam: examId, targetYear, targetSession: targetSession ?? null });
+  }, [examId, targetYear, targetSession]);
+
+  const selectYear = (year: number) => {
+    setTargetYear(year);
+    // Land on the year's earliest upcoming sitting (May before November).
+    setTargetSession(targets.find((t) => t.targetYear === year)?.targetSession ?? null);
+  };
+
+  const selectedTarget =
+    targets.find(
+      (t) => t.targetYear === targetYear && (t.targetSession ?? null) === targetSession
+    ) ?? null;
   const bannerEntry: typeof nextSession = selectedTarget ?? nextSession;
 
   const updateScoreRow = (key: number, value: string) =>
@@ -165,11 +271,14 @@ const ReadinessForm: React.FC<{ onResult: (res: ReadinessResponse) => void }> = 
     setSubmitting(true);
     try {
       // Exactly one input mode valued per request (FR-2) — the toggle decides.
-      // The selected target year names WHICH edition is targeted; the server
-      // derives its date and every downstream quantity (never trusted here).
+      // The selected target year + session name WHICH edition is targeted;
+      // the server derives its date and every downstream quantity (never
+      // trusted here). NEET PG never sends targetSession (one sitting a
+      // year); INI-CET always does — the session pills force a pick.
       const body: ReadinessRequestBody = {
         exam: examId,
         ...(targetYear != null ? { targetYear } : {}),
+        ...(isIniCet && targetSession != null ? { targetSession } : {}),
         ...(mode === 'corrects'
           ? { gts: buildReadinessGts(gt) }
           : {
@@ -208,10 +317,10 @@ const ReadinessForm: React.FC<{ onResult: (res: ReadinessResponse) => void }> = 
       <ExamPicker exams={exams} examId={examId} onSelect={setExamId} />
 
       {/* Target exam (calendar rule 7): the menu is the SERVER's offered
-          years for this exam — never a client-side year list. Changing the
-          target updates the banner below; the readiness check runs against
-          the selected edition. */}
-      {targets.length > 0 ? (
+          years for this exam — never a client-side year list. The year is
+          the CALENDAR year of the exam date, so what the pill says is always
+          the year the resolved date shows. */}
+      {menuYears.length > 0 ? (
         <div className="mb-4" data-anim="fade-up">
           <div className="flex items-baseline justify-between gap-3 mb-2">
             <span className="text-[11px] font-medium uppercase tracking-wider text-[#94A3B8]">
@@ -220,22 +329,64 @@ const ReadinessForm: React.FC<{ onResult: (res: ReadinessResponse) => void }> = 
             <span className="text-[11px] text-[#94A3B8]">the edition you are preparing for</span>
           </div>
           <div role="group" aria-label="Target exam" className="flex flex-wrap gap-2">
-            {targets.map((t) => {
-              const selected = t.targetYear === targetYear;
+            {menuYears.map((year) => {
+              const selected = year === targetYear;
+              const yearEntry = targets.find((t) => t.targetYear === year);
               return (
                 <button
-                  key={t.targetYear}
+                  key={year}
                   type="button"
                   aria-pressed={selected}
-                  onClick={() => setTargetYear(t.targetYear)}
-                  title={`${examLabel} ${t.targetYear} · ${examDateLabel(t.examDate)}`}
+                  onClick={() => selectYear(year)}
+                  title={
+                    yearEntry
+                      ? `${examLabel} ${year} · next sitting ${examDateLabel(yearEntry.examDate)}`
+                      : `${examLabel} ${year}`
+                  }
                   className={`text-sm rounded-full px-4 py-2 border transition ${
                     selected
                       ? 'bg-[#18B6A4]/15 text-[#4DD7C8] border-[#18B6A4]/40 font-semibold'
                       : 'bg-[#18222E] text-[#94A3B8] border-white/10 hover:text-[#CBD5E1]'
                   }`}
                 >
-                  {examLabel} {t.targetYear}
+                  {examLabel} {year}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Target session (calendar rule 8): INI-CET runs TWICE a calendar
+          year — after the year, the student picks the sitting. Only offered
+          sittings render (the server menu already hides passed ones), and a
+          year with a single upcoming sitting shows no pills — the banner
+          below carries the session identity. */}
+      {isIniCet && yearSessions.length > 1 ? (
+        <div className="mb-4" data-anim="fade-up">
+          <div className="flex items-baseline justify-between gap-3 mb-2">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-[#94A3B8]">
+              Target session
+            </span>
+            <span className="text-[11px] text-[#94A3B8]">INI-CET runs twice a year — May &amp; November</span>
+          </div>
+          <div role="group" aria-label="Target session" className="flex flex-wrap gap-2">
+            {yearSessions.map((t) => {
+              const selected = (t.targetSession ?? null) === targetSession;
+              return (
+                <button
+                  key={t.targetSession ?? t.session}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => setTargetSession(t.targetSession ?? null)}
+                  title={`${t.targetLabel ?? t.session} · ${examDateLabel(t.examDate)}`}
+                  className={`text-sm rounded-full px-4 py-2 border transition ${
+                    selected
+                      ? 'bg-[#18B6A4]/15 text-[#4DD7C8] border-[#18B6A4]/40 font-semibold'
+                      : 'bg-[#18222E] text-[#94A3B8] border-white/10 hover:text-[#CBD5E1]'
+                  }`}
+                >
+                  {t.targetLabel ?? t.session}
                 </button>
               );
             })}
@@ -245,8 +396,8 @@ const ReadinessForm: React.FC<{ onResult: (res: ReadinessResponse) => void }> = 
 
       {/* Server-resolved target session (§3 step 4): banner only — the date
           is re-resolved by the server at submit time, never sent from here.
-          Shows the SELECTED year's resolution (falls back to the server's
-          default next exam while the calendar loads). */}
+          Shows the SELECTED (year, session)'s resolution (falls back to the
+          server's default next exam while the calendar loads). */}
       {bannerEntry ? (
         <div
           className={`mb-4 rounded-2xl border p-4 sm:p-5 flex flex-wrap items-center gap-x-5 gap-y-2 ${
@@ -261,7 +412,16 @@ const ReadinessForm: React.FC<{ onResult: (res: ReadinessResponse) => void }> = 
             {selectedTarget ? 'Target' : 'Next'} {examLabel}:{' '}
             <strong className="font-semibold">{examDateLabel(bannerEntry.examDate)}</strong>
           </span>
-          <span className="text-xs text-[#94A3B8]">{sessionLabel(bannerEntry.session)}</span>
+          <span
+            className="text-xs text-[#94A3B8]"
+            title={
+              bannerEntry.examSession
+                ? `This sitting feeds the ${admissionSessionLabel(bannerEntry.session)} intake`
+                : undefined
+            }
+          >
+            {sessionLabel(bannerEntry)}
+          </span>
           <span
             className={`text-[10px] uppercase tracking-wide rounded-full px-2 py-0.5 border ${
               bannerEntry.status === 'announced'

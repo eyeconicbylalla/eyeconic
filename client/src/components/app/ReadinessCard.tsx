@@ -59,7 +59,7 @@ const ReadinessCard: React.FC = () => {
                 <span
                   key={examId}
                   className="inline-flex items-center gap-1.5 text-xs text-[#CBD5E1] bg-[#151E29] border border-white/[0.08] rounded-full px-3 py-1.5"
-                  title={`${EXAM_LABELS[examId] ?? examId} ${sessionLabel(next.session)} · ${examDateLabel(next.examDate)}${
+                  title={`${EXAM_LABELS[examId] ?? examId} ${sessionLabel(next)} · ${examDateLabel(next.examDate)}${
                     next.status === 'expected' ? ' (expected date)' : ''
                   }`}
                 >

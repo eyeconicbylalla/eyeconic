@@ -60,8 +60,9 @@ const ReadinessQuerySchema = new mongoose.Schema(
     // the identical shape POST served).
     examLabel: { type: String, default: null },
     explanation: { type: mongoose.Schema.Types.Mixed, default: null },
-    // §18.2 session-rollover annotation ({ requestedSession, resolvedSession,
-    // note }) when the client-targeted session had passed at request time.
+    // §18.2 past-target rollover annotation: { requestedSession,
+    // resolvedSession, note } (+ v3 structured { requested, resolved } blocks)
+    // when the sitting the client targeted had passed at request time.
     rollover: { type: mongoose.Schema.Types.Mixed, default: null },
 
     // sha256 of the canonical JSON of the stored stages — retrievable results

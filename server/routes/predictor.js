@@ -575,19 +575,19 @@ function readinessStages(result) {
 }
 
 /**
- * §18.2 session-rollover detection: a client-sent `session` that has already
- * taken place at request time (page loaded before the exam, submitted after).
- * The calendar's strict INVALID_INPUT is the detection primitive — only the
- * past-session error carries the entry's examDate in its details (an unknown
- * session key does not), so the two cases stay distinguishable here.
+ * §18.2 past-target detection: the exam the client targeted (a raw `session`
+ * key, or a `targetYear`/`targetSession` pick) has already taken place at
+ * request time (page loaded before the exam, submitted after). The calendar's
+ * strict INVALID_INPUT is the detection primitive — every "already taken
+ * place" error carries `pastTarget: true` in its details (unknown keys and
+ * unseeded years/sessions do not), so the cases stay distinguishable here.
  */
-function isPastSessionError(error) {
+function isPastTargetError(error) {
   return (
     error instanceof PredictorError &&
     error.code === CODES.INVALID_INPUT &&
-    error.details &&
-    error.details.field === 'session' &&
-    typeof error.details.examDate === 'string'
+    Boolean(error.details) &&
+    error.details.pastTarget === true
   );
 }
 
@@ -623,37 +623,80 @@ router.post('/readiness', async (req, res) => {
 
   // Calendar resolution happens INSIDE the engine at request time (FR-3) —
   // the client only ever names an exam, plus optionally a listed session OR
-  // a target year (target-exam selection, calendar rule 7); every derived
-  // quantity (date, days, anchors, rates, budget, state) is server-computed
-  // from versioned config + the committed snapshot store.
+  // a target year with (INI-CET) a target session (target-exam selection,
+  // calendar rules 7–8); every derived quantity (date, days, anchors, rates,
+  // budget, state) is server-computed from versioned config + the committed
+  // snapshot store.
   let result;
   let rollover = null;
   try {
     result = computeReadiness(req.body);
   } catch (error) {
-    // §18.2 rollover: the session the client targeted has passed since page
-    // load — the server's default resolution wins and the response notes it.
-    // The persisted request is the stripped body the engine actually consumed
-    // (re-derivation must resolve cleanly); the client's session survives in
-    // the rollover annotation.
+    // §18.2 rollover: the sitting the client targeted has passed since page
+    // load — the server's resolution wins and the response notes it. The
+    // retry ladder strips the explicit session pick first (a targetSession,
+    // or a raw session key — keeping the targetYear so the roll stays inside
+    // the student's year when that year still has an upcoming sitting), then
+    // the year itself. The persisted request is the stripped body the engine
+    // actually consumed (re-derivation must resolve cleanly); the client's
+    // original pick survives in the rollover annotation.
     if (
-      isPastSessionError(error) &&
+      isPastTargetError(error) &&
       req.body &&
       typeof req.body === 'object' &&
       !Array.isArray(req.body)
     ) {
-      const { session, ...rest } = req.body;
-      void session;
-      try {
-        result = computeReadiness(rest);
-        rollover = {
-          requestedSession: session,
-          resolvedSession: result.calendar.session,
-          note: `The session you targeted (${session}) has already taken place — this result uses the next upcoming session (${result.calendar.session}), resolved by the server at request time.`,
-        };
-      } catch (retryError) {
-        return sendPredictorError(res, retryError);
+      const attempts = [];
+      const stripped = { ...req.body };
+      delete stripped.session;
+      delete stripped.targetSession;
+      attempts.push(stripped);
+      if (req.body.targetYear !== undefined && req.body.targetYear !== null) {
+        const strippedFurther = { ...stripped };
+        delete strippedFurther.targetYear;
+        attempts.push(strippedFurther);
       }
+      let lastError = error;
+      for (const attempt of attempts) {
+        try {
+          result = computeReadiness(attempt);
+          break;
+        } catch (retryError) {
+          if (!isPastTargetError(retryError)) {
+            return sendPredictorError(res, retryError);
+          }
+          lastError = retryError;
+        }
+      }
+      if (!result) {
+        return sendPredictorError(res, lastError);
+      }
+      // The originally-targeted sitting, named the way the student saw it:
+      // the passed entry's human label when the calendar could resolve one
+      // (targetSession mode carries it), else the raw pick.
+      const requestedLabel =
+        error.details && typeof error.details.targetLabel === 'string'
+          ? error.details.targetLabel
+          : String(
+              error.details && error.details.field === 'session'
+                ? error.details.session
+                : req.body.session
+            );
+      rollover = {
+        requestedSession: (error.details && error.details.session) || req.body.session || null,
+        resolvedSession: result.calendar.session,
+        requested: {
+          ...(req.body.session !== undefined ? { session: req.body.session } : {}),
+          ...(req.body.targetYear !== undefined ? { targetYear: req.body.targetYear } : {}),
+          ...(req.body.targetSession !== undefined ? { targetSession: req.body.targetSession } : {}),
+        },
+        resolved: {
+          session: result.calendar.session,
+          targetYear: result.calendar.targetYear,
+          targetSession: result.calendar.targetSession,
+        },
+        note: `The session you targeted (${requestedLabel}) has already taken place — this result uses the next upcoming session (${result.calendar.targetLabel ?? result.calendar.session}), resolved by the server at request time.`,
+      };
     } else {
       return sendPredictorError(res, error);
     }
