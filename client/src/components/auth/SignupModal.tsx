@@ -12,7 +12,7 @@ interface SignupModalProps {
 }
 
 /**
- * Free visitor sign-up (the "Visitor account (GT Score Predictor)" funnel).
+ * Free visitor sign-up (the "Sign Up for Free User Account" funnel).
  * Creates the account in the App identity system — the same one the login
  * modal authenticates against — so a freshly created account can log in
  * immediately. Sign-up deliberately does not sign the user in: on success

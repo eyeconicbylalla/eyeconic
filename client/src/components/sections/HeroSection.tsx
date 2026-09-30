@@ -121,7 +121,7 @@ const HeroSection: React.FC = () => {
                 key={`hero-login-${loginEmail}`}
                 isOpen={loginOpen}
                 onClose={() => setLoginOpen(false)}
-                onSuccess={() => window.location.assign('/predictor')}
+                onSuccess={() => window.location.assign('/dashboard')}
                 onSwitchToSignup={() => {
                   setLoginOpen(false);
                   setSignupOpen(true);

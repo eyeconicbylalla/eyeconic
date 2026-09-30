@@ -14,7 +14,7 @@ interface LoginModalProps {
 }
 
 /**
- * Visitor/free-user login (the "Visitor account (GT Score Predictor)" flow).
+ * Visitor/free-user login (the "Sign Up for Free User Account" funnel).
  * Authenticates against the same App identity system Student Login and the
  * sign-up modal use, so every account works everywhere. Failures keep the
  * user on this form with a clear message — never a silent redirect.

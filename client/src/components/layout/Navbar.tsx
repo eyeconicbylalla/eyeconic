@@ -363,16 +363,16 @@ const Navbar: React.FC = () => {
         isOpen={studentLoginOpen}
         onClose={() => setStudentLoginOpen(false)}
         onSuccess={() => window.location.assign('/dashboard')}
-        onSwitchToVisitor={() => {
+        onSwitchToSignup={() => {
           setStudentLoginOpen(false);
-          setLoginOpen(true);
+          setSignupOpen(true);
         }}
       />
       <LoginModal
         key={`navbar-login-${loginEmail}`}
         isOpen={loginOpen}
         onClose={() => setLoginOpen(false)}
-        onSuccess={() => window.location.assign('/predictor')}
+        onSuccess={() => window.location.assign('/dashboard')}
         onSwitchToSignup={() => {
           setLoginOpen(false);
           setSignupOpen(true);

@@ -43,9 +43,9 @@ const SignInGate: React.FC = () => {
         <StudentLoginModal
           isOpen={open}
           onClose={() => setOpen(false)}
-          onSwitchToVisitor={() => {
+          onSwitchToSignup={() => {
             setOpen(false);
-            setVisitorLoginOpen(true);
+            setSignupOpen(true);
           }}
         />
         <LoginModal
