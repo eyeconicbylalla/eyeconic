@@ -17,9 +17,9 @@ const BASE_REQUEST = {
   weakestSubjects: ['Psychiatry', 'Dermatology', 'Orthopaedics'],
 };
 
-const BASE_MINI_CCT = {
+const BASE_MINI_GT = {
   attempt: { _id: 'att1', endTime: '2026-09-20T10:00:00.000Z' },
-  quiz: { title: 'Mini CCT #2' },
+  quiz: { title: 'Mini GT #2' },
   subjects: [
     { subjectName: 'Psychiatry', attempted: 10, accuracy: 40 },
     { subjectName: 'Dermatology', attempted: 10, accuracy: 55 },
@@ -32,13 +32,13 @@ const BASE_MINI_CCT = {
   ],
 };
 
-function miniCctWith(overrides = {}) {
-  return engine.deriveMiniCctSignals({ ...BASE_MINI_CCT, ...overrides });
+function miniGtWith(overrides = {}) {
+  return engine.deriveMiniGtSignals({ ...BASE_MINI_GT, ...overrides });
 }
 
-function recommendWith({ request = {}, miniCct = miniCctWith(), desiredBranch = null } = {}) {
+function recommendWith({ request = {}, miniGt = miniGtWith(), desiredBranch = null } = {}) {
   const input = engine.validateRecommendRequest({ ...BASE_REQUEST, ...request });
-  return engine.buildRecommendation({ input, miniCct, desiredBranch });
+  return engine.buildRecommendation({ input, miniGt, desiredBranch });
 }
 
 // ── Config sanity — the matrix must stay machine-consistent ──────────────────
@@ -205,11 +205,11 @@ describe('validateRecommendRequest', () => {
   });
 });
 
-// ── Mini CCT signal derivation ─────────────────────────────────────────────────
+// ── Mini GT signal derivation ─────────────────────────────────────────────────
 
-describe('deriveMiniCctSignals', () => {
+describe('deriveMiniGtSignals', () => {
   it('ranks subjects by accuracy ascending and picks the weakest 3 keys', () => {
-    const signals = miniCctWith();
+    const signals = miniGtWith();
     expect(signals.subjectRanking.map((s) => s.subjectName)).toEqual([
       'Psychiatry', 'Dermatology', 'Orthopaedics',
     ]);
@@ -217,7 +217,7 @@ describe('deriveMiniCctSignals', () => {
   });
 
   it('keeps unattempted subjects out of the ranking', () => {
-    const signals = miniCctWith({
+    const signals = miniGtWith({
       subjects: [
         { subjectName: 'Psychiatry', attempted: 0, accuracy: null },
         { subjectName: 'Dermatology', attempted: 10, accuracy: 50 },
@@ -227,11 +227,11 @@ describe('deriveMiniCctSignals', () => {
   });
 
   it('distinguishes gated/absent tags (null) from a present-but-strong set', () => {
-    const gated = miniCctWith({ tags: undefined });
+    const gated = miniGtWith({ tags: undefined });
     expect(gated.weakTags).toBeNull();
     expect(gated.weakTagSignal).toBeNull();
 
-    const strong = miniCctWith({ tags: [{ label: 'Fractures', status: 'strong', attempted: 3 }] });
+    const strong = miniGtWith({ tags: [{ label: 'Fractures', status: 'strong', attempted: 3 }] });
     expect(strong.weakTags).toEqual({ count: 0, labels: [] });
     expect(strong.weakTagSignal).toBe(0);
   });
@@ -240,15 +240,15 @@ describe('deriveMiniCctSignals', () => {
     const many = Array.from({ length: 8 }, (_, i) => ({
       label: `Weak ${i}`, status: 'weak', attempted: 2, questionCount: 2,
     }));
-    const signals = miniCctWith({ tags: many });
+    const signals = miniGtWith({ tags: many });
     expect(signals.weakTags.count).toBe(8);
     expect(signals.weakTags.labels.length).toBe(6);
     expect(signals.weakTagSignal).toBe(1);
   });
 
   it('returns null for a missing analysis', () => {
-    expect(engine.deriveMiniCctSignals(null)).toBeNull();
-    expect(engine.deriveMiniCctSignals({})).toBeNull();
+    expect(engine.deriveMiniGtSignals(null)).toBeNull();
+    expect(engine.deriveMiniGtSignals({})).toBeNull();
   });
 });
 
@@ -277,9 +277,9 @@ describe('derivePreviousResource', () => {
 // ── Factor scoring ─────────────────────────────────────────────────────────────
 
 describe('factorScores', () => {
-  const contextFor = (request, miniCct = null, desiredBranch = null) => ({
+  const contextFor = (request, miniGt = null, desiredBranch = null) => ({
     input: engine.validateRecommendRequest({ ...BASE_REQUEST, ...request }),
-    miniCct,
+    miniGt,
     desiredBranch,
   });
   const marrow = config.platformByKey('marrow');
@@ -328,7 +328,7 @@ describe('factorScores', () => {
   it('concept revision is neutral without a signal and depth-driven with one', () => {
     const without = engine.factorScores(marrow, contextFor(BASE_REQUEST, null));
     expect(without.conceptRevision).toBe(config.NEUTRAL_SCORE);
-    const withSignal = engine.factorScores(marrow, contextFor(BASE_REQUEST, miniCctWith()));
+    const withSignal = engine.factorScores(marrow, contextFor(BASE_REQUEST, miniGtWith()));
     expect(withSignal.conceptRevision).toBeCloseTo(
       config.NEUTRAL_SCORE + (2 / 3) * (marrow.revisionDepth - config.NEUTRAL_SCORE), 5
     );
@@ -411,11 +411,11 @@ describe('buildRecommendation', () => {
   });
 
   it('missing signals degrade to neutral baselines with notes, never silence', () => {
-    const result = recommendWith({ miniCct: null, desiredBranch: null });
-    expect(result.notes.some((n) => n.includes('Mini CCT'))).toBe(true);
+    const result = recommendWith({ miniGt: null, desiredBranch: null });
+    expect(result.notes.some((n) => n.includes('Mini GT'))).toBe(true);
     expect(result.notes.some((n) => n.includes('desired branch'))).toBe(true);
 
-    const gated = recommendWith({ miniCct: miniCctWith({ tags: undefined }) });
+    const gated = recommendWith({ miniGt: miniGtWith({ tags: undefined }) });
     expect(gated.notes.some((n) => n.includes('neutral baseline') && n.includes('concept'))).toBe(true);
   });
 

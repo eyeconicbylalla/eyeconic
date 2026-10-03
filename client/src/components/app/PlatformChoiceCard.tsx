@@ -67,9 +67,9 @@ const PlatformChoiceCard: React.FC = () => {
 
   const latest = context?.latest ?? null;
   const top = latest && latest.tiers.length > 0 ? latest.tiers[0] : null;
-  const prefillNote = context?.miniCct
-    ? 'Your latest Mini CCT will pre-fill subject and concept signals.'
-    : 'Take a Mini CCT first to sharpen your subject & concept matching.';
+  const prefillNote = context?.miniGt
+    ? 'Your latest Mini GT will pre-fill subject and concept signals.'
+    : 'Take a Mini GT first to sharpen your subject & concept matching.';
 
   return (
     <div className="bg-[#18222E] border border-[#18B6A4]/25 rounded-2xl p-5 sm:p-6 mb-8">

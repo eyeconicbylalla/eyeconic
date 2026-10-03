@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, CheckCircle2, Loader2, RotateCcw } from 'lucide-react';
 import { appErrorMessage, appQuizApi } from '../lib/appClient';
 import type { ResultsPayload } from '../types/app';
-import MiniCctAnalysis from '../components/app/MiniCctAnalysis';
+import MiniGtAnalysis from '../components/app/MiniGtAnalysis';
 import OpenInAppButton from '../components/app/OpenInAppButton';
 
 const Metric: React.FC<{ label: string; value: React.ReactNode; tone?: string }> = ({ label, value, tone = 'text-[#F8FAFC]' }) => (
@@ -73,10 +73,10 @@ const TestResults: React.FC = () => {
   }
 
   const { summary, attempt, quiz } = payload;
-  // Mini CCT results open the dedicated analysis dashboard (Features 04/05)
+  // Mini GT results open the dedicated analysis dashboard (Features 04/05)
   // instead of the generic score/performance blocks — the analysis carries the
   // score summary, subject comparison, heatmap, topics and tags itself.
-  const isMiniCct = quiz.testType === 'mini';
+  const isMiniGt = quiz.testType === 'mini';
 
   return (
     <section className="py-10 md:py-16 bg-[#0A0F14] min-h-screen">
@@ -99,7 +99,7 @@ const TestResults: React.FC = () => {
             </span>
           </div>
 
-          {!isMiniCct && (
+          {!isMiniGt && (
             <>
               <div className="text-center mb-8">
                 <div className="text-5xl font-bold text-[#4DD7C8]">
@@ -119,9 +119,9 @@ const TestResults: React.FC = () => {
           )}
         </div>
 
-        {isMiniCct && <MiniCctAnalysis attemptId={attemptId} />}
+        {isMiniGt && <MiniGtAnalysis attemptId={attemptId} />}
 
-        {!isMiniCct && attempt.sectionPerformance.length > 0 && (
+        {!isMiniGt && attempt.sectionPerformance.length > 0 && (
           <div className="bg-[#18222E] border border-white/[0.06] rounded-2xl p-6 md:p-8 mb-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-[#4DD7C8]">Performance</h3>

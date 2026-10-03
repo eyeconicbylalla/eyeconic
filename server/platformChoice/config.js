@@ -23,7 +23,7 @@
 const METHOD_VERSION = 'platform-choice-v1';
 
 /** Score used wherever a factor has NO signal for this student (missing
- *  Mini CCT, no desired branch on record, …). Keeps factors neutral — never
+ *  Mini GT, no desired branch on record, …). Keeps factors neutral — never
  *  fabricates a strength or a weakness. */
 const NEUTRAL_SCORE = 0.5;
 

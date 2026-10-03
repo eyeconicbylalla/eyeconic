@@ -48,7 +48,7 @@ export interface PlatformChoiceConfig {
 
 // ---- Context (GET /context) ----------------------------------------------------
 
-export interface MiniCctContext {
+export interface MiniGtContext {
   attemptId: string | null;
   quizTitle: string | null;
   endedAt: string | null;
@@ -72,7 +72,7 @@ export interface PlatformChoiceContext {
     weakestSubjects: string[];
     desiredBranch: string | null;
   };
-  miniCct: MiniCctContext | null;
+  miniGt: MiniGtContext | null;
   latest: LatestRecommendation | null;
   notes: string[];
 }

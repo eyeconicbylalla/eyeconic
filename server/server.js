@@ -113,7 +113,7 @@ app.use('/api/predictor', predictorRoutes);
 
 // Platform Choice Recommender (Feature 06) — three tiered platform
 // recommendations from a configurable scoring matrix (platformChoice/config).
-// Same App student session; merges Mini CCT signals (App API) with this
+// Same App student session; merges Mini GT signals (App API) with this
 // server's predictor collections; recommendations are persisted before serving.
 app.use('/api/platform-choice', platformChoiceRoutes);
 if (!isIntegrationConfigured()) {
@@ -168,7 +168,7 @@ function warnIfLocalAppApiUnreachable() {
     .catch(() => {
       console.warn(
         `[app-api] WARNING: the App API at ${baseUrl} is not reachable. Every /api/app/* route ` +
-          '(dashboard, quizzes, Daily PYQ, Mini CCT, analytics) will return 503 until it runs.\n' +
+          '(dashboard, quizzes, Daily PYQ, Mini GT, analytics) will return 503 until it runs.\n' +
           '  Start the full local stack: npm run dev   (at the eyeconic-main repo root; runs scripts/dev-all.ps1)\n' +
           '  Or the App backend alone:  cd ..\\eyeconic-app\\backend && npm run dev'
       );

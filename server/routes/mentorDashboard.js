@@ -18,7 +18,7 @@ const DesiredBranchQuery = require('../models/DesiredBranchQuery');
  *     mentor is rejected there even if the session snapshot is stale.
  *
  * Data model: the App API (eyeconic-app backend) is the single source of
- * truth for the free-user population and their Mini CCT / Daily PYQ /
+ * truth for the free-user population and their Mini GT / Daily PYQ /
  * Platform Choice activity; this server adds the two predictor collections it
  * owns (Prediction, DesiredBranchQuery — same canonical App userId) and merges
  * them per metric. Nothing here redefines "free user": the id set always
@@ -558,8 +558,8 @@ router.get('/export/users', async (req, res) => {
           'Profile complete': user.isProfileComplete ? 'yes' : 'no',
           'Year': user.year || '',
           'Platforms': (user.platforms || []).join('; '),
-          'Mini CCT attempts': user.miniCct ? user.miniCct.attempts : 0,
-          'Mini CCT avg %': user.miniCct && user.miniCct.avgScorePercentage !== null ? user.miniCct.avgScorePercentage : '',
+          'Mini GT attempts': user.miniGt ? user.miniGt.attempts : 0,
+          'Mini GT avg %': user.miniGt && user.miniGt.avgScorePercentage !== null ? user.miniGt.avgScorePercentage : '',
           'Daily PYQ attempts': user.dailyPyq ? user.dailyPyq.attempts : 0,
           'Current streak': user.dailyPyq ? user.dailyPyq.currentStreak : 0,
           'Rank Predictor uses': row.predictions || 0,

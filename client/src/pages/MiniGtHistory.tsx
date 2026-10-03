@@ -3,16 +3,16 @@ import { Link } from 'react-router-dom';
 import {
   AlertTriangle, ArrowLeft, BarChart3, ChevronLeft, ChevronRight, Clock, FileText, RefreshCw,
 } from 'lucide-react';
-import { appErrorMessage, isAppUnavailable, miniCctApi } from '../lib/appClient';
-import type { MiniCctHistoryPayload } from '../types/app';
+import { appErrorMessage, isAppUnavailable, miniGtApi } from '../lib/appClient';
+import type { MiniGtHistoryPayload } from '../types/app';
 
 /**
- * Mini CCT attempt history — every finalized Mini CCT attempt with a jump into
+ * Mini GT attempt history — every finalized Mini GT attempt with a jump into
  * its (recomputable) analysis dashboard. Data comes from the App API through
  * the website's authenticated proxy; a student only ever sees their own rows.
  */
-const MiniCctHistory: React.FC = () => {
-  const [payload, setPayload] = useState<MiniCctHistoryPayload | null>(null);
+const MiniGtHistory: React.FC = () => {
+  const [payload, setPayload] = useState<MiniGtHistoryPayload | null>(null);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -23,9 +23,9 @@ const MiniCctHistory: React.FC = () => {
     setError('');
     setUnavailable(false);
     try {
-      setPayload(await miniCctApi.history({ page: targetPage, limit: 10 }));
+      setPayload(await miniGtApi.history({ page: targetPage, limit: 10 }));
     } catch (err) {
-      setError(appErrorMessage(err, 'Could not load your Mini CCT history.'));
+      setError(appErrorMessage(err, 'Could not load your Mini GT history.'));
       setUnavailable(isAppUnavailable(err));
     } finally {
       setLoading(false);
@@ -48,8 +48,8 @@ const MiniCctHistory: React.FC = () => {
 
         <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
           <div>
-            <h2 className="text-2xl md:text-3xl font-bold text-[#F8FAFC]">Mini CCT History</h2>
-            <p className="text-[#94A3B8] text-sm mt-1">Every Mini CCT you have taken, with its full analysis.</p>
+            <h2 className="text-2xl md:text-3xl font-bold text-[#F8FAFC]">Mini GT History</h2>
+            <p className="text-[#94A3B8] text-sm mt-1">Every Mini GT you have taken, with its full analysis.</p>
           </div>
           <button onClick={() => load(page)} className="btn btn-outline text-sm px-4 py-2" aria-label="Refresh">
             <RefreshCw size={14} className="mr-2" /> Refresh
@@ -78,8 +78,8 @@ const MiniCctHistory: React.FC = () => {
         {!loading && !error && attempts.length === 0 && (
           <div className="bg-[#18222E] border border-white/[0.06] rounded-2xl p-10 text-center">
             <FileText className="w-10 h-10 text-[#18B6A4] mx-auto mb-3" />
-            <p className="text-[#CBD5E1] font-medium">No Mini CCT attempts yet</p>
-            <p className="text-[#94A3B8] text-sm mt-1">Your completed Mini CCTs will appear here with their analysis.</p>
+            <p className="text-[#CBD5E1] font-medium">No Mini GT attempts yet</p>
+            <p className="text-[#94A3B8] text-sm mt-1">Your completed Mini GTs will appear here with their analysis.</p>
             <Link to="/dashboard" className="btn btn-primary text-sm mt-4">Back to Dashboard</Link>
           </div>
         )}
@@ -97,7 +97,7 @@ const MiniCctHistory: React.FC = () => {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md bg-[#18B6A4]/15 text-[#4DD7C8]">
-                        Mini CCT
+                        Mini GT
                       </span>
                       {attempt.status === 'auto_submitted' && (
                         <span className="text-[11px] px-2 py-0.5 rounded-md bg-amber-400/10 text-amber-300 border border-amber-400/20">
@@ -155,4 +155,4 @@ const MiniCctHistory: React.FC = () => {
   );
 };
 
-export default MiniCctHistory;
+export default MiniGtHistory;

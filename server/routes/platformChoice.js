@@ -28,7 +28,7 @@ const router = express.Router();
  * Auth: the student's App session, exactly like the predictor surface
  * (identity = req.appSession.user.id). The recommendation is assembled
  * server-side from data the system already holds:
- *  - Mini CCT analysis (subject ranking + weak concept tags) — App API,
+ *  - Mini GT analysis (subject ranking + weak concept tags) — App API,
  *    fetched with the student's own token (its free-user gating therefore
  *    applies: free users' concept tags are stripped upstream and never reach
  *    this server either);
@@ -124,7 +124,7 @@ function hashResult(stages) {
  * best-effort EXCEPT a dead session (App API 401), which must fail the
  * request. Returns:
  *  {
- *    miniCct: deriveMiniCctSignals output | null,
+ *    miniGt: deriveMiniGtSignals output | null,
  *    desiredBranch: display string | null,
  *    predictorExam: 'NEET_PG' | 'INI_CET' | null,
  *    previousResource: resource id | null,   (confirmed by the student in the form)
@@ -134,12 +134,12 @@ function hashResult(stages) {
 async function loadStudentContext(req) {
   const me = await appApiBestEffort(req, '/auth/me', null);
 
-  let miniCct = null;
-  const history = await appApiBestEffort(req, '/mini-cct/attempts?limit=1', null);
+  let miniGt = null;
+  const history = await appApiBestEffort(req, '/mini-gt/attempts?limit=1', null);
   const latest = history && Array.isArray(history.attempts) ? history.attempts[0] : null;
   if (latest && latest._id) {
-    const analysis = await appApiBestEffort(req, `/mini-cct/attempts/${latest._id}/analysis`, null);
-    miniCct = engine.deriveMiniCctSignals(analysis);
+    const analysis = await appApiBestEffort(req, `/mini-gt/attempts/${latest._id}/analysis`, null);
+    miniGt = engine.deriveMiniGtSignals(analysis);
   }
 
   const dbDerived = await withDbBestEffort(async () => {
@@ -161,7 +161,7 @@ async function loadStudentContext(req) {
   }, { desiredBranch: null, predictorExam: null });
 
   return {
-    miniCct,
+    miniGt,
     desiredBranch: dbDerived.desiredBranch,
     predictorExam: dbDerived.predictorExam,
     previousResource: me ? engine.derivePreviousResource(me) : null,
@@ -237,20 +237,20 @@ router.get('/context', async (req, res) => {
       exam: prefilledExam ? prefilledExam.id : null,
       targetSession: autofillSession,
       previousResource: context.previousResource,
-      weakestSubjects: context.miniCct
-        ? context.miniCct.weakestSubjects
+      weakestSubjects: context.miniGt
+        ? context.miniGt.weakestSubjects
             .map((key) => engine.subjectLabelForKey(key))
             .filter(Boolean)
         : [],
       desiredBranch: context.desiredBranch,
     },
-    miniCct: context.miniCct
+    miniGt: context.miniGt
       ? {
-          attemptId: context.miniCct.attemptId,
-          quizTitle: context.miniCct.quizTitle,
-          endedAt: context.miniCct.endedAt,
-          subjectRanking: context.miniCct.subjectRanking,
-          weakTagCount: context.miniCct.weakTags ? context.miniCct.weakTags.count : null,
+          attemptId: context.miniGt.attemptId,
+          quizTitle: context.miniGt.quizTitle,
+          endedAt: context.miniGt.endedAt,
+          subjectRanking: context.miniGt.subjectRanking,
+          weakTagCount: context.miniGt.weakTags ? context.miniGt.weakTags.count : null,
         }
       : null,
     latest,
@@ -300,7 +300,7 @@ router.post('/recommend', async (req, res) => {
   try {
     recommendation = engine.buildRecommendation({
       input,
-      miniCct: context.miniCct,
+      miniGt: context.miniGt,
       desiredBranch: context.desiredBranch,
     });
   } catch (error) {
@@ -320,13 +320,13 @@ router.post('/recommend', async (req, res) => {
     method: recommendation.method,
     input: {
       ...input,
-      miniCct: context.miniCct
+      miniGt: context.miniGt
         ? {
-            attemptId: context.miniCct.attemptId,
-            quizTitle: context.miniCct.quizTitle,
-            endedAt: context.miniCct.endedAt,
-            subjectRanking: context.miniCct.subjectRanking,
-            weakTagLabels: context.miniCct.weakTags ? context.miniCct.weakTags.labels : null,
+            attemptId: context.miniGt.attemptId,
+            quizTitle: context.miniGt.quizTitle,
+            endedAt: context.miniGt.endedAt,
+            subjectRanking: context.miniGt.subjectRanking,
+            weakTagLabels: context.miniGt.weakTags ? context.miniGt.weakTags.labels : null,
           }
         : null,
       desiredBranch: context.desiredBranch,

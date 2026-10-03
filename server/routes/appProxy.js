@@ -396,7 +396,7 @@ router.post(
 // ---- Daily PYQ (10 past questions per day, App API authoritative) -----------
 
 // Shared page/limit sanitizer for paginated history surfaces (Daily PYQ,
-// Mini CCT).
+// Mini GT).
 function pickDailyPyqHistoryQuery(query) {
   const out = {};
   const page = sanitizeInt(query.page, { min: 1, max: 1000, fallback: null });
@@ -473,12 +473,12 @@ router.get('/daily-pyq/attempts/:attemptId', requireAttemptId, async (req, res) 
   }
 });
 
-// ---- Mini CCT (30-question mini grand test, App API authoritative) ----------
+// ---- Mini GT (30-question mini grand test, App API authoritative) ----------
 
-// Dashboard card payload: latest visible Mini CCT + the caller's status.
-router.get('/mini-cct/latest', async (req, res) => {
+// Dashboard card payload: latest visible Mini GT + the caller's status.
+router.get('/mini-gt/latest', async (req, res) => {
   try {
-    const data = await callAppApi('/mini-cct/latest', {
+    const data = await callAppApi('/mini-gt/latest', {
       userToken: req.appSession.token,
       requestId: req.requestId,
     });
@@ -488,11 +488,11 @@ router.get('/mini-cct/latest', async (req, res) => {
   }
 });
 
-// Own Mini CCT attempt history (paginated summaries).
-router.get('/mini-cct/attempts', async (req, res) => {
+// Own Mini GT attempt history (paginated summaries).
+router.get('/mini-gt/attempts', async (req, res) => {
   try {
     const data = await callAppApi(
-      `/mini-cct/attempts${buildQueryString(pickDailyPyqHistoryQuery(req.query))}`,
+      `/mini-gt/attempts${buildQueryString(pickDailyPyqHistoryQuery(req.query))}`,
       { userToken: req.appSession.token, requestId: req.requestId }
     );
     return res.json(data);
@@ -503,9 +503,9 @@ router.get('/mini-cct/attempts', async (req, res) => {
 
 // One own attempt's analysis dashboard. All scoring, database averages,
 // percentile and free-user gating happen upstream in the App API.
-router.get('/mini-cct/attempts/:attemptId/analysis', requireAttemptId, async (req, res) => {
+router.get('/mini-gt/attempts/:attemptId/analysis', requireAttemptId, async (req, res) => {
   try {
-    const data = await callAppApi(`/mini-cct/attempts/${req.params.attemptId}/analysis`, {
+    const data = await callAppApi(`/mini-gt/attempts/${req.params.attemptId}/analysis`, {
       userToken: req.appSession.token,
       requestId: req.requestId,
     });

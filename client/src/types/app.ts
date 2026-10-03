@@ -248,9 +248,9 @@ export interface ComparisonPayload {
   generatedAt?: string;
 }
 
-// ---- Mini CCT (30-question mini grand test, 3 subjects) ----------------------
+// ---- Mini GT (30-question mini grand test, 3 subjects) ----------------------
 
-export interface MiniCctLatestQuiz {
+export interface MiniGtLatestQuiz {
   _id: string;
   title: string;
   testType: 'mini';
@@ -275,11 +275,11 @@ export interface MiniCctLatestQuiz {
   };
 }
 
-export interface MiniCctLatestPayload {
-  quiz: MiniCctLatestQuiz | null;
+export interface MiniGtLatestPayload {
+  quiz: MiniGtLatestQuiz | null;
 }
 
-export interface MiniCctAttemptSummary {
+export interface MiniGtAttemptSummary {
   _id: string;
   quizId: string;
   quizTitle: string;
@@ -291,14 +291,14 @@ export interface MiniCctAttemptSummary {
   endTime: string;
 }
 
-export interface MiniCctHistoryPayload {
-  attempts: MiniCctAttemptSummary[];
+export interface MiniGtHistoryPayload {
+  attempts: MiniGtAttemptSummary[];
   total: number;
   page: number;
   pages: number;
 }
 
-export interface MiniCctHeatmapCell {
+export interface MiniGtHeatmapCell {
   questionIndex: number;
   questionId?: string | null;
   subjectName: string;
@@ -306,7 +306,7 @@ export interface MiniCctHeatmapCell {
   status: 'correct' | 'incorrect' | 'skipped';
 }
 
-export interface MiniCctSubjectRow {
+export interface MiniGtSubjectRow {
   subjectName: string;
   questionCount: number;
   correct: number;
@@ -320,7 +320,7 @@ export interface MiniCctSubjectRow {
   cohortAttempts: number;
 }
 
-export interface MiniCctTopicRow {
+export interface MiniGtTopicRow {
   label: string;
   subjectName: string;
   questionCount: number;
@@ -331,12 +331,12 @@ export interface MiniCctTopicRow {
   accuracy: number | null;
 }
 
-export interface MiniCctTagRow extends MiniCctTopicRow {
+export interface MiniGtTagRow extends MiniGtTopicRow {
   subjects: string[];
   status: 'weak' | 'strong' | 'neutral';
 }
 
-export interface MiniCctAnalysis {
+export interface MiniGtAnalysis {
   quiz: { _id: string; title: string; testType: string; totalMarks: number };
   attempt: { _id: string; status: string; startTime: string; endTime?: string | null; timeTakenSeconds: number };
   summary: {
@@ -351,8 +351,8 @@ export interface MiniCctAnalysis {
     accuracy: number | null;
     timeTakenSeconds: number;
   };
-  heatmap?: MiniCctHeatmapCell[];
-  subjects: MiniCctSubjectRow[];
+  heatmap?: MiniGtHeatmapCell[];
+  subjects: MiniGtSubjectRow[];
   overall: {
     scorePercentage: number | null;
     accuracy: number | null;
@@ -375,8 +375,8 @@ export interface MiniCctAnalysis {
     weakestSubject: { subjectName: string; accuracy: number | null } | null;
     message: string;
   };
-  topics?: MiniCctTopicRow[];
-  tags?: MiniCctTagRow[];
+  topics?: MiniGtTopicRow[];
+  tags?: MiniGtTagRow[];
   access: {
     level: 'full' | 'limited';
     gatedSections: string[];

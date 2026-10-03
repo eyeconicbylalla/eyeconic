@@ -22,7 +22,7 @@ import UserDrilldown from '../components/mentor/UserDrilldown';
  *
  * Overview, population analytics and the user table come from the website's
  * /api/mentor-dashboard surface, which merges the App backend (free users,
- * Mini CCT, Daily PYQ, platform choice) with the website's own predictor
+ * Mini GT, Daily PYQ, platform choice) with the website's own predictor
  * collections. Every metric's definition is documented on the server routes.
  */
 
@@ -203,7 +203,7 @@ const MentorDashboard: React.FC = () => {
     { icon: <TrendingUp size={15} />, label: 'DAU', value: String(overview.active.dau), hint: 'active today (IST)' },
     { icon: <TrendingUp size={15} />, label: 'WAU', value: String(overview.active.wau), hint: 'active last 7 days' },
     { icon: <TrendingUp size={15} />, label: 'MAU', value: String(overview.active.mau), hint: 'active last 30 days' },
-    { icon: <BookOpen size={15} />, label: 'Mini CCTs attempted', value: String(overview.miniCct.attemptsTotal), hint: `${overview.miniCct.attemptingUsers} users` },
+    { icon: <BookOpen size={15} />, label: 'Mini GTs attempted', value: String(overview.miniGt.attemptsTotal), hint: `${overview.miniGt.attemptingUsers} users` },
     { icon: <CalendarDays size={15} />, label: 'Daily PYQs attempted', value: String(overview.dailyPyq.attemptsTotal), hint: `${overview.dailyPyq.attemptsToday} today` },
     { icon: <Flame size={15} />, label: 'Predictor users', value: String(overview.rankPredictor.usingUsers), hint: `${overview.rankPredictor.predictionsTotal} predictions` },
   ] : [];
@@ -332,14 +332,14 @@ const MentorDashboard: React.FC = () => {
               <>
                 <Section
                   title="Free-user performance"
-                  subtitle="Mini CCT scores and Daily PYQ completion across the free-user population only."
+                  subtitle="Mini GT scores and Daily PYQ completion across the free-user population only."
                 >
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="bg-[#18222E] border border-white/[0.06] rounded-2xl p-5">
                       <div className="grid grid-cols-2 gap-3 mb-4">
                         <Card
-                          label="Avg Mini CCT score"
-                          value={performance.miniCct.avgScorePercentage !== null ? `${performance.miniCct.avgScorePercentage}%` : '—'}
+                          label="Avg Mini GT score"
+                          value={performance.miniGt.avgScorePercentage !== null ? `${performance.miniGt.avgScorePercentage}%` : '—'}
                           icon={<BookOpen size={15} />}
                         />
                         <Card
@@ -359,7 +359,7 @@ const MentorDashboard: React.FC = () => {
                             </tr>
                           </thead>
                           <tbody>
-                            {performance.miniCct.subjectWise.length > 0 ? performance.miniCct.subjectWise.map((row) => (
+                            {performance.miniGt.subjectWise.length > 0 ? performance.miniGt.subjectWise.map((row) => (
                               <tr key={row.subjectName} className="border-b border-white/[0.03] last:border-0">
                                 <td className="py-2 pr-4 text-[#CBD5E1]">{row.subjectName}</td>
                                 <td className="py-2 pr-4 text-[#CBD5E1]">{row.attempts}</td>
@@ -368,7 +368,7 @@ const MentorDashboard: React.FC = () => {
                                 </td>
                               </tr>
                             )) : (
-                              <tr><td colSpan={3} className="py-4 text-[#94A3B8]">No Mini CCT attempts yet.</td></tr>
+                              <tr><td colSpan={3} className="py-4 text-[#94A3B8]">No Mini GT attempts yet.</td></tr>
                             )}
                           </tbody>
                         </table>
@@ -597,7 +597,7 @@ const MentorDashboard: React.FC = () => {
                         <th className="py-2 pr-4 font-medium">User</th>
                         <th className="py-2 pr-4 font-medium">Registered</th>
                         <th className="py-2 pr-4 font-medium">Exam</th>
-                        <th className="py-2 pr-4 font-medium">Mini CCT</th>
+                        <th className="py-2 pr-4 font-medium">Mini GT</th>
                         <th className="py-2 pr-4 font-medium">Daily PYQ</th>
                         <th className="py-2 pr-4 font-medium">Streak</th>
                         <th className="py-2 pr-4 font-medium">Predictor</th>
@@ -619,8 +619,8 @@ const MentorDashboard: React.FC = () => {
                           <td className="py-2.5 pr-4 text-[#CBD5E1] whitespace-nowrap">{fmtDay(row.registeredAt)}</td>
                           <td className="py-2.5 pr-4 text-[#CBD5E1]">{row.examSelected ?? 'Not set'}</td>
                           <td className="py-2.5 pr-4 text-[#CBD5E1]">
-                            {row.miniCct.attempts > 0
-                              ? `${row.miniCct.attempts} · ${row.miniCct.avgScorePercentage !== null ? `${row.miniCct.avgScorePercentage}%` : '—'}`
+                            {row.miniGt.attempts > 0
+                              ? `${row.miniGt.attempts} · ${row.miniGt.avgScorePercentage !== null ? `${row.miniGt.avgScorePercentage}%` : '—'}`
                               : '—'}
                           </td>
                           <td className="py-2.5 pr-4 text-[#CBD5E1]">{row.dailyPyq.attempts || '—'}</td>
@@ -691,8 +691,8 @@ const MentorDashboard: React.FC = () => {
 
         <p className="text-[11px] text-[#64748B] leading-relaxed max-w-3xl">
           Metric definitions: a free user is a student account created through free sign-up (mentors, admins and
-          paid students are excluded). DAU/WAU/MAU count distinct free users with any activity — Mini CCT
-          attempts, Daily PYQ submissions or predictor usage — inside the IST-day window. Mini CCT averages use
+          paid students are excluded). DAU/WAU/MAU count distinct free users with any activity — Mini GT
+          attempts, Daily PYQ submissions or predictor usage — inside the IST-day window. Mini GT averages use
           marks obtained ÷ total marks. Streaks follow the Daily PYQ IST-day rules. Drop-off = no activity for the
           selected number of days. Exam selection is inferred from predictor usage; FMGE and UPSC CMS cannot be
           captured yet.

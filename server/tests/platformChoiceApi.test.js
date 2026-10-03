@@ -5,7 +5,7 @@
  *
  * Covered:
  *  - App-session auth on every route; CSRF origin guard on POST
- *  - GET /context: config echo + prefills from Mini CCT / onboarding profile /
+ *  - GET /context: config echo + prefills from Mini GT / onboarding profile /
  *    predictor collections, and the latest saved recommendation
  *  - POST /recommend: server-side validation, tiered result shape, outbound
  *    URL resolution, free-user concept gating note, App-API degradation
@@ -26,18 +26,18 @@ const STUDENT = {
   name: 'Test Student',
   email: 'student@example.com',
   role: 'student',
-  isFreeUser: true, // free user: the App strips Mini CCT concept tags upstream
+  isFreeUser: true, // free user: the App strips Mini GT concept tags upstream
   freeUserProfile: { year: 'Intern', issues: 'Revision', resources: ['Marrow'], isReadyToTransform: true },
 };
 const STUDENT2 = { ...STUDENT, _id: '507f1f77bcf86cd799099', name: 'Second Student', email: 'student2@example.com' };
 
 const MINI_ATTEMPT_ID = '507f1f77bcf86cd7994d0010';
 
-// The App API's Mini CCT analysis shape (free-user variant: topics/tags are
+// The App API's Mini GT analysis shape (free-user variant: topics/tags are
 // stripped server-side upstream — verify the recommender degrades to a note
 // instead of fabricating concept signals).
-const MINI_CCT_ANALYSIS = {
-  quiz: { _id: '507f1f77bcf86cd7994d0020', title: 'Mini CCT #2', testType: 'mini', totalMarks: 120 },
+const MINI_GT_ANALYSIS = {
+  quiz: { _id: '507f1f77bcf86cd7994d0020', title: 'Mini GT #2', testType: 'mini', totalMarks: 120 },
   attempt: { _id: MINI_ATTEMPT_ID, status: 'completed', startTime: '2026-09-20T09:00:00.000Z', endTime: '2026-09-20T10:00:00.000Z', timeTakenSeconds: 3600 },
   summary: { correct: 12, incorrect: 14, skipped: 4, attempted: 26, totalQuestions: 30, marksObtained: 34, totalMarks: 120, scorePercentage: 28.33, accuracy: 46.15, timeTakenSeconds: 3600 },
   subjects: [
@@ -92,18 +92,18 @@ function startMockAppApi() {
 
     mock.get('/auth/me', requireUser, (req, res) => res.json(userFor(null)));
 
-    mock.get('/mini-cct/attempts', requireUser, (_req, res) => {
+    mock.get('/mini-gt/attempts', requireUser, (_req, res) => {
       res.json({
         attempts: [
-          { _id: MINI_ATTEMPT_ID, quizId: MINI_CCT_ANALYSIS.quiz._id, quizTitle: 'Mini CCT #2', status: 'completed', score: 12, totalQuestions: 30, marksObtained: 34, totalMarks: 120, endTime: '2026-09-20T10:00:00.000Z' },
+          { _id: MINI_ATTEMPT_ID, quizId: MINI_GT_ANALYSIS.quiz._id, quizTitle: 'Mini GT #2', status: 'completed', score: 12, totalQuestions: 30, marksObtained: 34, totalMarks: 120, endTime: '2026-09-20T10:00:00.000Z' },
         ],
         total: 1, page: 1, pages: 1,
       });
     });
 
-    mock.get(`/mini-cct/attempts/${MINI_ATTEMPT_ID}/analysis`, requireUser, (_req, res) => {
+    mock.get(`/mini-gt/attempts/${MINI_ATTEMPT_ID}/analysis`, requireUser, (_req, res) => {
       if (analysisFails) return res.status(500).json({ message: 'server error' });
-      return res.json(MINI_CCT_ANALYSIS);
+      return res.json(MINI_GT_ANALYSIS);
     });
 
     const server = mock.listen(0, () => resolve(server));
@@ -173,14 +173,14 @@ describe('platform choice API — GET /context', () => {
 
     // Prefills: previous resource from the onboarding profile…
     expect(res.body.autofill.previousResource).toBe('marrow');
-    // …weakest subjects from the latest Mini CCT (labels, not keys)…
+    // …weakest subjects from the latest Mini GT (labels, not keys)…
     expect(res.body.autofill.weakestSubjects).toEqual(['Psychiatry', 'Dermatology', 'Orthopaedics']);
     // …no predictor usage yet → exam not derivable + honest note.
     expect(res.body.autofill.exam).toBeNull();
     expect(res.body.notes.some((n) => n.includes('FMGE'))).toBe(true);
 
-    expect(res.body.miniCct.quizTitle).toBe('Mini CCT #2');
-    expect(res.body.miniCct.subjectRanking[0]).toEqual({ subjectName: 'Psychiatry', accuracy: 33.33 });
+    expect(res.body.miniGt.quizTitle).toBe('Mini GT #2');
+    expect(res.body.miniGt.subjectRanking[0]).toEqual({ subjectName: 'Psychiatry', accuracy: 33.33 });
     expect(res.body.latest).toBeNull();
   });
 
@@ -247,7 +247,7 @@ describe('platform choice API — POST /recommend', () => {
       expect(tier.platform.visitUrl).toMatch(/^https:\/\//); // server-resolved, never client-built
       expect(tier.factors.length).toBe(6);
     }
-    // Free-user Mini CCT: concept tags never arrived (stripped upstream) — the
+    // Free-user Mini GT: concept tags never arrived (stripped upstream) — the
     // recommender says so instead of inventing a signal.
     expect(recommendation.notes.some((n) => n.includes('concept'))).toBe(true);
 
@@ -257,7 +257,7 @@ describe('platform choice API — POST /recommend', () => {
     expect(doc.userId).toBe(STUDENT._id);
     expect(doc.exam).toBe('NEET_PG');
     expect(doc.request).toEqual(RECOMMEND_BODY);
-    expect(doc.input.miniCct.attemptId).toBe(MINI_ATTEMPT_ID);
+    expect(doc.input.miniGt.attemptId).toBe(MINI_ATTEMPT_ID);
     expect(doc.input.desiredBranch).toBe('MD Radiodiagnosis');
     expect(doc.resultHash).toMatch(/^[a-f0-9]{64}$/);
     expect(doc.result.tiers.length).toBe(3);
@@ -310,7 +310,7 @@ describe('platform choice API — POST /recommend', () => {
     expect(foreign.body.code).toBe('CSRF_REJECTED');
   });
 
-  it('degrades (does not fail) when the Mini CCT analysis is unavailable', async () => {
+  it('degrades (does not fail) when the Mini GT analysis is unavailable', async () => {
     analysisFails = true;
     try {
       const cookie = await login();
@@ -319,7 +319,7 @@ describe('platform choice API — POST /recommend', () => {
         .set('Cookie', cookie)
         .send({ ...RECOMMEND_BODY, likelyToSwitch: 'yes' });
       expect(res.status).toBe(201);
-      expect(res.body.recommendation.notes.some((n) => n.includes('Mini CCT'))).toBe(true);
+      expect(res.body.recommendation.notes.some((n) => n.includes('Mini GT'))).toBe(true);
     } finally {
       analysisFails = false;
     }

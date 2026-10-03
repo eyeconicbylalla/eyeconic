@@ -1,6 +1,6 @@
 /**
- * Integration tests for the Mini CCT proxy routes (/api/app/mini-cct/*)
- * against a mock of the App API's mini-cct contract.
+ * Integration tests for the Mini GT proxy routes (/api/app/mini-gt/*)
+ * against a mock of the App API's mini-gt contract.
  */
 
 const http = require('http');
@@ -23,7 +23,7 @@ const ATTEMPT_ID = '507f1f77bcf86cd799439077';
 const latestPayload = {
   quiz: {
     _id: '507f1f77bcf86cd799439088',
-    title: 'Mini CCT #1',
+    title: 'Mini GT #1',
     testType: 'mini',
     duration: 30,
     totalMarks: 120,
@@ -34,7 +34,7 @@ const latestPayload = {
 };
 
 const analysisPayload = {
-  quiz: { _id: '507f1f77bcf86cd799439088', title: 'Mini CCT #1', testType: 'mini' },
+  quiz: { _id: '507f1f77bcf86cd799439088', title: 'Mini GT #1', testType: 'mini' },
   summary: { correct: 15, incorrect: 10, skipped: 5, totalQuestions: 30 },
   subjects: [{ subjectName: 'PSYCHIATRY', accuracy: 70, cohortAvgAccuracy: 60 }],
   cohort: { sufficient: true, percentile: 72.5 },
@@ -66,19 +66,19 @@ function startMockAppApi() {
 
     mock.get('/auth/me', requireUser, (_req, res) => res.json(STUDENT));
 
-    mock.get('/mini-cct/latest', requireUser, (_req, res) => res.json(latestPayload));
+    mock.get('/mini-gt/latest', requireUser, (_req, res) => res.json(latestPayload));
 
-    mock.get('/mini-cct/attempts', requireUser, (req, res) => {
+    mock.get('/mini-gt/attempts', requireUser, (req, res) => {
       observed.query = req.query;
       res.json({
-        attempts: [{ _id: ATTEMPT_ID, quizTitle: 'Mini CCT #1', marksObtained: 49, totalMarks: 120 }],
+        attempts: [{ _id: ATTEMPT_ID, quizTitle: 'Mini GT #1', marksObtained: 49, totalMarks: 120 }],
         total: 1,
         page: 1,
         pages: 1,
       });
     });
 
-    mock.get('/mini-cct/attempts/:attemptId/analysis', requireUser, (req, res) => {
+    mock.get('/mini-gt/attempts/:attemptId/analysis', requireUser, (req, res) => {
       if (req.params.attemptId !== ATTEMPT_ID) {
         return res.status(404).json({ message: 'Attempt not found', code: 'ATTEMPT_NOT_FOUND' });
       }
@@ -129,7 +129,7 @@ async function loginStudent() {
   return extractSessionCookie(response);
 }
 
-describe('Mini CCT proxy', () => {
+describe('Mini GT proxy', () => {
   let cookie;
 
   beforeAll(async () => {
@@ -141,22 +141,22 @@ describe('Mini CCT proxy', () => {
   });
 
   it('requires an app session for GET /latest', async () => {
-    const res = await request(app).get('/api/app/mini-cct/latest');
+    const res = await request(app).get('/api/app/mini-gt/latest');
     expect(res.status).toBe(401);
     expect(res.body.code).toBe('APP_SESSION_REQUIRED');
   });
 
   it('proxies GET /latest with the session token', async () => {
-    const res = await request(app).get('/api/app/mini-cct/latest').set('Cookie', cookie);
+    const res = await request(app).get('/api/app/mini-gt/latest').set('Cookie', cookie);
     expect(res.status).toBe(200);
-    expect(res.body.quiz.title).toBe('Mini CCT #1');
+    expect(res.body.quiz.title).toBe('Mini GT #1');
     expect(res.body.quiz.questionCount).toBe(30);
     expect(observed.auth).toBe(`Bearer ${STUDENT_TOKEN}`);
   });
 
   it('whitelists history query params', async () => {
     const res = await request(app)
-      .get('/api/app/mini-cct/attempts?page=2&limit=5&evil=1')
+      .get('/api/app/mini-gt/attempts?page=2&limit=5&evil=1')
       .set('Cookie', cookie);
     expect(res.status).toBe(200);
     expect(res.body.total).toBe(1);
@@ -165,7 +165,7 @@ describe('Mini CCT proxy', () => {
 
   it('validates attempt ids on the analysis route', async () => {
     const res = await request(app)
-      .get('/api/app/mini-cct/attempts/not-an-object-id/analysis')
+      .get('/api/app/mini-gt/attempts/not-an-object-id/analysis')
       .set('Cookie', cookie);
     expect(res.status).toBe(400);
     expect(res.body.code).toBe('VALIDATION_ERROR');
@@ -173,7 +173,7 @@ describe('Mini CCT proxy', () => {
 
   it('proxies the analysis payload untouched', async () => {
     const res = await request(app)
-      .get(`/api/app/mini-cct/attempts/${ATTEMPT_ID}/analysis`)
+      .get(`/api/app/mini-gt/attempts/${ATTEMPT_ID}/analysis`)
       .set('Cookie', cookie);
     expect(res.status).toBe(200);
     expect(res.body.summary.correct).toBe(15);
@@ -184,7 +184,7 @@ describe('Mini CCT proxy', () => {
 
   it('passes upstream 404 (foreign attempt) through', async () => {
     const res = await request(app)
-      .get('/api/app/mini-cct/attempts/507f1f77bcf86cd799439099/analysis')
+      .get('/api/app/mini-gt/attempts/507f1f77bcf86cd799439099/analysis')
       .set('Cookie', cookie);
     expect(res.status).toBe(404);
     expect(res.body.appCode).toBe('ATTEMPT_NOT_FOUND');
@@ -193,15 +193,15 @@ describe('Mini CCT proxy', () => {
   it('maps upstream 5xx to 503 APP_UNAVAILABLE', async () => {
     observed.analysisStatus = 500;
     const res = await request(app)
-      .get(`/api/app/mini-cct/attempts/${ATTEMPT_ID}/analysis`)
+      .get(`/api/app/mini-gt/attempts/${ATTEMPT_ID}/analysis`)
       .set('Cookie', cookie);
     expect(res.status).toBe(503);
     expect(res.body.code).toBe('APP_UNAVAILABLE');
   });
 
-  it('404s unknown mini-cct paths (no passthrough)', async () => {
+  it('404s unknown mini-gt paths (no passthrough)', async () => {
     const res = await request(app)
-      .get('/api/app/mini-cct/generate')
+      .get('/api/app/mini-gt/generate')
       .set('Cookie', cookie);
     expect(res.status).toBe(404);
     expect(res.body.code).toBe('NOT_FOUND');

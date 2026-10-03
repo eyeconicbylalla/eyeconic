@@ -129,8 +129,8 @@ async function main() {
     const pressed = [...document.querySelectorAll('[aria-pressed=true],[role=radio][aria-checked=true]')].map(e => e.textContent.trim());
     return {
       examSelected: pressed,
-      hasMiniCctRail: text.includes('From your latest Mini CCT'),
-      subjectHint: text.includes('Pre-filled from your latest Mini CCT'),
+      hasMiniGtRail: text.includes('From your latest Mini GT'),
+      subjectHint: text.includes('Pre-filled from your latest Mini GT'),
       submitEnabled: [...document.querySelectorAll('button')].some(b => b.textContent.includes('Get My Recommendations') && !b.disabled),
       pickedCount: (text.match(/\\d\\/3 subjects picked/) || [])[0] || null,
     };

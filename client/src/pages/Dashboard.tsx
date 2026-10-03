@@ -5,7 +5,7 @@ import { appErrorMessage, appQuizApi, dailyPyqApi, isAppUnavailable } from '../l
 import { useAppAuth } from '../context/AppAuthContext';
 import type { AnalyticsMe, ComparisonPayload, DailyPyqTodayPayload } from '../types/app';
 import CohortComparisonCard from '../components/app/CohortComparisonCard';
-import MiniCctCard from '../components/app/MiniCctCard';
+import MiniGtCard from '../components/app/MiniGtCard';
 import OpenInAppButton from '../components/app/OpenInAppButton';
 import PlatformChoiceCard from '../components/app/PlatformChoiceCard';
 import ReadinessCard from '../components/app/ReadinessCard';
@@ -136,7 +136,7 @@ const Dashboard: React.FC = () => {
           </div>
         )}
 
-        <MiniCctCard />
+        <MiniGtCard />
 
         <PlatformChoiceCard />
 

@@ -18,7 +18,7 @@ import type {
  * Platform Choice Recommender (Feature 06) — student surface.
  *
  * The form is prefilled with everything the system already knows (predictor
- * exam, Mini CCT subject ranking, onboarding resource, desired branch); the
+ * exam, Mini GT subject ranking, onboarding resource, desired branch); the
  * scoring matrix, platform catalog and outbound links are server-owned — this
  * page only collects the six inputs and renders the three tiered cards the
  * API returns.
@@ -231,8 +231,8 @@ const PlatformChoice: React.FC = () => {
   const hoursBounds = context?.config.studyHours ?? { min: 1, max: 18 };
 
   const activeExam = useMemo(() => exams.find((e) => e.id === exam) || null, [exams, exam]);
-  const miniCctBadges = useMemo(() => {
-    if (!context?.miniCct) return new Set<string>();
+  const miniGtBadges = useMemo(() => {
+    if (!context?.miniGt) return new Set<string>();
     return new Set(context.autofill.weakestSubjects);
   }, [context]);
 
@@ -336,7 +336,7 @@ const PlatformChoice: React.FC = () => {
                 <Sparkles size={24} className="text-[#4DD7C8]" /> Your Platform Recommendations
               </h2>
               <p className="text-[#94A3B8] text-sm mt-1.5">
-                Based on your exam, Mini CCT signals, desired branch, study hours and switching
+                Based on your exam, Mini GT signals, desired branch, study hours and switching
                 preference — tuned to <span className="text-[#CBD5E1]">{result.method.version}</span>.
               </p>
             </div>
@@ -548,22 +548,22 @@ const PlatformChoice: React.FC = () => {
                 Your 3 weakest subjects
               </h3>
               <p className="text-xs text-[#94A3B8] mb-4">
-                {context?.miniCct
-                  ? `Pre-filled from your latest Mini CCT (${context.miniCct.quizTitle || 'most recent'}) — adjust to what YOU feel weakest in.`
-                  : 'No Mini CCT on record yet — pick what you feel weakest in.'}{' '}
+                {context?.miniGt
+                  ? `Pre-filled from your latest Mini GT (${context.miniGt.quizTitle || 'most recent'}) — adjust to what YOU feel weakest in.`
+                  : 'No Mini GT on record yet — pick what you feel weakest in.'}{' '}
                 Pick 1–3.
               </p>
               <div className="flex flex-wrap gap-2">
                 {subjectOptions.map((option) => {
                   const selected = weakestSubjects.includes(option.label);
-                  const fromMiniCct = miniCctBadges.has(option.label);
+                  const fromMiniGt = miniGtBadges.has(option.label);
                   return (
                     <button
                       key={option.key}
                       type="button"
                       onClick={() => toggleSubject(option.label)}
                       aria-pressed={selected}
-                      title={fromMiniCct ? 'Suggested by your latest Mini CCT' : undefined}
+                      title={fromMiniGt ? 'Suggested by your latest Mini GT' : undefined}
                       className={`rounded-full border px-3.5 py-1.5 text-sm transition-colors ${
                         selected
                           ? 'border-[#18B6A4]/60 bg-[#18B6A4]/10 text-[#4DD7C8]'
@@ -571,7 +571,7 @@ const PlatformChoice: React.FC = () => {
                       }`}
                     >
                       {option.label}
-                      {fromMiniCct && !selected && (
+                      {fromMiniGt && !selected && (
                         <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-[#D97706]" />
                       )}
                     </button>
@@ -620,11 +620,11 @@ const PlatformChoice: React.FC = () => {
 
           {/* Side rail */}
           <div className="space-y-6">
-            {context?.miniCct && (
+            {context?.miniGt && (
               <div className="bg-[#18222E] border border-white/[0.06] rounded-2xl p-6 text-sm text-[#94A3B8]">
-                <h3 className="font-semibold text-[#4DD7C8] mb-3">From your latest Mini CCT</h3>
+                <h3 className="font-semibold text-[#4DD7C8] mb-3">From your latest Mini GT</h3>
                 <ul className="space-y-2">
-                  {context.miniCct.subjectRanking.map((row, index) => (
+                  {context.miniGt.subjectRanking.map((row, index) => (
                     <li key={row.subjectName} className="flex items-center justify-between gap-3">
                       <span className="text-[#CBD5E1]">
                         {index === 0 && <span className="text-rose-300 mr-1">weakest:</span>}
@@ -640,7 +640,7 @@ const PlatformChoice: React.FC = () => {
                   to="/tests"
                   className="inline-flex items-center gap-1.5 text-xs text-[#4DD7C8] mt-4 hover:underline"
                 >
-                  Take the next Mini CCT <ArrowLeft size={11} className="rotate-180" />
+                  Take the next Mini GT <ArrowLeft size={11} className="rotate-180" />
                 </Link>
               </div>
             )}

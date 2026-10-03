@@ -9,7 +9,7 @@ const TEST_TYPE_LABEL: Record<string, string> = {
   daily: 'Daily Test',
   weekly: 'Weekly Test',
   grand: 'Grand Test',
-  mini: 'Mini CCT',
+  mini: 'Mini GT',
 };
 
 const statusOf = (quiz: QuizListItem): { label: string; tone: string; icon: React.ReactNode } => {

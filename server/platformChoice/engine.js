@@ -221,11 +221,11 @@ function validateRecommendRequest(body) {
   };
 }
 
-// ── Mini CCT signal derivation (pure; consumes the App analysis shape) ───────
+// ── Mini GT signal derivation (pure; consumes the App analysis shape) ───────
 
 /**
- * Derive the recommender's signals from a Mini CCT analysis payload
- * (GET /mini-cct/attempts/:id/analysis shape — subjects[]/tags[]/summary).
+ * Derive the recommender's signals from a Mini GT analysis payload
+ * (GET /mini-gt/attempts/:id/analysis shape — subjects[]/tags[]/summary).
  *
  * Returns:
  *  {
@@ -237,7 +237,7 @@ function validateRecommendRequest(body) {
  *    weakTagSignal: number | null               min(1, count/3)
  *  }
  */
-function deriveMiniCctSignals(analysis) {
+function deriveMiniGtSignals(analysis) {
   if (!analysis || !Array.isArray(analysis.subjects)) return null;
 
   const rows = analysis.subjects
@@ -287,12 +287,12 @@ function deriveMiniCctSignals(analysis) {
  * Context (assembled by the route layer):
  *  {
  *    input:           validateRecommendRequest output (student picks)
- *    miniCct:         deriveMiniCctSignals output | null
+ *    miniGt:         deriveMiniGtSignals output | null
  *    desiredBranch:   display string | null
  *  }
  */
 function factorScores(platform, context) {
-  const { input, miniCct, desiredBranch } = context;
+  const { input, miniGt, desiredBranch } = context;
 
   // 1. Exam compatibility — the platform's configured strength for the exam.
   const examCompatibility = clamp01(
@@ -306,10 +306,10 @@ function factorScores(platform, context) {
   );
   const weakSubjects = subjectEntries.reduce((sum, v) => sum + v, 0) / subjectEntries.length;
 
-  // 3. Concept revision — Mini CCT weak-tag signal pulled toward the platform's
+  // 3. Concept revision — Mini GT weak-tag signal pulled toward the platform's
   //    revision depth. No signal (null) → neutral.
   const revisionDepth = clamp01(platform.revisionDepth ?? NEUTRAL_SCORE);
-  const signal = miniCct ? miniCct.weakTagSignal : null;
+  const signal = miniGt ? miniGt.weakTagSignal : null;
   const conceptRevision = signal === null
     ? NEUTRAL_SCORE
     : NEUTRAL_SCORE + signal * (revisionDepth - NEUTRAL_SCORE);
@@ -385,7 +385,7 @@ function listForSentence(items) {
  */
 function reasonSentences(scored, context) {
   const { platform, scores, factors } = scored;
-  const { input, miniCct, desiredBranch } = context;
+  const { input, miniGt, desiredBranch } = context;
   const sentences = [];
   const push = (factorKey, text) => {
     const factor = factors.find((f) => f.key === factorKey);
@@ -400,8 +400,8 @@ function reasonSentences(scored, context) {
     const strongIn = input.weakestSubjects
       .filter((s) => ((platform.subjectStrength || {})[s.key] ?? NEUTRAL_SCORE) >= 0.86)
       .map((s) => s.label);
-    const source = miniCct
-      ? 'your lowest-accuracy subjects on the latest Mini CCT'
+    const source = miniGt
+      ? 'your lowest-accuracy subjects on the latest Mini GT'
       : 'the subjects you marked weakest';
     push(
       'weakSubjects',
@@ -411,13 +411,13 @@ function reasonSentences(scored, context) {
     );
   }
 
-  if (miniCct && miniCct.weakTags && miniCct.weakTags.count > 0 && scores.conceptRevision >= 0.6) {
-    const labels = miniCct.weakTags.labels.filter(Boolean).slice(0, 3);
+  if (miniGt && miniGt.weakTags && miniGt.weakTags.count > 0 && scores.conceptRevision >= 0.6) {
+    const labels = miniGt.weakTags.labels.filter(Boolean).slice(0, 3);
     push(
       'conceptRevision',
       labels.length
         ? `Concept-tagged practice targets your weak areas (${listForSentence(labels.map((l) => l.toLowerCase()))}).`
-        : 'Concept-tagged practice targets the weak areas in your Mini CCT breakdown.'
+        : 'Concept-tagged practice targets the weak areas in your Mini GT breakdown.'
     );
   }
 
@@ -472,7 +472,7 @@ function platformCard(platform, matchScore) {
  * Rank every configured platform and build the tiered recommendation.
  * Returns the full result object that is persisted + served.
  */
-function buildRecommendation({ input, miniCct, desiredBranch }) {
+function buildRecommendation({ input, miniGt, desiredBranch }) {
   if (PLATFORMS.length === 0) {
     throw new PlatformChoiceError(
       'Platform recommendations are not available right now. Please try again later.',
@@ -480,7 +480,7 @@ function buildRecommendation({ input, miniCct, desiredBranch }) {
     );
   }
 
-  const context = { input, miniCct, desiredBranch };
+  const context = { input, miniGt, desiredBranch };
   const ranked = PLATFORMS.map((platform) => scorePlatform(platform, context)).sort((a, b) => {
     if (b.total !== a.total) return b.total - a.total;
     const examA = (a.platform.examStrength || {})[input.exam] ?? 0;
@@ -562,13 +562,13 @@ function buildRecommendation({ input, miniCct, desiredBranch }) {
   const notes = [];
   const exam = examById(input.exam);
   if (exam && exam.note) notes.push(exam.note);
-  if (!miniCct) {
+  if (!miniGt) {
     notes.push(
-      'No Mini CCT result was available, so concept-level matching used a neutral baseline — take a Mini CCT to sharpen the match.'
+      'No Mini GT result was available, so concept-level matching used a neutral baseline — take a Mini GT to sharpen the match.'
     );
-  } else if (!miniCct.weakTags) {
+  } else if (!miniGt.weakTags) {
     notes.push(
-      'Concept-level matching used a neutral baseline — concept breakdowns are part of the full Mini CCT analysis.'
+      'Concept-level matching used a neutral baseline — concept breakdowns are part of the full Mini GT analysis.'
     );
   }
   if (!desiredBranch) {
@@ -597,7 +597,7 @@ module.exports = {
   studyHoursBand,
   derivePreviousResource,
   validateRecommendRequest,
-  deriveMiniCctSignals,
+  deriveMiniGtSignals,
   factorScores,
   buildRecommendation,
 };

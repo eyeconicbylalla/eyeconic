@@ -1,11 +1,11 @@
 /**
- * Mini CCT dashboard-card UI check — headless Edge over CDP (no test deps).
+ * Mini GT dashboard-card UI check — headless Edge over CDP (no test deps).
  * Loads /dashboard with the dev E2E student's session cookie, asserts the
  * redesigned card (no subjects, description, question/minute/mark attributes,
  * History + CTA), captures console errors, and saves desktop + mobile
  * screenshots of the card.
  *
- * Usage: node scripts/verify-mini-cct-card-ui.cdp.js <cookie-value>
+ * Usage: node scripts/verify-mini-gt-card-ui.cdp.js <cookie-value>
  */
 const fs = require('fs');
 const os = require('os');
@@ -13,11 +13,11 @@ const path = require('path');
 
 const COOKIE = process.argv[2];
 if (!COOKIE) {
-  console.error('usage: node verify-mini-cct-card-ui.cdp.js <ec_app_session value>');
+  console.error('usage: node verify-mini-gt-card-ui.cdp.js <ec_app_session value>');
   process.exit(2);
 }
 const CDP = `http://127.0.0.1:${process.env.CDP_PORT || 9222}`;
-const OUT = fs.mkdtempSync(path.join(os.tmpdir(), 'minicct-card-'));
+const OUT = fs.mkdtempSync(path.join(os.tmpdir(), 'minigt-card-'));
 const consoleErrors = [];
 const pageErrors = [];
 
@@ -83,11 +83,11 @@ async function main() {
   // ---- Desktop ------------------------------------------------------------
   await viewport(1380, 1000);
   await send('Page.navigate', { url: 'http://localhost:5173/dashboard' });
-  await waitFor(() => !!document.querySelector('h3') && [...document.querySelectorAll('h3')].some((h) => h.textContent.includes('Mini CCT')), 20000, 'Mini CCT card');
+  await waitFor(() => !!document.querySelector('h3') && [...document.querySelectorAll('h3')].some((h) => h.textContent.includes('Mini GT')), 20000, 'Mini GT card');
   // Let the rest of the dashboard settle (comparison card, readiness chips).
   await sleep(2500);
 
-  const card = () => [...document.querySelectorAll('h3')].find((h) => h.textContent.includes('Mini CCT'))?.closest('.rounded-2xl');
+  const card = () => [...document.querySelectorAll('h3')].find((h) => h.textContent.includes('Mini GT'))?.closest('.rounded-2xl');
   const findCard = `(${card.toString()})()`;
   const facts = await evaluate(`(() => {
     const card = ${findCard};
@@ -105,7 +105,7 @@ async function main() {
       hasMinutes: /30\\s+Minutes/.test(text),
       hasMarks: /120\\s+Marks/.test(text),
       hasHistory: text.includes('History'),
-      hasStart: text.includes('Start Mini CCT') || text.includes('Resume') || text.includes('View Analysis'),
+      hasStart: text.includes('Start Mini GT') || text.includes('Resume') || text.includes('View Analysis'),
       overflowsX: card.scrollWidth > card.clientWidth + 1,
     };
   })()`);

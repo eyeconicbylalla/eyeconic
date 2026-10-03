@@ -52,7 +52,7 @@ const EmptyNote = ({ children }: { children: React.ReactNode }) => (
 );
 
 /**
- * Drilldown modal for one free user (Feature 08 §B): profile, Mini CCT
+ * Drilldown modal for one free user (Feature 08 §B): profile, Mini GT
  * history, Daily PYQ history + streaks, predictor usage incl. GT corrects,
  * and the merged last-active date.
  */
@@ -168,12 +168,12 @@ const UserDrilldown: React.FC<{ userId: string; onClose: () => void }> = ({ user
                 )}
               </Panel>
 
-              <Panel title={`Mini CCT history (${detail.miniCct.summary.totalAttempts} attempts · avg ${pct(detail.miniCct.summary.avgScorePercentage)} · best ${pct(detail.miniCct.summary.bestScorePercentage)})`}>
-                {detail.miniCct.attempts.length > 0 ? (
+              <Panel title={`Mini GT history (${detail.miniGt.summary.totalAttempts} attempts · avg ${pct(detail.miniGt.summary.avgScorePercentage)} · best ${pct(detail.miniGt.summary.bestScorePercentage)})`}>
+                {detail.miniGt.attempts.length > 0 ? (
                   <>
                     <MiniTable
                       head={['Test', 'Subject', 'Score', 'Marks', 'Date']}
-                      rows={detail.miniCct.attempts.map((a) => [
+                      rows={detail.miniGt.attempts.map((a) => [
                         a.quizTitle,
                         a.subjectName ?? '—',
                         pct(a.scorePercentage),
@@ -181,12 +181,12 @@ const UserDrilldown: React.FC<{ userId: string; onClose: () => void }> = ({ user
                         fmtDate(a.endTime),
                       ])}
                     />
-                    {detail.miniCct.capped && (
-                      <EmptyNote>Showing the {detail.miniCct.attempts.length} most recent attempts.</EmptyNote>
+                    {detail.miniGt.capped && (
+                      <EmptyNote>Showing the {detail.miniGt.attempts.length} most recent attempts.</EmptyNote>
                     )}
                   </>
                 ) : (
-                  <EmptyNote>No Mini CCT attempts yet.</EmptyNote>
+                  <EmptyNote>No Mini GT attempts yet.</EmptyNote>
                 )}
               </Panel>
 

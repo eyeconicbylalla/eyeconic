@@ -83,7 +83,7 @@ const CohortComparisonCard: React.FC<CardProps> = ({ payload, loading, error, un
         <div className="text-center py-10">
           <BookOpen className="w-9 h-9 text-[#18B6A4] mx-auto mb-3" />
           <p className="text-[#CBD5E1] text-sm">
-            Complete a GT or Mini CCT to see how your performance compares with other students.
+            Complete a GT or Mini GT to see how your performance compares with other students.
           </p>
           <Link to="/tests" className="btn btn-primary text-sm mt-4">Browse My Tests</Link>
         </div>

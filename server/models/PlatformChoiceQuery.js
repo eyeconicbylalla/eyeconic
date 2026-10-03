@@ -8,7 +8,7 @@ const mongoose = require('mongoose');
  * out — a failed write means the result is not served. A stored record keeps
  * the student's INTENT (exam, session, hours, previous resource, switching
  * openness, weakest subjects) alongside the server-derived context that fed
- * the scoring (Mini CCT reference, desired branch) and the tiered result —
+ * the scoring (Mini GT reference, desired branch) and the tiered result —
  * exactly what mentor analytics and future tuning will want.
  *
  * userId is the canonical App backend User._id (integration Phase 3), stored

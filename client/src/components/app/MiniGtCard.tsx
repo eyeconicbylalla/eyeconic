@@ -1,22 +1,22 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, Award, Clock, History, ListChecks, Loader2, PlayCircle, RefreshCw, Zap } from 'lucide-react';
-import { appErrorMessage, isAppUnavailable, miniCctApi } from '../../lib/appClient';
-import type { MiniCctLatestPayload } from '../../types/app';
+import { appErrorMessage, isAppUnavailable, miniGtApi } from '../../lib/appClient';
+import type { MiniGtLatestPayload } from '../../types/app';
 
 /**
- * Student Dashboard Mini CCT card (Feature 04): surfaces the latest Mini CCT
+ * Student Dashboard Mini GT card (Feature 04): surfaces the latest Mini GT
  * as a deliberately generic card — what it is, why to take it and its fixed
  * shape (questions / minutes / marks from the quiz payload) — with
  * start/resume/analysis actions. Subjects and per-test titles stay off the
  * card by design. The attempt itself runs through the normal /tests flow;
- * after submission the results page embeds the Mini CCT analysis.
+ * after submission the results page embeds the Mini GT analysis.
  *
- * Renders nothing when no Mini CCT is available to this student; load errors
+ * Renders nothing when no Mini GT is available to this student; load errors
  * stay inside the card and never hide the rest of the dashboard.
  */
-const MiniCctCard: React.FC = () => {
-  const [payload, setPayload] = useState<MiniCctLatestPayload | null>(null);
+const MiniGtCard: React.FC = () => {
+  const [payload, setPayload] = useState<MiniGtLatestPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [unavailable, setUnavailable] = useState(false);
@@ -26,9 +26,9 @@ const MiniCctCard: React.FC = () => {
     setError('');
     setUnavailable(false);
     try {
-      setPayload(await miniCctApi.latest());
+      setPayload(await miniGtApi.latest());
     } catch (err) {
-      setError(appErrorMessage(err, 'Could not load the Mini CCT.'));
+      setError(appErrorMessage(err, 'Could not load the Mini GT.'));
       setUnavailable(isAppUnavailable(err));
     } finally {
       setLoading(false);
@@ -64,7 +64,7 @@ const MiniCctCard: React.FC = () => {
   }
 
   const quiz = payload?.quiz;
-  if (!quiz) return null; // No Mini CCT available to this student — hide the card.
+  if (!quiz) return null; // No Mini GT available to this student — hide the card.
 
   const status = quiz.attemptStatus;
   const completed = status.hasAttempted && status.status !== 'in_progress';
@@ -77,13 +77,13 @@ const MiniCctCard: React.FC = () => {
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
         <div className="min-w-0 max-w-xl">
           <h3 className="font-semibold text-[#F8FAFC] flex items-center gap-2 text-lg">
-            <Zap size={18} className="text-[#4DD7C8] shrink-0" /> Mini CCT
+            <Zap size={18} className="text-[#4DD7C8] shrink-0" /> Mini GT
             <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-[#18B6A4]/15 text-[#4DD7C8] border border-[#18B6A4]/25">
               Mini Grand Test
             </span>
           </h3>
           <p className="text-sm text-[#94A3B8] mt-1.5">
-            A short, focused test for regular practice — assess and strengthen your preparation.
+            Expert led analysis on your strengths and weakness. *T&C applied
           </p>
           {completed && (
             <p className="text-sm text-[#94A3B8] mt-1">
@@ -92,7 +92,7 @@ const MiniCctCard: React.FC = () => {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <Link to="/mini-cct/history" className="text-sm text-[#94A3B8] hover:text-[#F8FAFC] hidden sm:inline-flex items-center gap-1.5">
+          <Link to="/mini-gt/history" className="text-sm text-[#94A3B8] hover:text-[#F8FAFC] hidden sm:inline-flex items-center gap-1.5">
             <History size={14} /> History
           </Link>
           {completed ? (
@@ -113,7 +113,7 @@ const MiniCctCard: React.FC = () => {
             </span>
           ) : (
             <Link to={`/tests/${quiz._id}?start=1`} className="btn btn-primary text-sm px-4 py-2">
-              <PlayCircle size={15} className="mr-2" /> Start Mini CCT
+              <PlayCircle size={15} className="mr-2" /> Start Mini GT
             </Link>
           )}
         </div>
@@ -136,4 +136,4 @@ const MiniCctCard: React.FC = () => {
   );
 };
 
-export default MiniCctCard;
+export default MiniGtCard;

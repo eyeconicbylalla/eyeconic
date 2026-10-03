@@ -3,7 +3,7 @@
 export interface MentorOverview {
   totals: { freeUsers: number; freeUsersThisMonth: number };
   active: { dau: number; wau: number; mau: number };
-  miniCct: { attemptsTotal: number; attemptingUsers: number };
+  miniGt: { attemptsTotal: number; attemptingUsers: number };
   dailyPyq: {
     attemptsTotal: number;
     attemptingUsers: number;
@@ -30,7 +30,7 @@ export interface MentorUserRow {
   isProfileComplete: boolean;
   year: string | null;
   platforms: string[];
-  miniCct: {
+  miniGt: {
     attempts: number;
     avgScorePercentage: number | null;
     lastAttemptAt: string | null;
@@ -56,7 +56,7 @@ export interface MentorUsersPage {
   limit: number;
 }
 
-export interface MiniCctAttemptRow {
+export interface MiniGtAttemptRow {
   _id: string;
   quizId: string | null;
   quizTitle: string;
@@ -105,8 +105,8 @@ export interface MentorUserDetail {
       isReadyToTransform?: boolean;
     } | null;
   };
-  miniCct: {
-    attempts: MiniCctAttemptRow[];
+  miniGt: {
+    attempts: MiniGtAttemptRow[];
     capped: boolean;
     summary: {
       totalAttempts: number;
@@ -159,7 +159,7 @@ export interface FeatureUsageRow {
 }
 
 export interface MentorPerformance {
-  miniCct: {
+  miniGt: {
     totalAttempts: number;
     avgScorePercentage: number | null;
     subjectWise: SubjectAverageRow[];

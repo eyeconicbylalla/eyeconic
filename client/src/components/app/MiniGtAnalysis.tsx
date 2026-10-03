@@ -7,14 +7,14 @@ import {
   AlertTriangle, ArrowUpRight, CheckCircle2, Flame, Lightbulb, Loader2, Lock,
   MessageCircle, RefreshCw, Target, TrendingUp, XCircle,
 } from 'lucide-react';
-import { appErrorMessage, isAppUnavailable, miniCctApi } from '../../lib/appClient';
-import type { MiniCctAnalysis as MiniCctAnalysisType, MiniCctHeatmapCell } from '../../types/app';
+import { appErrorMessage, isAppUnavailable, miniGtApi } from '../../lib/appClient';
+import type { MiniGtAnalysis as MiniGtAnalysisType, MiniGtHeatmapCell } from '../../types/app';
 
 /**
- * Mini CCT analysis dashboard — rendered after every Mini CCT submission and
+ * Mini GT analysis dashboard — rendered after every Mini GT submission and
  * from attempt history (/tests/:quizId/results/:attemptId embeds it).
  *
- * Every number comes from the App API's /mini-cct/attempts/:id/analysis:
+ * Every number comes from the App API's /mini-gt/attempts/:id/analysis:
  * scoring, subject comparison against the database average, percentile,
  * topic & concept-tag breakdowns and the free-user gating are computed
  * server-side — this component only renders them. Gated sections never reach
@@ -30,7 +30,7 @@ const SERIES_AVERAGE = '#D97706';
 const CHART_TEXT = '#94A3B8';
 const CHART_GRID = 'rgba(148, 163, 184, 0.14)';
 
-const HEATMAP_STATUS_STYLES: Record<MiniCctHeatmapCell['status'], string> = {
+const HEATMAP_STATUS_STYLES: Record<MiniGtHeatmapCell['status'], string> = {
   correct: 'bg-emerald-500/75 border-emerald-300/30',
   incorrect: 'bg-rose-500/75 border-rose-300/30',
   skipped: 'bg-slate-600/70 border-slate-400/30',
@@ -79,7 +79,7 @@ const GatedSection: React.FC<{ title: string; icon: React.ReactNode; message: st
     <p className="text-sm text-[#94A3B8] max-w-md mx-auto">{message}</p>
     <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
       <a
-        href="https://wa.me/919116303037?text=Hey!%20I%20want%20to%20unlock%20the%20full%20Mini%20CCT%20analysis."
+        href="https://wa.me/919116303037?text=Hey!%20I%20want%20to%20unlock%20the%20full%20Mini%20GT%20analysis."
         target="_blank"
         rel="noopener noreferrer"
         className="btn btn-primary text-sm px-4 py-2"
@@ -92,12 +92,12 @@ const GatedSection: React.FC<{ title: string; icon: React.ReactNode; message: st
 
 const SUBJECT_FILTER_ALL = 'All';
 
-interface MiniCctAnalysisProps {
+interface MiniGtAnalysisProps {
   attemptId: string;
 }
 
-const MiniCctAnalysis: React.FC<MiniCctAnalysisProps> = ({ attemptId }) => {
-  const [analysis, setAnalysis] = useState<MiniCctAnalysisType | null>(null);
+const MiniGtAnalysis: React.FC<MiniGtAnalysisProps> = ({ attemptId }) => {
+  const [analysis, setAnalysis] = useState<MiniGtAnalysisType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [unavailable, setUnavailable] = useState(false);
@@ -108,7 +108,7 @@ const MiniCctAnalysis: React.FC<MiniCctAnalysisProps> = ({ attemptId }) => {
     setError('');
     setUnavailable(false);
     try {
-      setAnalysis(await miniCctApi.analysis(attemptId));
+      setAnalysis(await miniGtApi.analysis(attemptId));
     } catch (err) {
       setError(appErrorMessage(err, 'This analysis could not be loaded.'));
       setUnavailable(isAppUnavailable(err));
@@ -202,7 +202,7 @@ const MiniCctAnalysis: React.FC<MiniCctAnalysisProps> = ({ attemptId }) => {
     return (
       <div className="min-h-[40vh] flex flex-col items-center justify-center">
         <Loader2 className="w-8 h-8 text-[#18B6A4] animate-spin mb-3" />
-        <span className="text-sm text-[#94A3B8]">Crunching your Mini CCT analysis…</span>
+        <span className="text-sm text-[#94A3B8]">Crunching your Mini GT analysis…</span>
       </div>
     );
   }
@@ -563,4 +563,4 @@ const MiniCctAnalysis: React.FC<MiniCctAnalysisProps> = ({ attemptId }) => {
   );
 };
 
-export default MiniCctAnalysis;
+export default MiniGtAnalysis;

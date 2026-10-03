@@ -38,7 +38,7 @@ const idsPayload = { ids: [FREE_A, FREE_B, FREE_C] };
 const overviewPayload = {
   totals: { freeUsers: 3, freeUsersThisMonth: 2 },
   activeUserIds: { dau: [FREE_B], wau: [FREE_B], mau: [FREE_B] },
-  miniCct: { attemptsTotal: 5, attemptingUsers: 2 },
+  miniGt: { attemptsTotal: 5, attemptingUsers: 2 },
   dailyPyq: { attemptsTotal: 9, attemptingUsers: 2, attemptsToday: 1, attemptsLast7d: 4 },
   platformChoice: [{ platform: 'Marrow', count: 2 }, { platform: 'PrepLadder', count: 1 }],
   window: { today: '2026-09-24' },
@@ -56,7 +56,7 @@ const userPagePayload = {
       isProfileComplete: true,
       year: 'Intern',
       platforms: ['Marrow'],
-      miniCct: { attempts: 2, avgScorePercentage: 55, lastAttemptAt: '2026-09-20T10:00:00.000Z' },
+      miniGt: { attempts: 2, avgScorePercentage: 55, lastAttemptAt: '2026-09-20T10:00:00.000Z' },
       dailyPyq: { attempts: 4, currentStreak: 2, bestStreak: 3, lastAttemptAt: '2026-09-24T04:00:00.000Z' },
       lastActiveAt: '2026-09-24T04:00:00.000Z',
     },
@@ -70,7 +70,7 @@ const userPagePayload = {
       isProfileComplete: false,
       year: null,
       platforms: [],
-      miniCct: { attempts: 0, avgScorePercentage: null, lastAttemptAt: null },
+      miniGt: { attempts: 0, avgScorePercentage: null, lastAttemptAt: null },
       dailyPyq: { attempts: 0, currentStreak: 0, bestStreak: 0, lastAttemptAt: null },
       lastActiveAt: null,
     },
@@ -92,11 +92,11 @@ const drilldownPayload = {
     isProfileComplete: true,
     freeUserProfile: { year: 'Intern', issues: 'Revision', resources: ['Marrow'] },
   },
-  miniCct: {
+  miniGt: {
     attempts: [
       {
         _id: '507f1f77bcf86cd7994390d1', quizId: '507f1f77bcf86cd7994390e1',
-        quizTitle: 'Mini CCT Psychiatry #1', testType: 'daily', subjectName: 'Psychiatry',
+        quizTitle: 'Mini GT Psychiatry #1', testType: 'daily', subjectName: 'Psychiatry',
         score: 7, totalQuestions: 10, marksObtained: 24, totalMarks: 40,
         scorePercentage: 60, endTime: '2026-09-20T10:00:00.000Z',
       },
@@ -124,7 +124,7 @@ function istKey(offsetDays = 0) {
 }
 
 const performancePayload = {
-  miniCct: {
+  miniGt: {
     totalAttempts: 5,
     avgScorePercentage: 52.4,
     subjectWise: [
@@ -147,7 +147,7 @@ const performancePayload = {
   featureUsage: {
     weekLabels: [istKey(-27), istKey(-20), istKey(-13), istKey(-6)],
     rows: [
-      { feature: 'Mini CCT', counts: [0, 1, 2, 2] },
+      { feature: 'Mini GT', counts: [0, 1, 2, 2] },
       { feature: 'Daily PYQ', counts: [1, 1, 2, 5] },
     ],
   },
@@ -371,7 +371,7 @@ describe('Mentor dashboard proxy', () => {
     expect(res.status).toBe(200);
 
     expect(res.body.user.name).toBe('Free A');
-    expect(res.body.miniCct.summary.avgScorePercentage).toBe(55);
+    expect(res.body.miniGt.summary.avgScorePercentage).toBe(55);
     expect(res.body.dailyPyq.streaks.current).toBe(2);
     expect(res.body.predictor.totals).toEqual({ predictions: 1, desiredBranchQueries: 0 });
     expect(res.body.predictor.gtCorrects).toEqual([
@@ -391,7 +391,7 @@ describe('Mentor dashboard proxy', () => {
     expect(res.body.rankPredictor).toEqual({ predictionsTotal: 2, desiredBranchQueriesTotal: 1 });
 
     const features = res.body.featureUsage.rows.map((r) => r.feature);
-    expect(features).toEqual(['Mini CCT', 'Daily PYQ', 'Rank Predictor', 'Desired Branch']);
+    expect(features).toEqual(['Mini GT', 'Daily PYQ', 'Rank Predictor', 'Desired Branch']);
     // FREE_A's prediction (now) and FREE_B's (3 days ago) both land in the
     // newest 7-day bucket, as does FREE_B's desired-branch query (5 days ago).
     const lastIdx = res.body.featureUsage.weekLabels.length - 1;
