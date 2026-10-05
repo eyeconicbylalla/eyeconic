@@ -20,6 +20,9 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const SERVICE_TOKEN = 's'.repeat(43);
 const STUDENT_TOKEN = 'app-user-jwt-for-student';
 const STUDENT2_TOKEN = 'app-user-jwt-for-student2';
+// Valid identity-wise (/auth/me accepts it) but rejected by the analytics
+// feed — used to pin /gts upstream-auth-failure handling for Bearer clients.
+const REVOKED_ANALYTICS_TOKEN = 'app-user-jwt-revoked-for-analytics';
 const STUDENT = {
   _id: '507f1f77bcf86cd799439011',
   name: 'Test Student',
@@ -89,6 +92,24 @@ function startMockAppApi() {
       next();
     };
 
+    // Identity verification for Bearer (mobile-app) clients. Test controls:
+    // count() reads the number of verifications, failNext(n) makes the next
+    // n calls fail with an upstream 5xx (availability handling), reset()
+    // zeroes both. Accepts REVOKED_ANALYTICS_TOKEN so it can pin the case
+    // where identity is fine but a downstream feed rejects the token.
+    const me = { calls: 0, failNext: 0 };
+    const requireKnownToken = (req, res, next) => {
+      const auth = req.header('Authorization');
+      if (
+        auth !== `Bearer ${STUDENT_TOKEN}` &&
+        auth !== `Bearer ${STUDENT2_TOKEN}` &&
+        auth !== `Bearer ${REVOKED_ANALYTICS_TOKEN}`
+      ) {
+        return res.status(401).json({ message: 'Token is not valid.' });
+      }
+      next();
+    };
+
     mock.post('/auth/login', (req, res) => {
       const { email, password } = req.body || {};
       const user = userFor(email);
@@ -96,6 +117,19 @@ function startMockAppApi() {
         return res.json({ token: tokenFor(email), user, linkedAttempts: 0 });
       }
       return res.status(400).json({ message: 'Invalid email or password.' });
+    });
+
+    // Mirrors the real App API's GET /auth/me (routes/auth.js): the client
+    // user document for the Bearer token's user, or 401.
+    mock.get('/auth/me', requireKnownToken, (req, res) => {
+      me.calls += 1;
+      if (me.failNext > 0) {
+        me.failNext -= 1;
+        return res.status(502).json({ message: 'upstream database exploded' });
+      }
+      const auth = req.header('Authorization');
+      const user = auth === `Bearer ${STUDENT2_TOKEN}` ? STUDENT2 : STUDENT;
+      res.json({ ...user });
     });
 
     // The route pages with limit=100; the mock deliberately answers in pages
@@ -120,7 +154,14 @@ function startMockAppApi() {
       });
     });
 
-    const server = mock.listen(0, () => resolve(server));
+    const server = mock.listen(0, () => {
+      server.__me = {
+        count: () => me.calls,
+        failNext: (n) => { me.failNext = n; },
+        reset: () => { me.calls = 0; me.failNext = 0; },
+      };
+      resolve(server);
+    });
   });
 }
 
@@ -192,6 +233,194 @@ describe('predictor API — auth and metadata', () => {
     expect(ini.pattern).toEqual({
       totalQuestions: 200, positive: 1, negative: 1 / 3, maxMarks: 200, version: '200 marks (+1/-1/3)',
     });
+  });
+});
+
+describe('predictor API — Bearer auth (mentorship app)', () => {
+  const { resetBearerSessionCache } = require('../services/appBearerSession');
+
+  beforeEach(() => {
+    // Each test verifies (or rejects) from a clean slate — the cache is a
+    // module-level map shared with the server instance under test.
+    resetBearerSessionCache();
+    mockAppApi.__me.reset();
+  });
+
+  it('authenticates a valid App JWT via Authorization: Bearer (no cookie)', async () => {
+    const res = await request(app)
+      .get('/api/predictor/exams')
+      .set('Authorization', `Bearer ${STUDENT_TOKEN}`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.exams)).toBe(true);
+    expect(res.body.exams.some((e) => e.id === 'NEET_PG')).toBe(true);
+  });
+
+  it('verifies a Bearer token against /auth/me once, then trusts the short-lived cache', async () => {
+    const before = mockAppApi.__me.count();
+    const first = await request(app)
+      .get('/api/predictor/exams')
+      .set('Authorization', `Bearer ${STUDENT_TOKEN}`);
+    expect(first.status).toBe(200);
+    expect(mockAppApi.__me.count()).toBe(before + 1);
+
+    const second = await request(app)
+      .get('/api/predictor/exams')
+      .set('Authorization', `Bearer ${STUDENT_TOKEN}`);
+    expect(second.status).toBe(200);
+    expect(mockAppApi.__me.count()).toBe(before + 1); // cached — no re-verification
+  });
+
+  it('rejects a forged/unknown token with 401 APP_SESSION_REQUIRED', async () => {
+    const res = await request(app)
+      .get('/api/predictor/exams')
+      .set('Authorization', 'Bearer forged-token-that-verifies-nowhere');
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('APP_SESSION_REQUIRED');
+    expect(res.body.msg).toBe('Your session has expired. Please log in again.');
+  });
+
+  it('treats a malformed Authorization header like missing credentials', async () => {
+    const wrongScheme = await request(app)
+      .get('/api/predictor/exams')
+      .set('Authorization', 'Token abcdef');
+    expect(wrongScheme.status).toBe(401);
+    expect(wrongScheme.body.code).toBe('APP_SESSION_REQUIRED');
+
+    const emptyBearer = await request(app)
+      .get('/api/predictor/exams')
+      .set('Authorization', 'Bearer ');
+    expect(emptyBearer.status).toBe(401);
+    expect(emptyBearer.body.code).toBe('APP_SESSION_REQUIRED');
+  });
+
+  it('runs and persists a prediction under the Bearer identity', async () => {
+    const made = await request(app)
+      .post('/api/predictor/predict')
+      .set('Authorization', `Bearer ${STUDENT_TOKEN}`)
+      .send({ exam: 'NEET_PG', gts: [manualGt(120), manualGt(130)], category: 'UR' });
+    expect(made.status).toBe(201);
+    expect(made.body.persisted).toBe(true);
+
+    // The record is stored under the App user the token resolves to, so the
+    // same Bearer identity sees it in history (and other users do not).
+    const list = await request(app)
+      .get('/api/predictor/predictions')
+      .set('Authorization', `Bearer ${STUDENT_TOKEN}`);
+    expect(list.status).toBe(200);
+    expect(list.body.predictions.some((p) => p.id === made.body.predictionId)).toBe(true);
+  });
+
+  it('keeps the cookie primary when both credentials are present', async () => {
+    const cookie = await login(); // STUDENT's session cookie
+
+    // Valid cookie + a DIFFERENT user's valid Bearer → cookie identity wins.
+    const made = await request(app)
+      .post('/api/predictor/predict')
+      .set('Cookie', cookie)
+      .set('Authorization', `Bearer ${STUDENT2_TOKEN}`)
+      .send({ exam: 'NEET_PG', gts: [manualGt(100)] });
+    expect(made.status).toBe(201);
+
+    const mine = await request(app).get('/api/predictor/predictions').set('Cookie', cookie);
+    expect(mine.body.predictions.some((p) => p.id === made.body.predictionId)).toBe(true);
+
+    const theirs = await request(app)
+      .get('/api/predictor/predictions')
+      .set('Authorization', `Bearer ${STUDENT2_TOKEN}`);
+    expect(theirs.body.predictions.some((p) => p.id === made.body.predictionId)).toBe(false);
+
+    // A garbage Bearer must not invalidate a valid cookie either.
+    const withGarbage = await request(app)
+      .get('/api/predictor/exams')
+      .set('Cookie', cookie)
+      .set('Authorization', 'Bearer not-a-real-token');
+    expect(withGarbage.status).toBe(200);
+  });
+
+  it('feeds the GT auto-fill upstream call with the Bearer token', async () => {
+    const res = await request(app)
+      .get('/api/predictor/gts')
+      .set('Authorization', `Bearer ${STUDENT_TOKEN}`);
+    expect(res.status).toBe(200);
+    expect(res.body.gts.length).toBe(2); // GT1 + GT2 from the mock analytics feed
+    expect(res.body.gts.every((g) => g.provenance === 'auto-captured')).toBe(true);
+  });
+
+  it('maps a GT-feed upstream auth failure to 401 APP_SESSION_REQUIRED', async () => {
+    // /auth/me accepts this token but /quizzes/analytics/me rejects it —
+    // the /gts route must surface that as an auth problem, not an outage.
+    const res = await request(app)
+      .get('/api/predictor/gts')
+      .set('Authorization', `Bearer ${REVOKED_ANALYTICS_TOKEN}`);
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('APP_SESSION_REQUIRED');
+  });
+
+  it('degrades to 503 (never 401) when the App API cannot verify the token', async () => {
+    mockAppApi.__me.failNext(1);
+    const res = await request(app)
+      .get('/api/predictor/exams')
+      .set('Authorization', `Bearer ${STUDENT_TOKEN}`);
+    expect(res.status).toBe(503);
+    expect(res.body.code).toBe('APP_UNAVAILABLE');
+    // The failed verification must not poison the cache: the next call
+    // re-verifies and succeeds.
+    const retry = await request(app)
+      .get('/api/predictor/exams')
+      .set('Authorization', `Bearer ${STUDENT_TOKEN}`);
+    expect(retry.status).toBe(200);
+  });
+
+  it('brakes token spraying: repeated failed verifications from one IP get 429', async () => {
+    // Low limit for the test (read at request time, like appAuth's signup
+    // limit); restored afterwards so other tests see the default.
+    const previous = process.env.APP_BEARER_FAIL_LIMIT;
+    process.env.APP_BEARER_FAIL_LIMIT = '3';
+    try {
+      // Warm the verification cache with a VALID token first — a legitimate
+      // user behind a shared IP must survive the brake being tripped.
+      const warm = await request(app)
+        .get('/api/predictor/exams')
+        .set('Authorization', `Bearer ${STUDENT_TOKEN}`);
+      expect(warm.status).toBe(200);
+
+      const forged = () =>
+        request(app)
+          .get('/api/predictor/exams')
+          .set('Authorization', 'Bearer spray-attempt-token');
+      await forged(); // 401 (recorded)
+      await forged(); // 401 (recorded)
+      await forged(); // 401 (recorded — at the limit)
+      const blocked = await forged();
+      expect(blocked.status).toBe(429);
+      expect(blocked.body.code).toBe('RATE_LIMITED');
+
+      // While the IP is blocked, an UNKNOWN token is refused without an
+      // upstream verification call (the spray costs nothing)…
+      const unknownWhileBlocked = await request(app)
+        .get('/api/predictor/exams')
+        .set('Authorization', 'Bearer another-unknown-token');
+      expect(unknownWhileBlocked.status).toBe(429);
+
+      // …but the cached valid token still authenticates — the brake never
+      // punishes a legitimate user on a shared IP (CGNAT) whose token was
+      // recently verified.
+      const cachedValid = await request(app)
+        .get('/api/predictor/exams')
+        .set('Authorization', `Bearer ${STUDENT_TOKEN}`);
+      expect(cachedValid.status).toBe(200);
+
+      // And the brake is scoped to the Bearer path: the website's cookie
+      // flow from the same IP is completely unaffected.
+      const cookie = await login();
+      const cookieRes = await request(app)
+        .get('/api/predictor/exams')
+        .set('Cookie', cookie);
+      expect(cookieRes.status).toBe(200);
+    } finally {
+      if (previous === undefined) delete process.env.APP_BEARER_FAIL_LIMIT;
+      else process.env.APP_BEARER_FAIL_LIMIT = previous;
+    }
   });
 });
 

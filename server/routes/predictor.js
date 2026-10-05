@@ -16,7 +16,9 @@ const { PredictorError, CODES } = require('../predictor/errors');
 const { BAND_ORDER } = require('../predictor/branchMatching');
 const { callAppApi, AppApiError } = require('../config/appApi');
 const { clearSessionCookie } = require('../services/appSession');
-const requireAppSession = require('../middleware/appSession');
+// Cookie-first, with Bearer (App JWT) fallback so the mobile mentorship app
+// can call the same API the website does — see services/appBearerSession.js.
+const { requireAppSessionOrBearer } = require('../middleware/appSession');
 const { sameOriginGuard } = require('../middleware/sameOrigin');
 const { hitRateLimit } = require('../services/rateLimiter');
 
@@ -178,7 +180,7 @@ function ownPredictionQuery(req) {
   return { _id: req.params.id, userId: req.appSession.user.id };
 }
 
-router.use(requireAppSession);
+router.use(requireAppSessionOrBearer);
 router.use((req, res, next) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') return sameOriginGuard(req, res, next);
   return next();
