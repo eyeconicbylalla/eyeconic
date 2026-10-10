@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { completionDeadlineMs, DEFAULT_TUNING } from '../../lib/rankPredictorIntro';
+import './RankPredictorIntro.css';
 
 interface RankPredictorIntroProps {
   videoUrl: string;
@@ -16,17 +17,22 @@ const STANDBY_DELAY_MS = 700;
  * Full-screen entry flourish for the Rank & Branch Predictor, played on the
  * Student Dashboard's explicit click (never on route changes).
  *
- * The clip plays once, muted, inline and full-bleed (object-cover) over an
- * opaque #0A0F14 base — the same tone as the page background and the clip's
- * own edges, so the takeover reads as one continuous fullscreen motion with
- * no letterboxed "video rectangle" on any aspect ratio. Navigation
- * happens on the real `ended` event; every failure path (decode error,
- * autoplay rejection, slow buffering, mid-playback stall) resolves to the
- * same onComplete, so the student always lands on /predictor and is never
- * trapped behind a stuck overlay.
+ * The clip plays once, muted and inline over an opaque base whose tone
+ * matches the clip's own edges. Presentation is layered (see
+ * RankPredictorIntro.css): the sharp clip covers the overlay as far as its
+ * measured safe area allows — full-bleed on near-16:9 viewports, cropping
+ * only margins the composition can spare — while a blurred, dimmed twin of
+ * the same clip fills any remaining letterbox with tone-matched ambience, so
+ * every screen reads as one continuous fullscreen motion and the branding
+ * text near the clip's corners is never cut off on laptops, tablets or
+ * phones. Navigation happens on the real `ended` event; every failure path
+ * (decode error, autoplay rejection, slow buffering, mid-playback stall)
+ * resolves to the same onComplete, so the student always lands on /predictor
+ * and is never trapped behind a stuck overlay.
  */
 const RankPredictorIntro: React.FC<RankPredictorIntroProps> = ({ videoUrl, onComplete }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const backdropRef = useRef<HTMLVideoElement>(null);
   const [shown, setShown] = useState(false);
   const [playing, setPlaying] = useState(false);
   // Stand-in cue appears only if playback is unusually slow to start — a
@@ -96,6 +102,15 @@ const RankPredictorIntro: React.FC<RankPredictorIntroProps> = ({ videoUrl, onCom
     const playback = video.play();
     if (playback) playback.catch(() => finish());
 
+    // The ambient twin fills any letterbox the sharp clip leaves. It shares
+    // the browser's media cache (one download) and its failures are purely
+    // cosmetic — the clip's own events above still own completion.
+    const backdrop = backdropRef.current;
+    if (backdrop) {
+      const backdropPlayback = backdrop.play();
+      if (backdropPlayback) backdropPlayback.catch(() => {});
+    }
+
     // Freeze the page behind the overlay so wheel/touch input can't scroll
     // the dashboard underneath during the takeover. Both <html> and <body>:
     // on classic-scrollbar platforms only <html> owns the scrollbar, and a
@@ -117,6 +132,7 @@ const RankPredictorIntro: React.FC<RankPredictorIntroProps> = ({ videoUrl, onCom
       video.removeEventListener('ended', onEnded);
       video.removeEventListener('error', onError);
       video.pause();
+      backdrop?.pause();
       root.style.overflow = previousRootOverflow;
       document.body.style.overflow = previousBodyOverflow;
     };
@@ -124,20 +140,36 @@ const RankPredictorIntro: React.FC<RankPredictorIntroProps> = ({ videoUrl, onCom
 
   return (
     <div
-      className={`fixed inset-0 z-[60] bg-[#0A0F14] overflow-hidden transition-opacity duration-300 ease-out ${
+      className={`rp-intro fixed inset-0 z-[60] overflow-hidden transition-opacity duration-300 ease-out ${
         shown ? 'opacity-100' : 'opacity-0'
       }`}
       role="status"
       aria-label="Opening the Rank Predictor"
       onContextMenu={(event) => event.preventDefault()}
     >
-      {/* Full-bleed cover, not contain: the clip's own edges are a uniform
-          dark tone, so scaling them past the viewport removes any trace of a
-          letterboxed "video rectangle" — the motion simply owns the screen. */}
+      {/* Tone-matched ambience under the clip — the same video, blurred and
+          dimmed, covering the overlay so letterbox areas on far-from-16:9
+          screens stay part of the motion instead of exposing a backdrop
+          rectangle. Hidden by container query when fully covered. */}
+      <video
+        ref={backdropRef}
+        src={videoUrl}
+        className="rp-intro-backdrop"
+        muted
+        playsInline
+        preload="auto"
+        disablePictureInPicture
+        disableRemotePlayback
+        aria-hidden="true"
+        tabIndex={-1}
+      />
+      {/* The clip itself: full-bleed wherever the viewport's aspect allows,
+          otherwise cropped only into the measured safe margins (never into
+          the corner text). Sizing lives in RankPredictorIntro.css. */}
       <video
         ref={videoRef}
         src={videoUrl}
-        className="w-full h-full object-cover"
+        className="rp-intro-clip"
         muted
         playsInline
         preload="auto"

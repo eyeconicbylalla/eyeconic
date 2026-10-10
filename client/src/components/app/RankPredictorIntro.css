@@ -1,0 +1,108 @@
+/*
+ * Rank Predictor intro — presenting the 1920×1080 clip on arbitrary viewports.
+ *
+ * The clip is a 16:9 composition whose readable text never comes closer than
+ * 3.5% (sides) and 5.5% + 6.5% (top/bottom) to its frame edges (measured from
+ * the clip's frames — see INTRO_SAFE_MARGINS in lib/rankPredictorIntro.ts,
+ * which these numbers must stay in sync with). Plain object-fit: cover crops
+ * far past those limits on any non-16:9 viewport (a desktop window with
+ * browser chrome is ~2:1, so the top wordmark and bottom labels clip; a phone
+ * portrait would keep only ~26% of the width). Plain contain shows a hard
+ * "video rectangle" because the clip's green-teal edge tone never matches a
+ * flat backdrop. So:
+ *
+ *   .rp-intro-clip      the sharp clip, sized "cover as much as the safe area
+ *                       allows": full-bleed whenever the viewport's aspect
+ *                       permits, cropping only into the measured-safe
+ *                       margins, never smaller than contain.
+ *   .rp-intro-backdrop  the same clip again, object-fit: cover + heavy blur +
+ *                       dimmed, filling any letterbox the clip leaves behind
+ *                       with tone-matched ambience. Because the fill is the
+ *                       clip itself, the seam between the sharp and blurred
+ *                       regions reads as a soft focus falloff at every moment
+ *                       of the animation, never as a rectangle. A container
+ *                       query hides it on aspect ratios where the clip
+ *                       provably covers the whole overlay, skipping the
+ *                       second video decode on most desktop windows.
+ *
+ * Sizing uses container units of the overlay (fixed inset-0), so resizes and
+ * orientation changes re-resolve purely in CSS — no resize listeners, no
+ * re-renders, no layout thrash. The overlay itself is sized by inset-0 (the
+ * initial containing block), never by 100vh/100vw, so mobile dynamic browser
+ * chrome cannot open a gap that exposes the dashboard underneath.
+ */
+
+.rp-intro {
+  container-name: rp-intro;
+  container-type: size;
+  /* Mean tone of the clip's own edges, rgb(5, 22, 18) — shows only until the
+   * first frame decodes, and stays in the clip's family rather than the page
+   * background's blue so the takeover never flashes a different hue. */
+  background: #051612;
+  overscroll-behavior: none;
+  /* The overlay is a 7s takeover: no gesture should leak to the dashboard. */
+  touch-action: none;
+}
+
+.rp-intro-clip {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  /* Vertical safe margins are asymmetric (5.5% top vs 6.5% bottom), so the
+   * frame sits half the difference (0.5% of its own height) lower than
+   * centre — the allowed crop is spent exactly where the composition can
+   * afford it instead of being split evenly. Horizontal margins match, so
+   * plain centring is correct there. */
+  transform: translate(-50%, calc(-50% + 0.5%));
+  /* width = min(cover size, safe-area caps): fill the overlay whenever that
+   * needs no more crop than the safe margins allow. The caps divide by the
+   * safe-box fractions: 0.93 = 1 − 3.5% − 3.5% (sides), 0.88 = 1 − 5.5% −
+   * 6.5% (top/bottom); 16/9 is the clip's intrinsic aspect. Keep in sync
+   * with INTRO_CLIP_ASPECT / INTRO_SAFE_MARGINS. */
+  width: min(
+    max(100cqw, calc(100cqh * 16 / 9)),
+    calc(100cqw / 0.93),
+    calc(100cqh * 16 / 9 / 0.88)
+  );
+  aspect-ratio: 16 / 9;
+  height: auto;
+  /* Tailwind's preflight clamps media to max-width: 100% — the clip must be
+   * allowed to overflow the overlay when covering it. */
+  max-width: none;
+}
+
+.rp-intro-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Ambience only: heavy blur + dim + slight saturation keeps the fill
+   * abstract, and scaling past the overlay means blur sampling at the frame
+   * edges never reveals the base colour. */
+  filter: blur(48px) brightness(0.6) saturate(1.05);
+  transform: scale(1.2);
+}
+
+@container rp-intro (min-aspect-ratio: 1.69) and (max-aspect-ratio: 1.97) {
+  /* In this aspect band the clip resolves to a full cover of the overlay
+   * (see the width calculation above), so the twin would sit fully hidden
+   * behind it — skip decoding a second video entirely. The band is
+   * deliberately narrower than the exact cover range (~1.65–2.02) so the
+   * twin stays visible on the boundary slopes. */
+  .rp-intro-backdrop {
+    display: none;
+  }
+}
+
+/* Browsers without container-query units: degrade to plain contain (never
+ * crops text) over the blurred twin — still full-bleed and seamless. */
+@supports not (width: 1cqw) {
+  .rp-intro-clip {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transform: none;
+    object-fit: contain;
+  }
+}

@@ -4,13 +4,17 @@
  * logged-in student session cookie, like the other verify-*.cdp.js drivers.
  *
  * Checks, in one consolidated browser session:
- *   A. desktop: click Rank Predictor -> overlay + muted inline video, plays,
- *      a second rapid click adds no second video, navigation to /predictor
- *      happens only after `ended`, predictor page renders, back returns.
+ *   A. desktop: click Rank Predictor -> overlay + muted inline clip (over a
+ *      blurred ambient twin), plays, a second rapid click adds no second
+ *      playback, navigation to /predictor happens only after `ended`,
+ *      predictor page renders, back returns.
  *   B. replay: clicking again from the dashboard plays the animation again;
  *      leaving mid-transition cleans up and never navigates afterwards.
  *   C. prefers-reduced-motion: click navigates immediately, no overlay/video.
- *   D. mobile viewport: overlay covers the screen and playback completes.
+ *   D. viewport matrix: desktop/laptop/small/tablet/portrait/narrow/landscape
+ *      — overlay covers the viewport, the clip never shrinks below contain,
+ *      never crops past its measured safe margins (corner text stays on
+ *      screen), letterbox is filled by the blurred twin, no scrollbar gutter.
  *
  * Usage: node scripts/verify-rank-predictor-intro.cdp.js <cookie-value>
  */
@@ -109,13 +113,13 @@ async function main() {
   };
   const navigate = (url) => send('Page.navigate', { url });
 
-  // Instrument the intro video as soon as it exists, so `ended` timing is
+  // Instrument the intro clip as soon as it exists, so `ended` timing is
   // observable even though the element unmounts on navigation.
   const instrumentVideo = async () => {
     await evaluate(`(() => {
       window.__introEnded = false;
       const hook = () => {
-        const video = document.querySelector('div[role=status] video');
+        const video = document.querySelector('video.rp-intro-clip');
         if (video && !video.__hooked) {
           video.__hooked = true;
           video.addEventListener('ended', () => { window.__introEnded = true; });
@@ -135,10 +139,9 @@ async function main() {
   })()`);
 
   const videoState = () => evaluate(`(() => {
-    const videos = [...document.querySelectorAll('video')];
-    const video = videos[0];
+    const video = document.querySelector('video.rp-intro-clip');
     return {
-      videoCount: videos.length,
+      overlayVideoCount: document.querySelectorAll('.rp-intro video').length,
       overlayPresent: !!document.querySelector('div[role=status][aria-label="Opening the Rank Predictor"]'),
       muted: video ? video.muted : null,
       playsInline: video ? video.hasAttribute('playsinline') : null,
@@ -151,6 +154,70 @@ async function main() {
     };
   })()`);
 
+  // Presentation geometry of one playback — the browser-side contract of
+  // RankPredictorIntro.css + introSafeFitSize: the overlay owns the whole
+  // viewport, the clip never shrinks below contain, never crops past its
+  // safe margins (so the clip's corner text stays on screen), keeps its
+  // aspect, and any letterbox is filled by the blurred twin.
+  const presentationState = () => evaluate(`(() => {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const overlay = document.querySelector('.rp-intro');
+    const clip = document.querySelector('video.rp-intro-clip');
+    const backdrop = document.querySelector('video.rp-intro-backdrop');
+    if (!overlay || !clip) return { missing: true };
+    const o = overlay.getBoundingClientRect();
+    const c = clip.getBoundingClientRect();
+    const bs = backdrop ? getComputedStyle(backdrop) : null;
+    const AR = 16 / 9;
+    const containW = Math.min(vw, vh * AR);
+    const hidden = !backdrop || bs.display === 'none';
+    return {
+      vw, vh,
+      overlayCovers: Math.round(o.width) === vw && Math.round(o.height) === vh && o.left === 0 && o.top === 0,
+      noScrollbarGutter: document.documentElement.clientWidth === vw,
+      noHorizontalScroll: document.documentElement.scrollWidth <= vw,
+      neverSmallerThanContain: c.width >= containW - 0.5 && c.height >= containW / AR - 0.5,
+      aspectKept: Math.abs(c.width / c.height - AR) < 0.02,
+      safeBoxVisible: c.left + 0.035 * c.width >= -1.5 && c.right - 0.035 * c.width <= vw + 1.5
+        && c.top + 0.055 * c.height >= -1.5 && c.bottom - 0.065 * c.height <= vh + 1.5,
+      backdrop: {
+        present: !!backdrop,
+        hidden,
+        // offsetWidth/Height: the layout box — the twin is intentionally
+        // scale(1.2)-transformed, so its bounding rect exceeds the viewport.
+        coversWhenDisplayed: hidden || (Math.round(backdrop.offsetWidth) === vw && Math.round(backdrop.offsetHeight) === vh),
+        blurredWhenDisplayed: hidden || (bs.filter || '').includes('blur'),
+        objectFitCoverWhenDisplayed: hidden || bs.objectFit === 'cover',
+      },
+      overlayVideoCount: document.querySelectorAll('.rp-intro video').length,
+    };
+  })()`);
+
+  const assertPresentation = (state, label, opts = {}) => {
+    const problems = [];
+    if (!state || state.missing) problems.push('overlay/clip missing');
+    if (state && !state.missing) {
+      if (!state.overlayCovers) problems.push(`overlay !covers (${state.vw}x${state.vh})`);
+      if (!state.noScrollbarGutter) problems.push('scrollbar gutter beside overlay');
+      if (!state.noHorizontalScroll) problems.push('horizontal scroll');
+      if (!state.neverSmallerThanContain) problems.push('clip below contain size');
+      if (!state.aspectKept) problems.push('clip aspect drift');
+      if (!state.safeBoxVisible) problems.push('safe box (corner text) clipped');
+      if (!state.backdrop.present) problems.push('ambient twin missing');
+      if (state.backdrop.present && !state.backdrop.hidden) {
+        if (!state.backdrop.coversWhenDisplayed) problems.push('twin does not fill letterbox');
+        if (!state.backdrop.blurredWhenDisplayed) problems.push('twin not blurred');
+        if (!state.backdrop.objectFitCoverWhenDisplayed) problems.push('twin not object-cover');
+      }
+      if (state.overlayVideoCount !== 2) problems.push(`expected 2 overlay videos, saw ${state.overlayVideoCount}`);
+      if (opts.expectBackdropDisplayed !== undefined && state.backdrop.hidden === opts.expectBackdropDisplayed) {
+        problems.push(`twin display state unexpected (hidden=${state.backdrop.hidden})`);
+      }
+    }
+    if (problems.length) failures.push(`${label}: ${problems.join('; ')}`);
+    return problems.length === 0;
+  };
+
   // ---- A. desktop happy path -------------------------------------------------
   await navigate('http://localhost:5173/dashboard');
   await waitForStable("() => document.body.innerText.includes('Hi,') && !!document.querySelector(\"a[href='/predictor']\")", 30000, 'dashboard settled');
@@ -158,45 +225,30 @@ async function main() {
   await instrumentVideo();
 
   if (!(await clickRankPredictor())) throw new Error('Rank Predictor link not found');
-  await waitFor("() => !!document.querySelector('div[role=status] video')", 5000, 'intro overlay + video');
+  await waitFor("() => !!document.querySelector('video.rp-intro-clip')", 5000, 'intro overlay + clip');
 
   let state = await videoState();
   console.log('intro state on click:', JSON.stringify(state));
-  if (state.videoCount !== 1 || !state.overlayPresent) failures.push('A: overlay/video missing on click');
-  if (!state.muted || !state.playsInline) failures.push('A: video not muted/playsInline');
+  if (state.overlayVideoCount !== 2 || !state.overlayPresent) failures.push('A: overlay videos missing on click');
+  if (!state.muted || !state.playsInline) failures.push('A: clip not muted/playsInline');
   if (state.controls) failures.push('A: native controls visible');
   if (!state.bodyScrollLocked) failures.push('A: body scroll not locked during intro');
 
-  await waitFor("() => { const v = document.querySelector('video'); return v && !v.paused && v.readyState >= 3; }", 8000, 'playback started');
+  await waitFor("() => { const v = document.querySelector('video.rp-intro-clip'); return v && !v.paused && v.readyState >= 3; }", 8000, 'playback started');
   state = await videoState();
-  if (state.videoWidth !== 1920 || state.videoHeight !== 1080) failures.push(`A: unexpected video dimensions ${state.videoWidth}x${state.videoHeight}`);
-  const fullBleed = await evaluate(`(() => {
-    const video = document.querySelector('div[role=status] video');
-    if (!video) return null;
-    const rect = video.getBoundingClientRect();
-    const style = getComputedStyle(video);
-    const doc = document.documentElement;
-    return {
-      objectFit: style.objectFit,
-      widthMatches: Math.round(rect.width) === doc.clientWidth,
-      heightMatches: Math.round(rect.height) === window.innerHeight,
-      noScrollbarGutter: doc.clientWidth === window.innerWidth,
-    };
-  })()`);
-  if (!fullBleed || fullBleed.objectFit !== 'cover' || !fullBleed.widthMatches || !fullBleed.heightMatches) {
-    failures.push(`A: video is not full-bleed cover: ${JSON.stringify(fullBleed)}`);
-  }
-  if (!fullBleed || !fullBleed.noScrollbarGutter) {
-    failures.push(`A: scrollbar gutter survives beside the intro overlay: ${JSON.stringify(fullBleed)}`);
-  }
+  if (state.videoWidth !== 1920 || state.videoHeight !== 1080) failures.push(`A: unexpected clip dimensions ${state.videoWidth}x${state.videoHeight}`);
+  const desktop = await presentationState();
+  console.log('desktop presentation:', JSON.stringify(desktop));
+  // 1380x1000 (1.38:1) is outside the twin's hide band -> ambient twin visible
+  assertPresentation(desktop, 'A: desktop presentation', { expectBackdropDisplayed: true });
   await sleep(1500);
   await screenshot('01-intro-playing');
 
-  // Rapid re-click during playback must not add a second video or navigate early.
+  // Rapid re-click during playback must not add a second playback or navigate early.
   await clickRankPredictor();
   await sleep(600);
   state = await videoState();
-  if (state.videoCount !== 1) failures.push('A2: duplicate playback after rapid re-click');
+  if (state.overlayVideoCount !== 2) failures.push(`A2: duplicate playback after rapid re-click (${state.overlayVideoCount} videos)`);
   if (!windowLocationIsDashboard(await evaluate('location.pathname'))) failures.push('A2: navigated early after re-click');
 
   // Navigation must follow `ended`, not precede it (clip is ~6.9s).
@@ -209,12 +261,12 @@ async function main() {
   const endedFired = await evaluate('!!window.__introEnded');
   const finalPath = await evaluate('location.pathname');
   if (finalPath !== '/predictor') failures.push('A3: never navigated to /predictor');
-  if (!endedFired) failures.push('A3: navigation happened without the video ending first');
+  if (!endedFired) failures.push('A3: navigation happened without the clip ending first');
 
   await waitForStable("() => document.body.innerText.includes('Rank & Branch Predictor')", 30000, 'predictor page settled');
   await sleep(800);
   const afterPredictor = await videoState();
-  if (afterPredictor.overlayPresent || afterPredictor.videoCount > 0) failures.push('A4: intro overlay survived navigation');
+  if (afterPredictor.overlayPresent || afterPredictor.overlayVideoCount > 0) failures.push('A4: intro overlay survived navigation');
   if ((await evaluate("document.body.style.overflow")) === 'hidden') failures.push('A4: body scroll lock not restored');
   await screenshot('02-predictor-after-intro');
   console.log('A: desktop happy path done, endedFired=', endedFired, 'path=', finalPath);
@@ -227,7 +279,7 @@ async function main() {
   // ---- B. replay + mid-transition cleanup ------------------------------------
   await instrumentVideo();
   if (!(await clickRankPredictor())) throw new Error('Rank Predictor link not found (replay)');
-  await waitFor("() => !!document.querySelector('div[role=status] video') && !document.querySelector('video').paused", 8000, 'replay started');
+  await waitFor("() => !!document.querySelector('video.rp-intro-clip') && !document.querySelector('video.rp-intro-clip').paused", 8000, 'replay started');
   await screenshot('03-replay-playing');
   console.log('B: animation replays on every click');
 
@@ -237,7 +289,7 @@ async function main() {
   // though the navigation itself went through.)
   await evaluate('history.back()').catch(() => {});
   await sleep(1500);
-  await waitFor("() => !document.querySelector('div[role=status] video')", 8000, 'overlay cleared after mid-transition leave');
+  await waitFor("() => !document.querySelector('.rp-intro video')", 8000, 'overlay cleared after mid-transition leave');
   const midLeavePath = await evaluate('location.pathname').catch(() => '');
   if (midLeavePath === '/predictor') failures.push('B2: stray navigation after leaving mid-transition');
   if ((await evaluate("document.body.style.overflow").catch(() => '')) === 'hidden') failures.push('B2: body scroll lock not restored');
@@ -250,42 +302,42 @@ async function main() {
   if (!(await clickRankPredictor())) throw new Error('Rank Predictor link not found (reduced motion)');
   await waitFor("() => location.pathname === '/predictor'", 4000, 'immediate navigation under reduced motion');
   const reducedState = await videoState();
-  if (reducedState.overlayPresent || reducedState.videoCount > 0) failures.push('C: overlay played despite prefers-reduced-motion');
+  if (reducedState.overlayPresent || reducedState.overlayVideoCount > 0) failures.push('C: overlay played despite prefers-reduced-motion');
   await screenshot('04-reduced-motion-direct');
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
   console.log('C: reduced motion navigates immediately, no overlay');
 
-  // ---- D. mobile viewport -----------------------------------------------------
-  await send('Emulation.setDeviceMetricsOverride', {
-    width: 390, height: 844, deviceScaleFactor: 2, mobile: true,
-  });
-  await navigate('http://localhost:5173/dashboard');
-  await waitForStable("() => document.body.innerText.includes('Hi,') && !!document.querySelector(\"a[href='/predictor']\")", 30000, 'dashboard (mobile)');
-  await instrumentVideo();
-  if (!(await clickRankPredictor())) throw new Error('Rank Predictor link not found (mobile)');
-  await waitFor("() => !!document.querySelector('div[role=status] video') && !document.querySelector('video').paused", 8000, 'mobile playback started');
-  const mobileCover = await evaluate(`(() => {
-    const overlay = document.querySelector('div[role=status]');
-    const rect = overlay ? overlay.getBoundingClientRect() : null;
-    const video = document.querySelector('div[role=status] video');
-    const videoRect = video ? video.getBoundingClientRect() : null;
-    return {
-      coversViewport: rect ? rect.width === window.innerWidth && rect.height === window.innerHeight : false,
-      videoFullBleed: videoRect
-        ? Math.round(videoRect.width) === window.innerWidth && Math.round(videoRect.height) === window.innerHeight
-        : false,
-      noHorizontalScroll: document.documentElement.scrollWidth <= window.innerWidth,
-      noScrollbarGutter: document.documentElement.clientWidth === window.innerWidth,
-    };
-  })()`);
-  if (!mobileCover.coversViewport) failures.push('D: overlay does not cover the mobile viewport');
-  if (!mobileCover.videoFullBleed) failures.push('D: video is not full-bleed on mobile');
-  if (!mobileCover.noHorizontalScroll) failures.push('D: horizontal scroll introduced on mobile');
-  if (!mobileCover.noScrollbarGutter) failures.push('D: scrollbar gutter survives on mobile');
-  await sleep(1500);
-  await screenshot('05-mobile-playing');
-  await waitFor("() => location.pathname === '/predictor'", 20000, 'mobile navigation after playback');
-  console.log('D: mobile playback + navigation ok');
+  // ---- D. viewport matrix -----------------------------------------------------
+  // Representative sizes (not hard-coded styles — the presentation must
+  // adapt fluidly). expectBackdrop: whether the blurred twin must be
+  // displayed (viewports inside ~1.69–1.97:1 hide it — the clip fully covers).
+  const matrix = [
+    { name: 'desktop-1920x1080', w: 1920, h: 1080, mobile: false, expectBackdrop: false },
+    { name: 'laptop-1366x768', w: 1366, h: 768, mobile: false, expectBackdrop: false },
+    { name: 'small-1024x768', w: 1024, h: 768, mobile: false, expectBackdrop: true },
+    { name: 'mobile-390x844', w: 390, h: 844, mobile: true, expectBackdrop: true },
+    { name: 'narrow-360x800', w: 360, h: 800, mobile: true, expectBackdrop: true },
+    { name: 'landscape-844x390', w: 844, h: 390, mobile: true, expectBackdrop: true },
+  ];
+  for (const m of matrix) {
+    await send('Emulation.setDeviceMetricsOverride', {
+      width: m.w, height: m.h, deviceScaleFactor: m.mobile ? 2 : 1, mobile: m.mobile,
+    });
+    await navigate('http://localhost:5173/dashboard');
+    await waitForStable("() => document.body.innerText.includes('Hi,') && !!document.querySelector(\"a[href='/predictor']\")", 30000, `dashboard (${m.name})`);
+    await instrumentVideo();
+    if (!(await clickRankPredictor())) throw new Error(`Rank Predictor link not found (${m.name})`);
+    await waitFor("() => { const v = document.querySelector('video.rp-intro-clip'); return v && !v.paused && v.readyState >= 2; }", 8000, `playback started (${m.name})`);
+    await sleep(1200); // let the composition's corner text be on screen
+    const st = await presentationState();
+    console.log(`${m.name}:`, JSON.stringify(st));
+    assertPresentation(st, `D ${m.name}`, { expectBackdropDisplayed: m.expectBackdrop });
+    await screenshot(`05-${m.name}`);
+    // leave without waiting for `ended` — cleanup is covered by phase B
+    await navigate('http://localhost:5173/dashboard');
+    await sleep(400);
+  }
+  console.log('D: viewport matrix done');
 
   console.log('console errors:', consoleErrors.length ? JSON.stringify(consoleErrors, null, 1) : 'none');
   console.log('page errors:', pageErrors.length ? JSON.stringify(pageErrors, null, 1) : 'none');

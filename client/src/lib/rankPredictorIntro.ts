@@ -28,6 +28,62 @@ export const DEFAULT_TUNING: TransitionTuning = {
   unknownDurationCapMs: 8000,
 };
 
+/** Intrinsic aspect ratio of the intro clip (1920×1080). */
+export const INTRO_CLIP_ASPECT = 16 / 9;
+
+/**
+ * Composition safe area of the intro clip — how far presentation may crop
+ * into the 1920×1080 frame from each edge before it reaches readable
+ * text/branding. Measured from the clip's own frames (2026-10-10): the
+ * nearest text sits 88px/95px from the left/right edges (4.6%/4.9% of
+ * width) and 72px/82px from the top/bottom edges (6.7%/7.6% of height);
+ * the decorative corner brackets come closer (≈48–65px) and may crop.
+ * Each margin keeps a ≈20px buffer below the nearest text.
+ */
+export const INTRO_SAFE_MARGINS = {
+  left: 0.035,
+  right: 0.035,
+  top: 0.055,
+  bottom: 0.065,
+} as const;
+
+export interface IntroSafeMargins {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+/**
+ * Displayed size of the intro clip for a given overlay size — the exact
+ * formula the component's CSS evaluates in the browser (see
+ * RankPredictorIntro.css): "cover as much as the safe area allows".
+ *
+ * The result is never smaller than plain contain (letterbox only when the
+ * viewport's aspect is too far from 16:9 for even the safe margins to
+ * bridge — the blurred twin fills those bands) and never crops past
+ * INTRO_SAFE_MARGINS. CSS owns runtime sizing so resizes/orientation
+ * changes re-resolve without JS; this mirror exists to pin that contract
+ * under `node --test`.
+ */
+export function introSafeFitSize(
+  viewportWidth: number,
+  viewportHeight: number,
+  opts: { clipAspect?: number; margins?: Partial<IntroSafeMargins> } = {},
+): { width: number; height: number } {
+  const aspect = opts.clipAspect ?? INTRO_CLIP_ASPECT;
+  const margins: IntroSafeMargins = { ...INTRO_SAFE_MARGINS, ...opts.margins };
+  const safeWidthFraction = 1 - margins.left - margins.right;
+  const safeHeightFraction = 1 - margins.top - margins.bottom;
+  const coverWidth = Math.max(viewportWidth, viewportHeight * aspect);
+  const safeCapWidth = Math.min(
+    viewportWidth / safeWidthFraction,
+    (viewportHeight * aspect) / safeHeightFraction,
+  );
+  const width = Math.min(coverWidth, safeCapWidth);
+  return { width, height: width / aspect };
+}
+
 /**
  * The MouseEvent fields that decide whether an anchor's onClick is a plain
  * activation (unmodified left click / Enter / Space). Everything else —

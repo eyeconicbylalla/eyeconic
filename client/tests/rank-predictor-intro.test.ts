@@ -2,9 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_TUNING,
+  INTRO_CLIP_ASPECT,
+  INTRO_SAFE_MARGINS,
   completionDeadlineMs,
   decideTransitionStart,
   getConnectionHint,
+  introSafeFitSize,
   isPlainActivation,
   prefersReducedMotion,
   shouldPrefetchIntro,
@@ -110,4 +113,79 @@ test('warmIntroVideo buffers the clip exactly once per page load', () => {
   } finally {
     if (hadDocument) delete globals.document;
   }
+});
+
+// introSafeFitSize mirrors the presentation CSS (RankPredictorIntro.css) —
+// these tests pin the "cover as much as the safe area allows" contract that
+// keeps the clip's corner text visible on every viewport shape.
+const REPRESENTATIVE_VIEWPORTS: Array<[number, number]> = [
+  [1920, 1080], // desktop fullscreen, exact 16:9
+  [1920, 950],  // desktop with browser chrome (~2:1)
+  [1366, 768],  // laptop
+  [1366, 621],  // small laptop with chrome
+  [1024, 768],  // tablet landscape (4:3)
+  [844, 390],   // phone landscape
+  [390, 844],   // phone portrait
+  [360, 800],   // narrow phone portrait
+  [2560, 1080], // ultrawide-ish
+  [1536, 864],  // 125% zoom on 1920×1080
+];
+
+test('introSafeFitSize never shrinks below contain and always keeps the clip aspect', () => {
+  for (const [vw, vh] of REPRESENTATIVE_VIEWPORTS) {
+    const { width, height } = introSafeFitSize(vw, vh);
+    const containWidth = Math.min(vw, vh * INTRO_CLIP_ASPECT);
+    assert.ok(
+      width >= containWidth - 1e-6,
+      `${vw}x${vh}: width ${width} is below contain size ${containWidth}`,
+    );
+    assert.ok(
+      Math.abs(width / height - INTRO_CLIP_ASPECT) < 1e-9,
+      `${vw}x${vh}: aspect drift ${width / height}`,
+    );
+  }
+});
+
+test('introSafeFitSize never crops past the measured safe margins', () => {
+  const horizontalBudget = INTRO_SAFE_MARGINS.left + INTRO_SAFE_MARGINS.right;
+  const verticalBudget = INTRO_SAFE_MARGINS.top + INTRO_SAFE_MARGINS.bottom;
+  for (const [vw, vh] of REPRESENTATIVE_VIEWPORTS) {
+    const { width, height } = introSafeFitSize(vw, vh);
+    // total crop per axis (letterbox is negative crop)
+    const cropX = width - vw;
+    const cropY = height - vh;
+    assert.ok(
+      cropX <= horizontalBudget * width + 1,
+      `${vw}x${vh}: side crop ${cropX} exceeds safe budget ${horizontalBudget * width}`,
+    );
+    assert.ok(
+      cropY <= verticalBudget * height + 1,
+      `${vw}x${vh}: top/bottom crop ${cropY} exceeds safe budget ${verticalBudget * height}`,
+    );
+  }
+});
+
+test('introSafeFitSize goes full-bleed on near-16:9 aspects and letterboxes only on extremes', () => {
+  // aspects close enough to 16:9 for the safe margins to bridge: fully covered
+  for (const [vw, vh] of [[1920, 1080], [1920, 1000], [1600, 900], [1440, 780], [1366, 720]] as Array<[number, number]>) {
+    const { width, height } = introSafeFitSize(vw, vh);
+    assert.ok(width >= vw - 1e-6 && height >= vh - 1e-6, `${vw}x${vh}: expected full cover`);
+  }
+  // phone portrait: the safe box spans the width exactly; the height's
+  // letterbox is filled by the blurred twin in the component
+  const portrait = introSafeFitSize(390, 844);
+  assert.ok(portrait.width >= 390 && portrait.width * (1 - INTRO_SAFE_MARGINS.left - INTRO_SAFE_MARGINS.right) <= 390 + 1e-6);
+  assert.ok(portrait.height < 844);
+});
+
+test('INTRO_SAFE_MARGINS stay clear of the clip\'s measured text clearances', () => {
+  // measured from the clip's frames (px on 1920×1080): nearest text sits
+  // 88/95/72/82px from the left/right/top/bottom edges
+  assert.ok(INTRO_SAFE_MARGINS.left * 1920 <= 88 - 15);
+  assert.ok(INTRO_SAFE_MARGINS.right * 1920 <= 95 - 15);
+  assert.ok(INTRO_SAFE_MARGINS.top * 1080 <= 72 - 10);
+  assert.ok(INTRO_SAFE_MARGINS.bottom * 1080 <= 82 - 10);
+  // margins are fractions of their own axis and leave a usable safe box
+  assert.ok(INTRO_SAFE_MARGINS.left + INTRO_SAFE_MARGINS.right < 0.1);
+  assert.ok(INTRO_SAFE_MARGINS.top + INTRO_SAFE_MARGINS.bottom < 0.15);
 });
