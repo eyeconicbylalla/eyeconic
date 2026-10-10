@@ -1,14 +1,24 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AlertTriangle, BookOpen, Flame, LogOut, RefreshCw, Target, TrendingUp, Trophy } from 'lucide-react';
 import { appErrorMessage, appQuizApi, dailyPyqApi, isAppUnavailable } from '../lib/appClient';
+import {
+  decideTransitionStart,
+  getConnectionHint,
+  isPlainActivation,
+  prefersReducedMotion,
+  shouldPrefetchIntro,
+  warmIntroVideo,
+} from '../lib/rankPredictorIntro';
 import { useAppAuth } from '../context/AppAuthContext';
 import type { AnalyticsMe, ComparisonPayload, DailyPyqTodayPayload } from '../types/app';
 import CohortComparisonCard from '../components/app/CohortComparisonCard';
 import MiniGtCard from '../components/app/MiniGtCard';
 import OpenInAppButton from '../components/app/OpenInAppButton';
 import PlatformChoiceCard from '../components/app/PlatformChoiceCard';
+import RankPredictorIntro from '../components/app/RankPredictorIntro';
 import ReadinessCard from '../components/app/ReadinessCard';
+import rankPredictorIntroMp4 from '../assets/rank-predictor-intro.mp4';
 
 /**
  * Integrated student dashboard: identity, tests and results come from the
@@ -22,6 +32,7 @@ import ReadinessCard from '../components/app/ReadinessCard';
  */
 const Dashboard: React.FC = () => {
   const { user, logout } = useAppAuth();
+  const navigate = useNavigate();
   const [analytics, setAnalytics] = useState<AnalyticsMe | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -33,6 +44,70 @@ const Dashboard: React.FC = () => {
   const [comparisonLoading, setComparisonLoading] = useState(true);
   const [comparisonError, setComparisonError] = useState('');
   const [comparisonUnavailable, setComparisonUnavailable] = useState(false);
+
+  // Rank Predictor entry flourish: state lives here (not in the overlay) so a
+  // duplicate click while it plays is swallowed and navigation on completion
+  // unmounts everything in one step. Re-entering the dashboard resets it, so
+  // the animation plays on every visit.
+  const [introActive, setIntroActive] = useState(false);
+  const goPredictor = useCallback(() => navigate('/predictor'), [navigate]);
+  const reduceMotionQuery = useMemo(
+    () => (typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null),
+    [],
+  );
+  const introPrefetchAllowed = useCallback(
+    () =>
+      shouldPrefetchIntro({
+        reducedMotion: prefersReducedMotion(reduceMotionQuery),
+        connection: getConnectionHint(),
+      }),
+    [reduceMotionQuery],
+  );
+
+  // Hover/focus on the CTA is a strong intent signal — warm immediately.
+  const warmIntroIfAllowed = useCallback(() => {
+    if (introPrefetchAllowed()) warmIntroVideo(rankPredictorIntroMp4);
+  }, [introPrefetchAllowed]);
+
+  const handleRankPredictorClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    // Modified/middle clicks keep the browser's native open-in-new-tab etc.
+    if (!isPlainActivation(event)) return;
+    event.preventDefault();
+    const decision = decideTransitionStart({
+      active: introActive,
+      reducedMotion: prefersReducedMotion(reduceMotionQuery),
+    });
+    if (decision === 'start') {
+      setIntroActive(true);
+    } else if (decision === 'navigate-now') {
+      goPredictor();
+    }
+    // 'ignore' — a transition is already playing; swallow the repeat click.
+  };
+
+  // Warm the intro clip once the dashboard settles so the transition can
+  // start without a visible stall. Deferred to idle and skipped entirely on
+  // metered/2g connections and for reduced-motion students (they skip the
+  // animation); hovering/focusing the button warms it immediately.
+  useEffect(() => {
+    if (!introPrefetchAllowed()) return;
+    let cancelled = false;
+    const warm = () => {
+      if (!cancelled) warmIntroVideo(rankPredictorIntroMp4);
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(warm, { timeout: 4000 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback(id);
+      };
+    }
+    const id = window.setTimeout(warm, 1500);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(id);
+    };
+  }, [introPrefetchAllowed]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -91,7 +166,13 @@ const Dashboard: React.FC = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Link to="/predictor" className="btn btn-primary text-sm px-4 py-2">
+            <Link
+              to="/predictor"
+              className="btn btn-primary text-sm px-4 py-2"
+              onClick={handleRankPredictorClick}
+              onMouseEnter={warmIntroIfAllowed}
+              onFocus={warmIntroIfAllowed}
+            >
               <Target size={14} className="mr-2" /> Rank Predictor
             </Link>
             <OpenInAppButton destination={{ screen: 'dashboard' }} />
@@ -209,6 +290,9 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Rank Predictor entry flourish — fixed overlay, above the navbar. */}
+      {introActive && <RankPredictorIntro videoUrl={rankPredictorIntroMp4} onComplete={goPredictor} />}
     </section>
   );
 };
