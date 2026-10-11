@@ -1746,6 +1746,117 @@
   }
 }
 
+/* ── Testimonials (testimonial-carousel) polish — additive ──────────────── */
+/* Height-safe crossfade: the entering and exiting slides share grid cell
+   1/1, so the grid's height is the max of the two — no jump mid-transition. */
+.testimonial-carousel__slide {
+  grid-area: 1 / 1;
+}
+
+/* Swipe surface: vertical panning stays native; horizontal is ours. */
+.testimonial-carousel__surface {
+  touch-action: pan-y;
+}
+
+/* Card frame: height is set from the slide stack via ResizeObserver so
+   testimonial-length changes animate instead of snapping or padding out. */
+.testimonial-carousel__frame {
+  transition: height 450ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Rank/score badge. white-space: normal lets the one oversized badge
+   (~50 chars, no pipe) wrap instead of overflowing the card. */
+.testimonial-carousel__badge {
+  @apply inline-block rounded-full px-3 py-1 text-xs font-medium leading-snug;
+  background: rgba(24, 182, 164, 0.1);
+  border: 1px solid rgba(24, 182, 164, 0.22);
+  color: #4dd7c8;
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* Prev/next — 44px hit area. */
+.testimonial-carousel__nav {
+  @apply flex shrink-0 items-center justify-center rounded-full;
+  width: 2.75rem;
+  height: 2.75rem;
+  background: rgba(16, 23, 32, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  transition:
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 200ms ease,
+    background-color 200ms ease,
+    color 200ms ease;
+}
+.testimonial-carousel__nav:hover {
+  border-color: rgba(24, 182, 164, 0.4);
+  background-color: var(--bg-hover);
+  color: var(--accent-primary);
+  transform: scale(1.08);
+}
+.testimonial-carousel__nav:active {
+  transform: scale(0.94);
+}
+.testimonial-carousel__nav:focus-visible {
+  outline: 2px solid #18b6a4;
+  outline-offset: 2px;
+}
+
+/* Desktop segments: flex-1 buttons with a 24px hit area; the 3px visual
+   bar is ::after so 25 slim targets stay clickable. */
+.testimonial-carousel__segment {
+  flex: 1 1 0%;
+  min-width: 0;
+  position: relative;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.testimonial-carousel__segment::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 3px;
+  margin-top: -1.5px;
+  border-radius: 999px;
+  background: #263445;
+  transition: background-color 300ms ease;
+}
+.testimonial-carousel__segment--active::after {
+  background: linear-gradient(90deg, #18b6a4, #4dd7c8);
+}
+@media (min-width: 768px) and (hover: hover) {
+  .testimonial-carousel__segment:hover:not(.testimonial-carousel__segment--active)::after {
+    background: #3a4b60;
+  }
+}
+.testimonial-carousel__segment:focus-visible {
+  outline: 2px solid #18b6a4;
+  outline-offset: 3px;
+  border-radius: 999px;
+}
+
+/* Mobile position bar */
+.testimonial-carousel__progress {
+  transition: width 400ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .testimonial-carousel__segment,
+  .testimonial-carousel__segment::after,
+  .testimonial-carousel__nav,
+  .testimonial-carousel__progress,
+  .testimonial-carousel__frame {
+    transition-duration: 1ms !important;
+    animation: none !important;
+  }
+}
+
 /* ── Framer-style Features Gallery Grid ─────────────────────────────────── */
 /* Mobile (< 640px): 2 columns, compact rows */
 @media (max-width: 639px) {

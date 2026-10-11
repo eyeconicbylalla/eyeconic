@@ -96,7 +96,7 @@ async function main() {
       tabIndexes: cards.map((c) => c.tabIndex),
       focusedCard: document.activeElement?.classList?.contains('mentor-carousel__card') || null,
       focusedActive: document.activeElement?.dataset?.active ?? null,
-      announcer: document.querySelector('p[aria-live="polite"]')?.textContent ?? null,
+      announcer: document.querySelector('#mentors p[aria-live="polite"]')?.textContent ?? null,
     };
   })()`;
 
