@@ -1012,7 +1012,8 @@
   }
 
   .mentor-carousel__track {
-    @apply flex min-h-[22rem] flex-1 items-stretch gap-2 overflow-hidden sm:min-h-[26rem] md:min-h-[32rem] md:gap-3;
+    @apply flex min-h-[22rem] flex-1 select-none items-stretch gap-2 overflow-hidden sm:min-h-[26rem] md:min-h-[32rem] md:gap-3;
+    touch-action: pan-y;
   }
 
   .mentor-carousel__card {
@@ -1023,21 +1024,26 @@
     opacity: 0.4;
     overflow: hidden;
     border-radius: 1rem;
-    border-top: 3px solid transparent;
+    border: 3px solid transparent;
     cursor: pointer;
     filter: grayscale(100%) brightness(0.5);
     transition:
-      flex-grow 400ms cubic-bezier(0.4, 0, 0.2, 1),
-      min-width 400ms cubic-bezier(0.4, 0, 0.2, 1),
-      opacity 400ms cubic-bezier(0.4, 0, 0.2, 1),
-      filter 400ms cubic-bezier(0.4, 0, 0.2, 1),
-      border-color 400ms cubic-bezier(0.4, 0, 0.2, 1),
-      box-shadow 400ms cubic-bezier(0.4, 0, 0.2, 1);
+      flex-grow 520ms cubic-bezier(0.22, 1, 0.36, 1),
+      flex-basis 520ms cubic-bezier(0.22, 1, 0.36, 1),
+      min-width 520ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 520ms cubic-bezier(0.22, 1, 0.36, 1),
+      filter 520ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 520ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 520ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  .mentor-carousel__card:hover:not([data-active='true']) {
-    opacity: 0.6;
-    filter: grayscale(60%) brightness(0.65);
+  /* Hover peek — pointer devices only, so touch never gets sticky hover. */
+  @media (min-width: 768px) and (hover: hover) {
+    .mentor-carousel__card:hover:not([data-active='true']) {
+      flex-grow: 1.35;
+      opacity: 0.6;
+      filter: grayscale(60%) brightness(0.65);
+    }
   }
 
   .mentor-carousel__card[data-active='true'] {
@@ -1046,42 +1052,89 @@
     opacity: 1;
     cursor: default;
     filter: none;
-    border-top-color: var(--accent-primary);
-    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(24, 182, 164, 0.2);
+    border-color: rgba(24, 182, 164, 0.55);
+    box-shadow:
+      0 18px 48px rgba(0, 0, 0, 0.5),
+      0 0 32px rgba(24, 182, 164, 0.14);
   }
 
   .mentor-carousel__card img {
     @apply block h-full w-full;
     object-fit: cover;
     object-position: center top;
-    transition: transform 400ms ease-in-out;
   }
 
+  /* One-shot settle when a card becomes active (from-only keyframe re-runs
+     on each false→true flip of data-active). */
   .mentor-carousel__card[data-active='true'] img {
-    object-fit: cover;
-    object-position: center top;
+    animation: mentor-settle 520ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .mentor-carousel__nav {
     background: rgba(16, 23, 32, 0.8);
     border: 1px solid rgba(255, 255, 255, 0.08);
     color: var(--text-secondary);
-    @apply flex shrink-0 items-center justify-center self-center rounded-full shadow-md transition-colors;
+    @apply flex shrink-0 items-center justify-center self-center rounded-full shadow-md;
     width: 2.75rem;
     height: 2.75rem;
-    animation: mentor-nav-pulse 2.5s ease-in-out infinite;
+    transition:
+      transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 200ms ease,
+      background-color 200ms ease,
+      color 200ms ease;
   }
 
   .mentor-carousel__nav:hover {
     border-color: rgba(24, 182, 164, 0.4);
     background-color: var(--bg-hover);
     color: var(--accent-primary);
-    animation: none;
+    transform: scale(1.08);
+  }
+
+  .mentor-carousel__nav:active {
+    transform: scale(0.94);
   }
 
   .mentor-carousel__nav:focus-visible {
     @apply outline-none ring-2 ring-teal-500 ring-offset-2;
   }
+
+  /* Desktop segmented progress bars */
+  .mentor-carousel__bar {
+    height: 3px;
+    width: 18px;
+    padding: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
+    cursor: pointer;
+    transition:
+      width 350ms cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 350ms ease;
+  }
+
+  .mentor-carousel__bar--active {
+    width: 36px;
+    background: linear-gradient(90deg, #18b6a4, #4dd7c8);
+  }
+
+  .mentor-carousel__bar:hover:not(.mentor-carousel__bar--active) {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  /* Card entrance stagger — gated by data-inview (set by useInView) so it
+     runs when the section is reached, not at page load. From-only keyframe +
+     backwards fill returns control to the cascade afterwards, so the inactive
+     dimming (opacity 0.4) and the mobile collapse (opacity 0) keep working. */
+  .mentor-carousel__track[data-inview='true'] .mentor-carousel__card {
+    animation: mentorCardIn 550ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  .mentor-carousel__track[data-inview='true'] .mentor-carousel__card:nth-child(2) { animation-delay: 60ms; }
+  .mentor-carousel__track[data-inview='true'] .mentor-carousel__card:nth-child(3) { animation-delay: 120ms; }
+  .mentor-carousel__track[data-inview='true'] .mentor-carousel__card:nth-child(4) { animation-delay: 180ms; }
+  .mentor-carousel__track[data-inview='true'] .mentor-carousel__card:nth-child(5) { animation-delay: 240ms; }
+  .mentor-carousel__track[data-inview='true'] .mentor-carousel__card:nth-child(6) { animation-delay: 300ms; }
+  .mentor-carousel__track[data-inview='true'] .mentor-carousel__card:nth-child(7) { animation-delay: 360ms; }
 
   /* Mobile: one focused mentor card */
   @media (max-width: 767px) {
@@ -1090,16 +1143,17 @@
     }
 
     .mentor-carousel__track {
-      @apply min-h-[22rem] w-full gap-0 px-12;
+      @apply w-full gap-0 px-12;
+      min-height: auto;
     }
 
     .mentor-carousel__card {
       transition:
-        flex-grow 400ms cubic-bezier(0.4, 0, 0.2, 1),
-        flex-basis 400ms cubic-bezier(0.4, 0, 0.2, 1),
-        max-width 400ms cubic-bezier(0.4, 0, 0.2, 1),
-        opacity 400ms cubic-bezier(0.4, 0, 0.2, 1),
-        visibility 400ms cubic-bezier(0.4, 0, 0.2, 1);
+        flex-grow 520ms cubic-bezier(0.22, 1, 0.36, 1),
+        flex-basis 520ms cubic-bezier(0.22, 1, 0.36, 1),
+        max-width 520ms cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 520ms cubic-bezier(0.22, 1, 0.36, 1),
+        visibility 520ms cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     .mentor-carousel__card:not([data-active='true']) {
@@ -1117,6 +1171,8 @@
       visibility: hidden;
     }
 
+    /* aspect-ratio 4/5 matches the intrinsic card art (1080x1350) so the
+       baked-in names/credentials are never cropped by a fixed track height. */
     .mentor-carousel__card[data-active='true'] {
       flex-grow: 1;
       flex-shrink: 1;
@@ -1127,18 +1183,13 @@
       opacity: 1;
       visibility: visible;
       pointer-events: auto;
-    }
-
-    .mentor-carousel__card[data-active='true'] img {
-      object-fit: cover;
-      object-position: center top;
+      aspect-ratio: 4 / 5;
     }
 
     .mentor-carousel__nav {
       @apply absolute z-10;
       top: 50%;
       margin-top: -1.375rem;
-      animation: none;
     }
 
     .mentor-carousel > .mentor-carousel__nav:first-of-type {
@@ -1147,6 +1198,16 @@
 
     .mentor-carousel > .mentor-carousel__nav:last-of-type {
       right: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mentor-carousel__card,
+    .mentor-carousel__card img,
+    .mentor-carousel__nav,
+    .mentor-carousel__bar {
+      transition-duration: 1ms !important;
+      animation: none !important;
     }
   }
 
@@ -1555,15 +1616,19 @@
   }
 }
 
-@keyframes mentor-nav-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
+/* Mentors section: one-shot settle of the active card image. */
+@keyframes mentor-settle {
+  from {
+    transform: scale(1.035);
   }
-  50% {
-    opacity: 0.82;
-    transform: scale(0.97);
+}
+
+/* Mentors section: staggered card entrance (from-only → animates to the
+   element's own cascaded value). */
+@keyframes mentorCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
   }
 }
 
