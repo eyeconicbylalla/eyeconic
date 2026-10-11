@@ -20,15 +20,15 @@ const Home: React.FC = () => {
     <>
       <HeroSection />
       {/* <FeatureSection /> */}
-      <FeaturesShowcaseSection />
+      <CoursesSection />
       <TestimonialSection />
       <ResultsCarouselSection />
       <VideosSection />
       <CountdownTimer />
-      <TimelineSection />
       {/* <WhyItMattersSection /> */}
-      <CoursesSection />
+      <FeaturesShowcaseSection />
       <MentorsSection />
+      <TimelineSection />
       {/* <OfferingsSection /> */}
       <BlogsSection />
       <FAQSection />

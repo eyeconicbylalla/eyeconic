@@ -31,9 +31,20 @@ const sectionLinks: NavLink[] = [
 // cursor paths from the trigger into the panel never flicker it shut.
 const ABOUT_CLOSE_DELAY_MS = 120;
 
+// Scroll-spy targets: the home-page sections the navbar links point at
+// (Home → #home, Courses → #courses, Mentors → #mentors, and the About
+// group's #about / #testimonials / #contact), in page order. While the
+// landing page scrolls, the link whose section sits under the navbar lights
+// up; sections without a link (features/results/videos/blogs/faqs) simply
+// keep the previous link lit until the next spied section arrives.
+const SPY_SECTION_IDS = ['home', 'courses', 'testimonials', 'mentors', 'about', 'contact'];
+
 const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  // id of the home-page section currently under the navbar (scroll-spy);
+  // null everywhere except '/', where it drives the section-link highlight.
+  const [activeSection, setActiveSection] = useState<string | null>(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [signupOpen, setSignupOpen] = useState(false);
@@ -169,6 +180,67 @@ const Navbar: React.FC = () => {
     };
   }, []);
 
+  // Scroll-spy for the landing page: the link whose section the navbar
+  // currently sits over stays lit while the visitor scrolls (and, unlike a
+  // bare hash check, lights up on plain scrolling without any navigation).
+  // A section becomes active once its top edge crosses a line a quarter of
+  // the viewport below the navbar — the moment its heading arrives in view —
+  // and stays lit until the next spied section takes over, so the highlight
+  // moves in one direction per scroll gesture and never flickers. On every
+  // other route the spy is detached and the URL-based highlight below
+  // applies unchanged.
+  useEffect(() => {
+    if (location.pathname !== '/') {
+      setActiveSection(null);
+      return;
+    }
+
+    let frame = 0;
+
+    const computeActiveSection = () => {
+      frame = 0;
+      const navHeight = navRef.current?.offsetHeight ?? 0;
+      const line = navHeight + window.innerHeight * 0.25;
+
+      const sections = SPY_SECTION_IDS.reduce<{ id: string; top: number }[]>((acc, id) => {
+        const el = document.getElementById(id);
+        if (el) acc.push({ id, top: el.getBoundingClientRect().top });
+        return acc;
+      }, []);
+      if (sections.length === 0) return;
+
+      // Page order = ascending top; the active section is the furthest one
+      // down that has still crossed the line.
+      sections.sort((a, b) => a.top - b.top);
+      let active = sections[0].id;
+      // The page cannot scroll past the footer, so a short last section may
+      // never cross the line — pin it once the bottom is reached.
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
+        active = sections[sections.length - 1].id;
+      } else {
+        for (const section of sections) {
+          if (section.top <= line) active = section.id;
+        }
+      }
+
+      setActiveSection((prev) => (prev === active ? prev : active));
+    };
+
+    const requestCompute = () => {
+      if (!frame) frame = requestAnimationFrame(computeActiveSection);
+    };
+
+    computeActiveSection();
+    window.addEventListener('scroll', requestCompute, { passive: true });
+    window.addEventListener('resize', requestCompute);
+
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', requestCompute);
+      window.removeEventListener('resize', requestCompute);
+    };
+  }, [location.pathname]);
+
   // Any navigation (link taps already close the menu; this also covers
   // browser back/forward and programmatic navigation) must not leave a
   // stale open menu behind.
@@ -253,6 +325,16 @@ const Navbar: React.FC = () => {
   };
 
   const isActive = (to: string) => {
+    // On the landing page the scroll-spy owns the highlight (it agrees with
+    // the hash right after a section link is clicked, and keeps following
+    // the visitor afterwards). Route links such as /blogs are never "the
+    // current section" while spying the home page.
+    if (activeSection !== null) {
+      if (to === '/') return activeSection === 'home';
+      // '/#courses'.slice(2) === 'courses' — the bare section id the spy stores.
+      if (to.startsWith('/#')) return activeSection === to.slice(2);
+      return false;
+    }
     if (to === '/') return location.pathname === '/' && !location.hash;
     if (to.startsWith('/#')) {
       return location.pathname === '/' && location.hash === to.slice(1);
