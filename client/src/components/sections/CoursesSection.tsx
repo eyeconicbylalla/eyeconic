@@ -1,171 +1,180 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, MotionConfig } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
-// Legacy course cards (Nurture/Fateh/Udaan/INICET) are kept commented out below
-// for reference — only the current Mentorship Program images are imported.
-import img36 from '../../assets/36.png';
-import img37 from '../../assets/37.png';
-import img38 from '../../assets/38.png';
+import img36 from '../../assets/36.webp';
+import img37 from '../../assets/37.webp';
+import img38 from '../../assets/38.webp';
 
-/*
-const courses = [
-  {
-    id: 'nurture',
-    title: 'NURTURE – NEET PG 2026 Batch',
-    subtitle: 'Validity: Until NEET PG 2026',
-    image: nurture,
-    description: 'Includes preparation for INICET Nov and May 2026. Get 1-on-1 mentorship, personalized goal setting, GT performance analysis, progress dashboards, targeted study plans, seat assurance strategy, and elite focus group access for serious NEET PG and INICET aspirants.',
-    highlights: [
-      '1-on-1 Mentorship with detailed handholding',
-      'Personalised Goal Setting based on your pace',
-      'GT Performance Analysis for smart corrections',
-      'Progress Dashboards for visibility on your prep',
-      'Targeted Study Plans for max output',
-      'Seat Assurance Strategy to help you get selected',
-      'Elite Focus Group Access for serious INICET aspirant'
-    ],
-    benefits: [
-      'Personalized mentorship and goal mapping',
-      'Comprehensive preparation for NEET PG & INICET 2026',
-      'Progress tracking and seat assurance strategy'
-    ]
-  },
-  {
-    id: 'mission-inicet',
-    title: 'INICET – INI Focussed Batch',
-    subtitle: 'Validity: Until Nov INICET',
-    image: inicet,
-    description: 'For serious INICET aspirants targeting AIIMS/INI Superspecialty seats.',
-    highlights: [
-      'INI-Focused Grand Tests with high yield recall Qs',
-      'Where-You-Stand Tracker to measure growth weekly',
-      '1-on-1 Mentorship with detailed handholding',
-      'Custom Goal Setting to reach AIIMS/INI goals',
-      'GT Performance Analysis for smart corrections',
-      'Progress Dashboards for visibility on your prep',
-      'Targeted Study Plans for max output',
-      'Elite Focus Group Access for serious INICET aspirants'
-    ],
-    benefits: [
-      'Weekly growth tracking and performance analysis',
-      'Elite mentorship and goal mapping',
-      'Focused preparation for INICET/AIIMS'
-    ]
-  },
-  {
-    id: 'udaan-mbbs',
-    title: 'UDAAN MBBS – For MBBS Students',
-    subtitle: 'Validity: 1 Year from Joining Date',
-    image: udaan,
-    description: 'Kickstart your PG Preparation Today. Limited Seats!',
-    highlights: [
-      '1-on-1 Mentorship to guide your journey',
-      'Personalised Goal Mapping by experts',
-      'GT Analysis to help you prep smarter',
-      'Progress Monitoring System to keep you accountable',
-      'Tailored Study Plans for your strengths & schedule',
-      'Seat Assurance Strategy to help you get selected',
-      'Elite Focus Group Access for top-tier prep culture'
-    ],
-    benefits: [
-      'Early start for MBBS students',
-      'Personalised guidance and accountability',
-      'Seat assurance strategy for PG selection'
-    ]
-  },
-  {
-    id: 'fateh-fmge',
-    title: 'FATEH FMGE – Special Comeback Batch',
-    subtitle: 'Validity: Until Dec 2025',
-    image: fateh,
-    description: 'You don’t need a coaching. You need a COMEBACK PLAN.',
-    highlights: [
-      'Daily Study Planner with strict accountability',
-      'Peer Interaction Group for real-time motivation',
-      'One-on-One Mentorship with expert guidance',
-      'Personalised Goal Setting based on your pace',
-      'GT Analysis to decode your strengths and gaps',
-      'Effective Progress Tracking to stay on course',
-      'Custom Study Plans curated to your needs',
-      'Elite Focus Group Access for serious contenders only'
-    ],
-    benefits: [
-      'Comeback plan for FMGE aspirants',
-      'Daily accountability and peer motivation',
-      'Expert mentorship and custom study plans'
-    ]
-  }
-];
-*/
+const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
+const FORM_URL =
+  'https://docs.google.com/forms/d/e/1FAIpQLSccHeq1gUBguz8MYr4JGFzYFlsZeHCOsEq2BQ6g1chlvmkIuQ/viewform';
 
 const newCourses = [
   {
     id: 'batch-36',
+    batch: '36',
     title: 'Mentorship Program - 36',
     image: img36
   },
   {
     id: 'batch-37',
+    batch: '37',
     title: 'Mentorship Program - 37',
     image: img37
   },
   {
     id: 'batch-38',
+    batch: '38',
     title: 'Mentorship Program - 38',
     image: img38
   }
 ];
 
 const CoursesSection: React.FC = () => {
-  return (
-    <section id="courses" className="py-20 bg-[#101720]">
-      <div className="container mx-auto px-4">
-        <motion.div 
-          className="text-center mb-16"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-        >
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Our Programs
-          </h2>
-          <p className="text-lg text-[#CBD5E1] max-w-3xl mx-auto">
-            Choose the program that best fits your NEET PG preparation journey. Each course is crafted with precision to meet you exactly where you are and take you where you want to be.
-          </p>
-        </motion.div>
+  // Spotlight vars for the cursor-follow glow — bound only on fine-pointer
+  // devices and rAF-throttled so pointermove stays cheap.
+  const finePointer = React.useMemo(
+    () => typeof window !== 'undefined' && window.matchMedia('(pointer: fine)').matches,
+    []
+  );
+  const rafId = React.useRef(0);
+  React.useEffect(() => () => cancelAnimationFrame(rafId.current), []);
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {newCourses.map((course, index) => (
+  const onCardPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!finePointer) return;
+    // Capture the element + coords synchronously: React nulls
+    // syntheticEvent.currentTarget once the handler returns.
+    const el = e.currentTarget;
+    const { clientX, clientY } = e;
+    cancelAnimationFrame(rafId.current);
+    rafId.current = requestAnimationFrame(() => {
+      const rect = el.getBoundingClientRect();
+      el.style.setProperty('--mx', `${clientX - rect.left}px`);
+      el.style.setProperty('--my', `${clientY - rect.top}px`);
+    });
+  };
+
+  return (
+    <section id="courses" aria-labelledby="courses-title" className="relative overflow-x-clip bg-[#101720] py-20">
+      {/* Ambient top glow */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0"
+        style={{
+          height: '400px',
+          background:
+            'radial-gradient(ellipse 55% 55% at 50% -5%, rgba(24,182,164,0.07) 0%, transparent 80%)'
+        }}
+      />
+
+      {/* reducedMotion scoped to this section only: when the OS preference is
+          reduce, framer skips the y transform (elements render in place) and
+          keeps the opacity fade. */}
+      <MotionConfig reducedMotion="user">
+        <div className="container relative z-10 mx-auto px-4">
+          <div className="mb-12 text-center md:mb-14">
             <motion.div
-              key={course.id}
-              className="bg-[#18222E] rounded-2xl shadow-card-dark overflow-hidden border border-white/[0.06] hover:border-[rgba(24,182,164,0.35)] hover:shadow-large-dark transition-all duration-300 flex flex-col justify-between"
+              initial={{ opacity: 0, y: 14 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, ease: EASE }}
+              className="mb-5 flex justify-center"
+            >
+              <span
+                className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-widest"
+                style={{
+                  background: 'rgba(24,182,164,0.1)',
+                  border: '1px solid rgba(24,182,164,0.22)',
+                  color: '#18B6A4',
+                  letterSpacing: '0.13em'
+                }}
+              >
+                NEET PG Mentorship
+              </span>
+            </motion.div>
+
+            <motion.h2
+              id="courses-title"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: index * 0.2 }}
+              transition={{ duration: 0.6, delay: 0.07 }}
+              className="mb-4 text-3xl font-bold leading-tight tracking-tight text-white md:text-4xl"
             >
-              <div className="p-5 flex flex-col h-full justify-between">
-                <div className="w-full rounded-xl overflow-hidden mb-6 border border-white/[0.04] bg-[#0F172A] flex items-center justify-center">
-                  <img
-                    src={course.image}
-                    alt={course.title}
-                    className="w-full h-auto object-contain"
-                  />
-                </div>
-                <a 
-                  href="https://docs.google.com/forms/d/e/1FAIpQLSccHeq1gUBguz8MYr4JGFzYFlsZeHCOsEq2BQ6g1chlvmkIuQ/viewform"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-primary w-full text-center py-3 font-semibold text-white bg-[#18B6A4] hover:bg-[#149d8c] rounded-xl flex items-center justify-center transition-all duration-300 mt-auto"
+              Our{' '}
+              <span
+                style={{
+                  backgroundImage: 'linear-gradient(135deg, #18B6A4 0%, #4DD7C8 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}
+              >
+                Programs
+              </span>
+            </motion.h2>
+
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.14 }}
+              className="mx-auto max-w-3xl text-[15px] leading-relaxed md:text-[16px]"
+              style={{ color: '#6B7E93' }}
+            >
+              Three mentorship batches, one goal — your NEET PG rank. Pick your
+              batch and prepare with structured guidance and mentor-led preparation.
+            </motion.p>
+          </div>
+
+          <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 md:grid-cols-3 md:gap-8">
+            {newCourses.map((course, index) => (
+              /* Entrance lives on this wrapper so framer's inline transform
+                 never fights the CSS :hover transform on the card itself. */
+              <motion.div
+                key={course.id}
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.25 }}
+                transition={{ duration: 0.5, delay: index * 0.08, ease: EASE }}
+                className="mx-auto w-full max-w-sm md:max-w-none"
+              >
+                <div
+                  className="course-card relative h-full overflow-hidden rounded-2xl border border-white/[0.06] bg-[#18222E] shadow-card-dark"
+                  onPointerMove={onCardPointerMove}
                 >
-                  Join Now <ArrowRight size={16} className="ml-2" />
-                </a>
-              </div>
-            </motion.div>
-          ))}
+                  {/* Screen-reader-only heading keeps per-card structure
+                      without adding visible text (posters carry the design). */}
+                  <h3 className="sr-only">{course.title}</h3>
+                  <div className="flex h-full flex-col justify-between p-5">
+                    <div className="course-card__poster mb-6 aspect-[3/4] w-full overflow-hidden rounded-xl border border-white/[0.04] bg-[#0F172A]">
+                      <img
+                        src={course.image}
+                        alt={`${course.title} poster with batch details`}
+                        width={720}
+                        height={960}
+                        loading="lazy"
+                        decoding="async"
+                        draggable={false}
+                        onLoad={(e) => e.currentTarget.classList.add('loaded')}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <a
+                      href={FORM_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Join Mentorship Program ${course.batch} (opens in a new tab)`}
+                      className="course-card__cta btn btn-primary mt-auto w-full py-3 text-center font-semibold text-white"
+                    >
+                      Join Now <ArrowRight size={16} className="ml-2" aria-hidden="true" />
+                    </a>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
-      </div>
+      </MotionConfig>
     </section>
   );
 };
