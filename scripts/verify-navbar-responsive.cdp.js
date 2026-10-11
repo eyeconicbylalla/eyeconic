@@ -145,7 +145,7 @@ async function main() {
     if (isDesktop) {
       check('desktop: hamburger hidden', toggleVisible === false, { toggleVisible });
       const desktopNav = await evaluate(
-        `(() => { const links = document.querySelector('nav .hidden.lg\\:flex'); return !!links && getComputedStyle(links).display !== 'none'; })()`
+        `(() => { const links = document.querySelector('nav button[aria-controls="mobile-menu"]').previousElementSibling; return !!links && getComputedStyle(links).display !== 'none'; })()`
       );
       check('desktop: horizontal nav visible', desktopNav === true, { desktopNav });
       check('desktop: no horizontal scroll', await evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1'), {});
@@ -165,7 +165,7 @@ async function main() {
     check(`${name}: panel starts below navbar`, openState.panelTop >= openState.navBottom - 1, openState);
     check(`${name}: panel spans viewport width`, openState.panelLeft >= -1 && openState.panelRight <= openState.viewportW + 1, openState);
     check(`${name}: panel background opaque (was the /98 bug)`, (() => {
-      const m = /rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+),\\s*([\\d.]+)\\)/.exec(openState.bg || '');
+      const m = /rgba?\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/.exec(openState.bg || '');
       return !!m && parseFloat(m[4]) >= 0.9;
     })(), openState.bg);
     check(`${name}: panel height capped to viewport`, openState.panelBottom <= openState.viewportH + 1, openState);

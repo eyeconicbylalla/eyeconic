@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, ChevronDown } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import LoginModal from '../auth/LoginModal';
 import SignupModal from '../auth/SignupModal';
@@ -8,14 +8,28 @@ import StudentLoginModal from '../auth/StudentLoginModal';
 import { useAppAuth } from '../../context/AppAuthContext';
 import logo from '../../assets/Logo.png'; // <-- Add your logo file here
 
-const sectionLinks = [
+type NavChildLink = { label: string; to: string };
+type NavLink = NavChildLink & { children?: NavChildLink[] };
+
+// About groups its related sections (Testimonials / Blogs / Contact) into a
+// dropdown on desktop and an expandable row in the mobile menu.
+const sectionLinks: NavLink[] = [
   { label: 'Courses', to: '/#courses' },
-  { label: 'About', to: '/#about' },
+  {
+    label: 'About',
+    to: '/#about',
+    children: [
+      { label: 'Testimonials', to: '/#testimonials' },
+      { label: 'Blogs', to: '/blogs' },
+      { label: 'Contact', to: '/#contact' },
+    ],
+  },
   { label: 'Mentors', to: '/#mentors' },
-  { label: 'Testimonials', to: '/#testimonials' },
-  { label: 'Blogs', to: '/blogs' },
-  { label: 'Contact', to: '/#contact' },
 ];
+
+// Grace period before the About dropdown closes on mouse-leave, so diagonal
+// cursor paths from the trigger into the panel never flicker it shut.
+const ABOUT_CLOSE_DELAY_MS = 120;
 
 const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -24,6 +38,9 @@ const Navbar: React.FC = () => {
   const [loginEmail, setLoginEmail] = useState('');
   const [signupOpen, setSignupOpen] = useState(false);
   const [studentLoginOpen, setStudentLoginOpen] = useState(false);
+  // About dropdown (desktop) + About accordion (mobile menu).
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [mobileAboutOpen, setMobileAboutOpen] = useState(false);
   const location = useLocation();
   const { user: appUser, logout: appLogout } = useAppAuth();
   const isStudentArea =
@@ -34,10 +51,21 @@ const Navbar: React.FC = () => {
   const navRef = useRef<HTMLElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const aboutItemRef = useRef<HTMLLIElement>(null);
+  const aboutTriggerRef = useRef<HTMLAnchorElement>(null);
+  const aboutPanelRef = useRef<HTMLDivElement>(null);
+  const aboutCloseTimer = useRef<number | null>(null);
+  // On touch devices a tap fires a synthetic mouseenter BEFORE the click, so
+  // "already open" cannot tell a tap-reveal from a hover-emulation — this ref
+  // remembers which one revealed the panel. Only a second tap navigates.
+  const aboutOpenedByTap = useRef(false);
 
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
+      // A dropdown left open while the page scrolls away from under the
+      // cursor would float detached from its trigger — close it.
+      setAboutOpen(false);
     };
 
     window.addEventListener('scroll', handleScroll);
@@ -46,6 +74,77 @@ const Navbar: React.FC = () => {
       window.removeEventListener('scroll', handleScroll);
     };
   }, []);
+
+  // Hover state is shared by mouse and keyboard users, so the close timer
+  // must never outlive the component.
+  useEffect(() => {
+    return () => {
+      if (aboutCloseTimer.current) window.clearTimeout(aboutCloseTimer.current);
+    };
+  }, []);
+
+  const openAbout = () => {
+    if (aboutCloseTimer.current) {
+      window.clearTimeout(aboutCloseTimer.current);
+      aboutCloseTimer.current = null;
+    }
+    setAboutOpen(true);
+  };
+
+  const closeAbout = () => {
+    if (aboutCloseTimer.current) {
+      window.clearTimeout(aboutCloseTimer.current);
+      aboutCloseTimer.current = null;
+    }
+    setAboutOpen(false);
+  };
+
+  const scheduleAboutClose = () => {
+    if (aboutCloseTimer.current) window.clearTimeout(aboutCloseTimer.current);
+    aboutCloseTimer.current = window.setTimeout(() => {
+      aboutCloseTimer.current = null;
+      setAboutOpen(false);
+    }, ABOUT_CLOSE_DELAY_MS);
+  };
+
+  // Touch devices (hover: none) have no hover to reveal the panel with, so
+  // the first tap expands the dropdown instead of navigating; a second tap
+  // (or tapping any submenu item) navigates as usual.
+  const handleAboutTriggerClick = (event: React.MouseEvent) => {
+    if (window.matchMedia('(hover: none)').matches && !aboutOpenedByTap.current) {
+      event.preventDefault();
+      aboutOpenedByTap.current = true;
+      openAbout();
+    }
+  };
+
+  const handleAboutTriggerKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      openAbout();
+      // The panel mounts on open, so focus its first link one frame later.
+      requestAnimationFrame(() => {
+        aboutPanelRef.current?.querySelector<HTMLElement>('a')?.focus();
+      });
+    }
+  };
+
+  const handleAboutItemKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Escape' && aboutOpen) {
+      // Focus first, then close: focusing the trigger fires the group's
+      // focus-open handler, so the close must be the last state write.
+      aboutTriggerRef.current?.focus();
+      closeAbout();
+    }
+  };
+
+  const handleAboutBlur = (event: React.FocusEvent) => {
+    // Focus leaving the whole group (trigger + panel) closes it; moving
+    // between items inside keeps it open.
+    if (!aboutItemRef.current?.contains(event.relatedTarget as Node)) {
+      setAboutOpen(false);
+    }
+  };
 
   // This navbar is a fixed overlay, so the app shell reserves space for it via
   // the --nav-h custom property (see App.tsx + index.css). Publishing the real
@@ -75,7 +174,31 @@ const Navbar: React.FC = () => {
   // stale open menu behind.
   useEffect(() => {
     setIsMenuOpen(false);
+    setAboutOpen(false);
   }, [location]);
+
+  // While the About dropdown is open, tapping anywhere outside its group
+  // (trigger + panel) closes it — the touch counterpart of mouse-leave.
+  useEffect(() => {
+    if (!aboutOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!aboutItemRef.current?.contains(event.target as Node)) {
+        setAboutOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, [aboutOpen]);
+
+  // A closed dropdown forgets how it was opened.
+  useEffect(() => {
+    if (!aboutOpen) aboutOpenedByTap.current = false;
+  }, [aboutOpen]);
 
   // While the mobile menu is open it behaves like a modal sheet over the
   // page: the page behind it must not scroll, Escape closes it (returning
@@ -118,6 +241,12 @@ const Navbar: React.FC = () => {
     menuRef.current?.querySelector<HTMLElement>('a, button')?.focus();
   }, [isMenuOpen]);
 
+  // The mobile menu always starts fresh: closing it (link, scrim, Escape,
+  // crossing lg) also collapses the About accordion.
+  useEffect(() => {
+    if (!isMenuOpen) setMobileAboutOpen(false);
+  }, [isMenuOpen]);
+
   const handleStudentLogout = async () => {
     await appLogout();
     window.location.href = '/';
@@ -131,10 +260,11 @@ const Navbar: React.FC = () => {
     return location.pathname.startsWith(to);
   };
 
-  // The horizontal nav only fits comfortably from lg (1024px) up: logo + up to
-  // 7 links + two action buttons need ~950px at text-sm. Below that (tablets
-  // included) the hamburger menu takes over, so the bar can never wrap,
-  // squeeze or collide at any supported width.
+  // The horizontal nav only fits comfortably from lg (1024px) up: logo +
+  // Home/Courses/About/Mentors (About folding Testimonials/Blogs/Contact into
+  // its dropdown) + two action buttons. Below that (tablets included) the
+  // hamburger menu takes over, so the bar can never wrap, squeeze or collide
+  // at any supported width.
   const linkClass = (to: string) =>
     `font-medium text-sm whitespace-nowrap transition-colors ${
       isActive(to) ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
@@ -154,8 +284,12 @@ const Navbar: React.FC = () => {
           <span className="whitespace-nowrap">EyeConic</span>
         </Link>
         <div className="hidden lg:flex items-center gap-5 xl:gap-7 min-w-0">
-          <ul className="flex items-center gap-4 xl:gap-6 whitespace-nowrap">
-            <li>
+          {/* self-stretch: the ul fills the bar row's content height so every
+              li (and therefore the About dropdown's top-full anchor) reaches
+              the bottom edge of that content box — the dropdown then floats
+              just below the bar instead of starting mid-bar. */}
+          <ul className="flex self-stretch gap-4 xl:gap-6 whitespace-nowrap">
+            <li className="flex items-center">
               <Link to="/" className={linkClass('/')}>
                 Home
               </Link>
@@ -163,12 +297,12 @@ const Navbar: React.FC = () => {
             {/* Show all options on public pages, student nav inside the student area */}
             {isStudentArea && isAppAuthed ? (
               <>
-                <li>
+                <li className="flex items-center">
                   <Link to="/dashboard" className={linkClass('/dashboard')}>
                     Dashboard
                   </Link>
                 </li>
-                <li>
+                <li className="flex items-center">
                   <Link to="/daily-pyq" className={linkClass('/daily-pyq')}>
                     Daily PYQ
                   </Link>
@@ -176,13 +310,77 @@ const Navbar: React.FC = () => {
               </>
             ) : (
               <>
-                {sectionLinks.map((item) => (
-                  <li key={item.label}>
-                    <Link to={item.to} className={linkClass(item.to)}>
-                      {item.label}
-                    </Link>
-                  </li>
-                ))}
+                {sectionLinks.map((item) =>
+                  item.children ? (
+                    <li
+                      key={item.label}
+                      ref={aboutItemRef}
+                      className="relative flex items-center"
+                      onMouseEnter={openAbout}
+                      onMouseLeave={scheduleAboutClose}
+                      onFocus={openAbout}
+                      onBlur={handleAboutBlur}
+                      onKeyDown={handleAboutItemKeyDown}
+                    >
+                      <Link
+                        ref={aboutTriggerRef}
+                        to={item.to}
+                        aria-haspopup="true"
+                        aria-expanded={aboutOpen}
+                        aria-controls="about-dropdown"
+                        onClick={handleAboutTriggerClick}
+                        onKeyDown={handleAboutTriggerKeyDown}
+                        className={`font-medium text-sm whitespace-nowrap inline-flex items-center gap-1 transition-colors ${
+                          isActive(item.to) || item.children.some((child) => isActive(child.to))
+                            ? 'text-[#18B6A4]'
+                            : 'text-[#CBD5E1] hover:text-white'
+                        }`}
+                      >
+                        {item.label}
+                        <ChevronDown
+                          size={14}
+                          aria-hidden="true"
+                          className={`shrink-0 mt-px transition-transform duration-200 ${aboutOpen ? 'rotate-180' : ''}`}
+                        />
+                      </Link>
+                      {aboutOpen && (
+                        /* The pt-5 wrapper bridges the gap between the bar and
+                           the visible panel; being part of the li's hover box
+                           (padding, not margin) the cursor can travel from the
+                           trigger into the panel without leaving the group. */
+                        <div
+                          id="about-dropdown"
+                          ref={aboutPanelRef}
+                          className="absolute left-0 top-full pt-5"
+                        >
+                          <ul className="py-1.5 px-1.5 rounded-xl bg-[#0A0F14]/95 backdrop-blur-xl border border-white/[0.08] shadow-large-dark animate-menu-in">
+                            {item.children.map((child) => (
+                              <li key={child.label}>
+                                <Link
+                                  to={child.to}
+                                  onClick={() => setAboutOpen(false)}
+                                  className={`block px-3.5 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-colors ${
+                                    isActive(child.to)
+                                      ? 'text-[#18B6A4]'
+                                      : 'text-[#CBD5E1] hover:text-white hover:bg-white/[0.06]'
+                                  }`}
+                                >
+                                  {child.label}
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </li>
+                  ) : (
+                    <li key={item.label} className="flex items-center">
+                      <Link to={item.to} className={linkClass(item.to)}>
+                        {item.label}
+                      </Link>
+                    </li>
+                  )
+                )}
               </>
             )}
           </ul>
@@ -299,19 +497,85 @@ const Navbar: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    {sectionLinks.map((item) => (
-                      <li key={item.label}>
-                        <Link
-                          to={item.to}
-                          onClick={() => setIsMenuOpen(false)}
-                          className={`font-medium transition-colors block py-2.5 ${
-                            isActive(item.to) ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
-                          }`}
-                        >
-                          {item.label}
-                        </Link>
-                      </li>
-                    ))}
+                    {sectionLinks.map((item) =>
+                      item.children ? (
+                        /* About: the label still navigates to /#about; the
+                           chevron toggles the submenu (tap-first UX on
+                           touch). The grid-rows 0fr→1fr trick animates the
+                           submenu to its natural content height. */
+                        <li key={item.label}>
+                          <div className="flex items-center">
+                            <Link
+                              to={item.to}
+                              onClick={() => setIsMenuOpen(false)}
+                              className={`flex-1 font-medium transition-colors block py-2.5 ${
+                                isActive(item.to) ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
+                              }`}
+                            >
+                              {item.label}
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => setMobileAboutOpen((open) => !open)}
+                              aria-expanded={mobileAboutOpen}
+                              aria-controls="mobile-about-submenu"
+                              aria-label={
+                                mobileAboutOpen ? 'Collapse About submenu' : 'Expand About submenu'
+                              }
+                              className="p-2 -m-2 ml-2 rounded-md text-[#CBD5E1] hover:text-white transition-colors"
+                            >
+                              <ChevronDown
+                                size={20}
+                                aria-hidden="true"
+                                className={`transition-transform duration-200 ${
+                                  mobileAboutOpen ? 'rotate-180' : ''
+                                }`}
+                              />
+                            </button>
+                          </div>
+                          <div
+                            id="mobile-about-submenu"
+                            className={`grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none ${
+                              mobileAboutOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                            }`}
+                          >
+                            {/* Spacing sits on the first li (inside the
+                                overflow-hidden item) — a margin on the ul
+                                itself would floor the collapsed 0fr track
+                                and leak a 4px sliver of the guide border. */}
+                            <ul className="min-h-0 overflow-hidden ml-1 pl-4 border-l border-white/[0.08]">
+                              {item.children.map((child, index) => (
+                                <li key={child.label} className={index === 0 ? 'mt-1' : undefined}>
+                                  <Link
+                                    to={child.to}
+                                    onClick={() => setIsMenuOpen(false)}
+                                    className={`block py-2.5 font-medium text-sm transition-colors ${
+                                      isActive(child.to)
+                                        ? 'text-[#18B6A4]'
+                                        : 'text-[#CBD5E1] hover:text-white'
+                                    }`}
+                                  >
+                                    {child.label}
+                                  </Link>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </li>
+                      ) : (
+                        <li key={item.label}>
+                          <Link
+                            to={item.to}
+                            onClick={() => setIsMenuOpen(false)}
+                            className={`font-medium transition-colors block py-2.5 ${
+                              isActive(item.to) ? 'text-[#18B6A4]' : 'text-[#CBD5E1] hover:text-white'
+                            }`}
+                          >
+                            {item.label}
+                          </Link>
+                        </li>
+                      )
+                    )}
                   </>
                 )}
               </ul>
