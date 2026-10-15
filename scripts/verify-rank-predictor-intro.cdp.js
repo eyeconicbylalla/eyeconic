@@ -12,9 +12,15 @@
  *      leaving mid-transition cleans up and never navigates afterwards.
  *   C. prefers-reduced-motion: click navigates immediately, no overlay/video.
  *   D. viewport matrix: desktop/laptop/small/tablet/portrait/narrow/landscape
- *      — overlay covers the viewport, the clip never shrinks below contain,
- *      never crops past its measured safe margins (corner text stays on
- *      screen), letterbox is filled by the blurred twin, no scrollbar gutter.
+ *      — overlay covers the viewport, the right clip for the viewport width
+ *      (landscape 1920×1080 at >=768px, portrait 1080×1920 below), the clip
+ *      never shrinks below contain, never crops past its measured safe
+ *      margins (corner text stays on screen), letterbox is filled by the
+ *      blurred twin, no scrollbar gutter, and only the selected clip is ever
+ *      fetched from the dev server.
+ *   E. resize across the mobile breakpoint mid-playback: the playing clip is
+ *      not swapped, restarted or duplicated; presentation re-resolves in CSS;
+ *      navigation still happens only after `ended`.
  *
  * Usage: node scripts/verify-rank-predictor-intro.cdp.js <cookie-value>
  */
@@ -32,6 +38,15 @@ const OUT = fs.mkdtempSync(path.join(os.tmpdir(), 'rp-intro-'));
 const consoleErrors = [];
 const pageErrors = [];
 const failures = [];
+// Every intro-clip MEDIA request the page makes (warm-up, overlay, twin), in
+// order — used to prove a session fetches only the clip its viewport
+// selected. Vite dev also serves tiny `*.mp4?import` JS modules for the
+// static imports (both clips, ~200 B, dev-only — the production build inlines
+// the hashed URLs); those are not media downloads and are filtered out.
+const introRequests = [];
+const isIntroMediaRequest = (url) =>
+  /rank-predictor-intro(-mobile)?\.mp4([?#].*)?$/.test(url) && !/[?&]import/.test(url);
+const isMobileAsset = (url) => /rank-predictor-intro-mobile/.test(url);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -50,6 +65,9 @@ async function main() {
     }
     if (msg.method === 'Runtime.exceptionThrown') {
       pageErrors.push(msg.params.exceptionDetails.text);
+    }
+    if (msg.method === 'Network.requestWillBeSent' && isIntroMediaRequest(msg.params.request.url)) {
+      introRequests.push(msg.params.request.url);
     }
   };
   const send = (method, params = {}) =>
@@ -158,7 +176,10 @@ async function main() {
   // RankPredictorIntro.css + introSafeFitSize: the overlay owns the whole
   // viewport, the clip never shrinks below contain, never crops past its
   // safe margins (so the clip's corner text stays on screen), keeps its
-  // aspect, and any letterbox is filled by the blurred twin.
+  // aspect, and any letterbox is filled by the blurred twin. Aspect and
+  // margins come from the variant actually mounted (landscape 16:9 or
+  // portrait 9:16 — mirrored from INTRO_*_SAFE_MARGINS), and the variant
+  // must agree with the video's intrinsic dimensions.
   const presentationState = () => evaluate(`(() => {
     const vw = window.innerWidth, vh = window.innerHeight;
     const overlay = document.querySelector('.rp-intro');
@@ -168,18 +189,26 @@ async function main() {
     const o = overlay.getBoundingClientRect();
     const c = clip.getBoundingClientRect();
     const bs = backdrop ? getComputedStyle(backdrop) : null;
-    const AR = 16 / 9;
+    const portrait = overlay.classList.contains('rp-intro--portrait');
+    const AR = portrait ? 9 / 16 : 16 / 9;
+    const M = portrait
+      ? { l: 0.032, r: 0.032, t: 0.041, b: 0.041 }
+      : { l: 0.035, r: 0.035, t: 0.055, b: 0.065 };
     const containW = Math.min(vw, vh * AR);
     const hidden = !backdrop || bs.display === 'none';
     return {
-      vw, vh,
+      vw, vh, portrait,
+      intrinsicW: clip.videoWidth, intrinsicH: clip.videoHeight,
+      variantMatchesVideo: portrait
+        ? clip.videoWidth === 1080 && clip.videoHeight === 1920
+        : clip.videoWidth === 1920 && clip.videoHeight === 1080,
       overlayCovers: Math.round(o.width) === vw && Math.round(o.height) === vh && o.left === 0 && o.top === 0,
       noScrollbarGutter: document.documentElement.clientWidth === vw,
       noHorizontalScroll: document.documentElement.scrollWidth <= vw,
       neverSmallerThanContain: c.width >= containW - 0.5 && c.height >= containW / AR - 0.5,
       aspectKept: Math.abs(c.width / c.height - AR) < 0.02,
-      safeBoxVisible: c.left + 0.035 * c.width >= -1.5 && c.right - 0.035 * c.width <= vw + 1.5
-        && c.top + 0.055 * c.height >= -1.5 && c.bottom - 0.065 * c.height <= vh + 1.5,
+      safeBoxVisible: c.left + M.l * c.width >= -1.5 && c.right - M.r * c.width <= vw + 1.5
+        && c.top + M.t * c.height >= -1.5 && c.bottom - M.b * c.height <= vh + 1.5,
       backdrop: {
         present: !!backdrop,
         hidden,
@@ -197,6 +226,7 @@ async function main() {
     const problems = [];
     if (!state || state.missing) problems.push('overlay/clip missing');
     if (state && !state.missing) {
+      if (!state.variantMatchesVideo) problems.push(`variant does not match clip ${state.intrinsicW}x${state.intrinsicH}`);
       if (!state.overlayCovers) problems.push(`overlay !covers (${state.vw}x${state.vh})`);
       if (!state.noScrollbarGutter) problems.push('scrollbar gutter beside overlay');
       if (!state.noHorizontalScroll) problems.push('horizontal scroll');
@@ -309,20 +339,24 @@ async function main() {
 
   // ---- D. viewport matrix -----------------------------------------------------
   // Representative sizes (not hard-coded styles — the presentation must
-  // adapt fluidly). expectBackdrop: whether the blurred twin must be
-  // displayed (viewports inside ~1.69–1.97:1 hide it — the clip fully covers).
+  // adapt fluidly). Below the md breakpoint (768px) the portrait clip must
+  // play; at/above it the landscape clip. expectBackdrop: whether the blurred
+  // twin must be displayed (hidden inside the variant's cover band — ~1.69–
+  // 1.97:1 for landscape, ~0.54–0.60:1 for portrait).
   const matrix = [
-    { name: 'desktop-1920x1080', w: 1920, h: 1080, mobile: false, expectBackdrop: false },
-    { name: 'laptop-1366x768', w: 1366, h: 768, mobile: false, expectBackdrop: false },
-    { name: 'small-1024x768', w: 1024, h: 768, mobile: false, expectBackdrop: true },
-    { name: 'mobile-390x844', w: 390, h: 844, mobile: true, expectBackdrop: true },
-    { name: 'narrow-360x800', w: 360, h: 800, mobile: true, expectBackdrop: true },
-    { name: 'landscape-844x390', w: 844, h: 390, mobile: true, expectBackdrop: true },
+    { name: 'desktop-1920x1080', w: 1920, h: 1080, mobile: false, expectClip: 'landscape', expectBackdrop: false },
+    { name: 'laptop-1366x768', w: 1366, h: 768, mobile: false, expectClip: 'landscape', expectBackdrop: false },
+    { name: 'small-1024x768', w: 1024, h: 768, mobile: false, expectClip: 'landscape', expectBackdrop: true },
+    { name: 'mobile-390x844', w: 390, h: 844, mobile: true, expectClip: 'portrait', expectBackdrop: true },
+    { name: 'narrow-360x800', w: 360, h: 800, mobile: true, expectClip: 'portrait', expectBackdrop: true },
+    { name: 'mobile-360x640', w: 360, h: 640, mobile: true, expectClip: 'portrait', expectBackdrop: false },
+    { name: 'landscape-844x390', w: 844, h: 390, mobile: true, expectClip: 'landscape', expectBackdrop: true },
   ];
   for (const m of matrix) {
     await send('Emulation.setDeviceMetricsOverride', {
       width: m.w, height: m.h, deviceScaleFactor: m.mobile ? 2 : 1, mobile: m.mobile,
     });
+    const requestMark = introRequests.length;
     await navigate('http://localhost:5173/dashboard');
     await waitForStable("() => document.body.innerText.includes('Hi,') && !!document.querySelector(\"a[href='/predictor']\")", 30000, `dashboard (${m.name})`);
     await instrumentVideo();
@@ -332,12 +366,67 @@ async function main() {
     const st = await presentationState();
     console.log(`${m.name}:`, JSON.stringify(st));
     assertPresentation(st, `D ${m.name}`, { expectBackdropDisplayed: m.expectBackdrop });
+    if (m.expectClip === 'portrait' && !st.portrait) failures.push(`D ${m.name}: expected portrait clip, got landscape`);
+    if (m.expectClip === 'landscape' && st.portrait) failures.push(`D ${m.name}: expected landscape clip, got portrait`);
+    // only the selected clip may be fetched (as media) during this viewport's session
+    const rowRequests = introRequests.slice(requestMark);
+    const wrongAsset = rowRequests.find((u) => (m.expectClip === 'portrait') !== isMobileAsset(u));
+    if (wrongAsset) failures.push(`D ${m.name}: fetched the other clip too (${wrongAsset})`);
+    if (!rowRequests.some((u) => (m.expectClip === 'portrait') === isMobileAsset(u))) {
+      failures.push(`D ${m.name}: expected clip was never fetched`);
+    }
     await screenshot(`05-${m.name}`);
     // leave without waiting for `ended` — cleanup is covered by phase B
     await navigate('http://localhost:5173/dashboard');
     await sleep(400);
   }
   console.log('D: viewport matrix done');
+
+  // ---- E. resize across the mobile breakpoint mid-playback ---------------------
+  // The clip choice is frozen at click time: crossing 768px while playing must
+  // neither swap nor restart the video, presentation must re-resolve in CSS
+  // (still contain-floored and margin-safe for the playing variant), and
+  // navigation must still wait for `ended`.
+  await send('Emulation.setDeviceMetricsOverride', { width: 1380, height: 1000, deviceScaleFactor: 1, mobile: false });
+  await navigate('http://localhost:5173/dashboard');
+  await waitForStable("() => document.body.innerText.includes('Hi,') && !!document.querySelector(\"a[href='/predictor']\")", 30000, 'dashboard (resize phase)');
+  await instrumentVideo();
+  if (!(await clickRankPredictor())) throw new Error('Rank Predictor link not found (resize phase)');
+  await waitFor("() => { const v = document.querySelector('video.rp-intro-clip'); return v && !v.paused && v.readyState >= 2; }", 8000, 'playback started (resize phase)');
+  await evaluate("(() => { const v = document.querySelector('video.rp-intro-clip'); if (v) v.__resizeProbe = 'tagged'; })()");
+  const beforeResize = await evaluate("(() => { const v = document.querySelector('video.rp-intro-clip'); return v ? { t: v.currentTime, w: v.videoWidth } : null; })()");
+  if (!beforeResize) failures.push('E: overlay disappeared before resize');
+  if (beforeResize && beforeResize.w !== 1920) failures.push(`E: expected landscape clip before resize, got ${beforeResize.w}x`);
+
+  await sleep(900); // settle into the animation, then cross the breakpoint
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+  await sleep(900);
+  let afterShrink = await evaluate("(() => { const v = document.querySelector('video.rp-intro-clip'); return v ? { tagged: v.__resizeProbe === 'tagged', t: v.currentTime, paused: v.paused, count: document.querySelectorAll('.rp-intro video').length } : null; })()");
+  const shrunkPresentation = await presentationState();
+  console.log('E after shrink:', JSON.stringify({ clip: afterShrink, presentation: shrunkPresentation }));
+  if (!afterShrink) failures.push('E: overlay disappeared on shrink');
+  if (afterShrink && (!afterShrink.tagged || afterShrink.paused)) failures.push('E: clip was replaced or paused on shrink');
+  if (afterShrink && afterShrink.count !== 2) failures.push(`E: video count changed on shrink (${afterShrink.count})`);
+  if (afterShrink && beforeResize && afterShrink.t <= beforeResize.t) failures.push('E: clip restarted on shrink');
+  if (shrunkPresentation && !shrunkPresentation.missing && shrunkPresentation.portrait) failures.push('E: variant class changed mid-playback');
+  assertPresentation(shrunkPresentation, 'E: presentation after shrink (landscape clip on mobile viewport)');
+
+  // and back out — still the same playback
+  await send('Emulation.setDeviceMetricsOverride', { width: 1380, height: 1000, deviceScaleFactor: 1, mobile: false });
+  await sleep(900);
+  afterShrink = await evaluate("(() => { const v = document.querySelector('video.rp-intro-clip'); return v ? { tagged: v.__resizeProbe === 'tagged', t: v.currentTime, paused: v.paused } : null; })()");
+  if (!afterShrink || !afterShrink.tagged || afterShrink.paused) failures.push('E: clip did not survive grow back');
+  await screenshot('06-resize-midplay');
+
+  const resizeNavDeadline = Date.now() + 20000;
+  let resizePath = '';
+  while (Date.now() < resizeNavDeadline) {
+    resizePath = await evaluate('location.pathname').catch(() => '/dashboard');
+    if (resizePath === '/predictor') break;
+    await sleep(250);
+  }
+  if (resizePath !== '/predictor') failures.push('E: never navigated to /predictor after resize gauntlet');
+  console.log('E: resize gauntlet done, path=', resizePath);
 
   console.log('console errors:', consoleErrors.length ? JSON.stringify(consoleErrors, null, 1) : 'none');
   console.log('page errors:', pageErrors.length ? JSON.stringify(pageErrors, null, 1) : 'none');

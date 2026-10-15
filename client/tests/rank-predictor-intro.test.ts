@@ -3,12 +3,17 @@ import assert from 'node:assert/strict';
 import {
   DEFAULT_TUNING,
   INTRO_CLIP_ASPECT,
+  INTRO_MOBILE_CLIP_ASPECT,
+  INTRO_MOBILE_QUERY,
+  INTRO_MOBILE_SAFE_MARGINS,
   INTRO_SAFE_MARGINS,
   completionDeadlineMs,
   decideTransitionStart,
   getConnectionHint,
   introSafeFitSize,
+  isMobileIntroViewport,
   isPlainActivation,
+  pickIntroClip,
   prefersReducedMotion,
   shouldPrefetchIntro,
   warmIntroVideo,
@@ -80,7 +85,7 @@ test('getConnectionHint surfaces the connection hint when present', () => {
   assert.equal(getConnectionHint(undefined), undefined); // Node navigator has no connection
 });
 
-test('warmIntroVideo buffers the clip exactly once per page load', () => {
+test('warmIntroVideo buffers each clip exactly once per page load', () => {
   const created: Array<{ muted: boolean; preload: string; src: string; loads: number }> = [];
   const fakeDocument = {
     createElement: () => {
@@ -102,17 +107,39 @@ test('warmIntroVideo buffers the clip exactly once per page load', () => {
   globals.document = fakeDocument;
   try {
     warmIntroVideo('/assets/rank-predictor-intro.mp4');
-    warmIntroVideo('/assets/rank-predictor-intro.mp4'); // second call must be a no-op
-    warmIntroVideo('/some-other-url.mp4'); // so must any later call
+    warmIntroVideo('/assets/rank-predictor-intro.mp4'); // repeat for the same clip must be a no-op
+    warmIntroVideo('/assets/rank-predictor-intro-mobile.mp4'); // the other clip gets its own single warm load
+    warmIntroVideo('/assets/rank-predictor-intro-mobile.mp4');
+    warmIntroVideo('/assets/rank-predictor-intro.mp4'); // and back again — still warmed
 
-    assert.equal(created.length, 1, 'only one element may be created');
-    assert.equal(created[0].loads, 1, 'load() runs once');
+    assert.equal(created.length, 2, 'one element per clip');
+    assert.equal(created[0].loads, 1, 'landscape load() runs once');
+    assert.equal(created[1].loads, 1, 'portrait load() runs once');
     assert.equal(created[0].muted, true);
     assert.equal(created[0].preload, 'auto');
     assert.equal(created[0].src, '/assets/rank-predictor-intro.mp4');
+    assert.equal(created[1].src, '/assets/rank-predictor-intro-mobile.mp4');
   } finally {
     if (hadDocument) delete globals.document;
   }
+});
+
+test('pickIntroClip maps the viewport to the matching clip and orientation', () => {
+  const clips = { landscape: '/assets/rank-predictor-intro.mp4', portrait: '/assets/rank-predictor-intro-mobile.mp4' };
+  assert.deepEqual(pickIntroClip(clips, false), { url: clips.landscape, orientation: 'landscape' });
+  assert.deepEqual(pickIntroClip(clips, true), { url: clips.portrait, orientation: 'portrait' });
+});
+
+test('isMobileIntroViewport is null-safe and reads live query state', () => {
+  assert.equal(isMobileIntroViewport(null), false);
+  assert.equal(isMobileIntroViewport(undefined), false);
+  assert.equal(isMobileIntroViewport({ matches: false }), false);
+  assert.equal(isMobileIntroViewport({ matches: true }), true);
+});
+
+test('INTRO_MOBILE_QUERY is the site md breakpoint, not a new one', () => {
+  // mirrors index.css `@media (max-width: 767px)` / Tailwind md = 768px
+  assert.equal(INTRO_MOBILE_QUERY, '(max-width: 767px)');
 });
 
 // introSafeFitSize mirrors the presentation CSS (RankPredictorIntro.css) —
@@ -188,4 +215,69 @@ test('INTRO_SAFE_MARGINS stay clear of the clip\'s measured text clearances', ()
   // margins are fractions of their own axis and leave a usable safe box
   assert.ok(INTRO_SAFE_MARGINS.left + INTRO_SAFE_MARGINS.right < 0.1);
   assert.ok(INTRO_SAFE_MARGINS.top + INTRO_SAFE_MARGINS.bottom < 0.15);
+});
+
+// introSafeFitSize with the portrait clip's aspect + margins mirrors
+// .rp-intro--portrait in RankPredictorIntro.css — the same contract as the
+// landscape tests above, on the phone-shaped viewports the portrait clip serves.
+const MOBILE_VIEWPORTS: Array<[number, number]> = [
+  [390, 844], // iPhone 12/13/14
+  [375, 812], // iPhone X/11 Pro
+  [360, 800], // narrow Android
+  [412, 915], // tall Android
+  [375, 667], // classic 16:9 phone — exact clip cover
+  [736, 414], // landscape phone — wider than md, landscape clip in practice
+  [320, 568], // small legacy phone
+  [700, 390], // sub-md window in landscape aspect: worst-case mismatch
+];
+
+test('introSafeFitSize (portrait) never shrinks below contain and always keeps the clip aspect', () => {
+  for (const [vw, vh] of MOBILE_VIEWPORTS) {
+    const { width, height } = introSafeFitSize(vw, vh, {
+      clipAspect: INTRO_MOBILE_CLIP_ASPECT,
+      margins: INTRO_MOBILE_SAFE_MARGINS,
+    });
+    const containWidth = Math.min(vw, vh * INTRO_MOBILE_CLIP_ASPECT);
+    assert.ok(
+      width >= containWidth - 1e-6,
+      `${vw}x${vh}: width ${width} is below contain size ${containWidth}`,
+    );
+    assert.ok(
+      Math.abs(width / height - INTRO_MOBILE_CLIP_ASPECT) < 1e-9,
+      `${vw}x${vh}: aspect drift ${width / height}`,
+    );
+  }
+});
+
+test('introSafeFitSize (portrait) never crops past the measured safe margins', () => {
+  const horizontalBudget = INTRO_MOBILE_SAFE_MARGINS.left + INTRO_MOBILE_SAFE_MARGINS.right;
+  const verticalBudget = INTRO_MOBILE_SAFE_MARGINS.top + INTRO_MOBILE_SAFE_MARGINS.bottom;
+  for (const [vw, vh] of MOBILE_VIEWPORTS) {
+    const { width, height } = introSafeFitSize(vw, vh, {
+      clipAspect: INTRO_MOBILE_CLIP_ASPECT,
+      margins: INTRO_MOBILE_SAFE_MARGINS,
+    });
+    const cropX = width - vw;
+    const cropY = height - vh;
+    assert.ok(
+      cropX <= horizontalBudget * width + 1,
+      `${vw}x${vh}: side crop ${cropX} exceeds safe budget ${horizontalBudget * width}`,
+    );
+    assert.ok(
+      cropY <= verticalBudget * height + 1,
+      `${vw}x${vh}: top/bottom crop ${cropY} exceeds safe budget ${verticalBudget * height}`,
+    );
+  }
+});
+
+test('INTRO_MOBILE_SAFE_MARGINS stay clear of the portrait clip\'s measured text clearances', () => {
+  // measured from the clip's frames (px on 1080×1920, animation-wide minimum
+  // over sampled playback): nearest text sits 52/53/101/98px from the
+  // left/right/top/bottom edges
+  assert.ok(INTRO_MOBILE_SAFE_MARGINS.left * 1080 <= 52 - 15);
+  assert.ok(INTRO_MOBILE_SAFE_MARGINS.right * 1080 <= 53 - 15);
+  assert.ok(INTRO_MOBILE_SAFE_MARGINS.top * 1920 <= 101 - 18);
+  assert.ok(INTRO_MOBILE_SAFE_MARGINS.bottom * 1920 <= 98 - 18);
+  assert.ok(INTRO_MOBILE_SAFE_MARGINS.left + INTRO_MOBILE_SAFE_MARGINS.right < 0.1);
+  assert.ok(INTRO_MOBILE_SAFE_MARGINS.top + INTRO_MOBILE_SAFE_MARGINS.bottom < 0.15);
 });

@@ -1,9 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { completionDeadlineMs, DEFAULT_TUNING } from '../../lib/rankPredictorIntro';
+import { completionDeadlineMs, DEFAULT_TUNING, type IntroOrientation } from '../../lib/rankPredictorIntro';
 import './RankPredictorIntro.css';
 
 interface RankPredictorIntroProps {
   videoUrl: string;
+  /** Which clip is playing — selects its measured safe-fit presentation (see
+   *  RankPredictorIntro.css). Frozen for the whole transition by the parent,
+   *  so a resize across the mobile breakpoint never swaps videos mid-play. */
+  orientation?: IntroOrientation;
   /** Called exactly once when the transition is over — playback finished or a
    *  fallback fired. The parent navigates to /predictor in response. */
   onComplete: () => void;
@@ -20,8 +24,9 @@ const STANDBY_DELAY_MS = 700;
  * The clip plays once, muted and inline over an opaque base whose tone
  * matches the clip's own edges. Presentation is layered (see
  * RankPredictorIntro.css): the sharp clip covers the overlay as far as its
- * measured safe area allows — full-bleed on near-16:9 viewports, cropping
- * only margins the composition can spare — while a blurred, dimmed twin of
+ * measured safe area allows — full-bleed on viewports near the clip's own
+ * aspect (16:9 landscape or 9:16 portrait), cropping only margins the
+ * composition can spare — while a blurred, dimmed twin of
  * the same clip fills any remaining letterbox with tone-matched ambience, so
  * every screen reads as one continuous fullscreen motion and the branding
  * text near the clip's corners is never cut off on laptops, tablets or
@@ -30,7 +35,7 @@ const STANDBY_DELAY_MS = 700;
  * resolves to the same onComplete, so the student always lands on /predictor
  * and is never trapped behind a stuck overlay.
  */
-const RankPredictorIntro: React.FC<RankPredictorIntroProps> = ({ videoUrl, onComplete }) => {
+const RankPredictorIntro: React.FC<RankPredictorIntroProps> = ({ videoUrl, orientation = 'landscape', onComplete }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const backdropRef = useRef<HTMLVideoElement>(null);
   const [shown, setShown] = useState(false);
@@ -141,8 +146,8 @@ const RankPredictorIntro: React.FC<RankPredictorIntroProps> = ({ videoUrl, onCom
   return (
     <div
       className={`rp-intro fixed inset-0 z-[60] overflow-hidden transition-opacity duration-300 ease-out ${
-        shown ? 'opacity-100' : 'opacity-0'
-      }`}
+        orientation === 'portrait' ? 'rp-intro--portrait ' : ''
+      }${shown ? 'opacity-100' : 'opacity-0'}`}
       role="status"
       aria-label="Opening the Rank Predictor"
       onContextMenu={(event) => event.preventDefault()}

@@ -31,6 +31,9 @@ export const DEFAULT_TUNING: TransitionTuning = {
 /** Intrinsic aspect ratio of the intro clip (1920×1080). */
 export const INTRO_CLIP_ASPECT = 16 / 9;
 
+/** Intrinsic aspect ratio of the mobile portrait intro clip (1080×1920). */
+export const INTRO_MOBILE_CLIP_ASPECT = 9 / 16;
+
 /**
  * Composition safe area of the intro clip — how far presentation may crop
  * into the 1920×1080 frame from each edge before it reaches readable
@@ -47,11 +50,75 @@ export const INTRO_SAFE_MARGINS = {
   bottom: 0.065,
 } as const;
 
+/**
+ * Same measurement for the mobile portrait clip (2026-10-15): nearest
+ * readable text sits 52px/53px from the left/right edges (≈4.8%/4.9% of
+ * width) and 101px/98px from the top/bottom edges (≈5.3%/5.1% of height).
+ * Decorative elements — a horizontal streak reaching the left edge, a
+ * large background wordmark that drifts through the frame mid-animation
+ * (clipped by the clip's own composition at t≈2.2s/6.2s), dim light beams
+ * along the top — come closer and may crop, exactly like the landscape
+ * clip's brackets/glow. Margins are symmetric, so the portrait clip stays
+ * plain-centred (no shift needed).
+ */
+export const INTRO_MOBILE_SAFE_MARGINS = {
+  left: 0.032,
+  right: 0.032,
+  top: 0.041,
+  bottom: 0.041,
+} as const;
+
 export interface IntroSafeMargins {
   left: number;
   right: number;
   top: number;
   bottom: number;
+}
+
+/**
+ * Media query selecting the portrait clip: below the md breakpoint the
+ * site's own styling already treats as mobile (Tailwind's md = 768px; see
+ * the `@media (max-width: 767px)` block in index.css). Width-only on
+ * purpose: a landscape phone (e.g. 844×390) is wider than 768px and keeps
+ * the landscape clip, which presents correctly there — the portrait clip
+ * would letterbox badly on a wide viewport.
+ */
+export const INTRO_MOBILE_QUERY = '(max-width: 767px)';
+
+/** Which of the two intro clips a click will play. */
+export type IntroOrientation = 'landscape' | 'portrait';
+
+export interface IntroClips {
+  landscape: string;
+  portrait: string;
+}
+
+export interface IntroClip {
+  url: string;
+  orientation: IntroOrientation;
+}
+
+/**
+ * The clip a Rank Predictor click should play for the current viewport.
+ * One mapping used by both the prefetch warm-up and the click itself, so
+ * the warmed clip and the played clip can never disagree.
+ */
+export function pickIntroClip(clips: IntroClips, mobile: boolean): IntroClip {
+  return mobile
+    ? { url: clips.portrait, orientation: 'portrait' }
+    : { url: clips.landscape, orientation: 'landscape' };
+}
+
+/** True when a matchMedia query exists and currently matches — the shared
+ *  null-safe read behind the semantic predicates below (null-safe for
+ *  environments without matchMedia). */
+function queryMatches(query: { matches: boolean } | null | undefined): boolean {
+  return query !== null && query !== undefined && query.matches;
+}
+
+/** Reads the mobile-clip media query. */
+export function isMobileIntroViewport(query: { matches: boolean } | null | undefined): boolean {
+  return queryMatches(query);
 }
 
 /**
@@ -155,10 +222,9 @@ export function shouldPrefetchIntro(opts: { reducedMotion: boolean; connection?:
   return type !== 'slow-2g' && type !== '2g';
 }
 
-/** Reads `prefers-reduced-motion` off a matchMedia query (null-safe for
- *  environments without matchMedia). */
+/** Reads `prefers-reduced-motion` off a matchMedia query. */
 export function prefersReducedMotion(query: { matches: boolean } | null | undefined): boolean {
-  return query !== null && query !== undefined && query.matches;
+  return queryMatches(query);
 }
 
 /** Reads navigator.connection without depending on its non-standard typings. */
@@ -167,16 +233,19 @@ export function getConnectionHint(nav?: { connection?: ConnectionHint }): Connec
   return target?.connection;
 }
 
-let introWarmed = false;
+const introWarmedUrls = new Set<string>();
 
 /**
- * Starts buffering the intro clip into the browser's media cache — once per
- * page load, off-DOM — so the click-to-play transition can begin without a
- * visible stall. Idempotent and cheap to call from idle/hover/focus paths.
+ * Starts buffering an intro clip into the browser's media cache — once per
+ * clip per page load, off-DOM — so the click-to-play transition can begin
+ * without a visible stall. Single-flight is per URL: after a resize/rotate
+ * across the mobile breakpoint the now-relevant clip deserves its own warm
+ * load, while repeat calls for the same clip stay free. Idempotent and
+ * cheap to call from idle/hover/focus paths.
  */
 export function warmIntroVideo(url: string): void {
-  if (introWarmed) return;
-  introWarmed = true;
+  if (introWarmedUrls.has(url)) return;
+  introWarmedUrls.add(url);
   if (typeof document === 'undefined') return;
   const video = document.createElement('video');
   video.muted = true;

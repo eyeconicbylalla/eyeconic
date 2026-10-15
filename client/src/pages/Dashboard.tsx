@@ -5,13 +5,17 @@ import { appErrorMessage, appQuizApi, dailyPyqApi, isAppUnavailable } from '../l
 import {
   decideTransitionStart,
   getConnectionHint,
+  INTRO_MOBILE_QUERY,
+  isMobileIntroViewport,
   isPlainActivation,
+  pickIntroClip,
   prefersReducedMotion,
   shouldPrefetchIntro,
   warmIntroVideo,
 } from '../lib/rankPredictorIntro';
 import { useAppAuth } from '../context/AppAuthContext';
 import type { AnalyticsMe, ComparisonPayload, DailyPyqTodayPayload } from '../types/app';
+import type { IntroClip } from '../lib/rankPredictorIntro';
 import CohortComparisonCard from '../components/app/CohortComparisonCard';
 import MiniGtCard from '../components/app/MiniGtCard';
 import OpenInAppButton from '../components/app/OpenInAppButton';
@@ -19,6 +23,15 @@ import PlatformChoiceCard from '../components/app/PlatformChoiceCard';
 import RankPredictorIntro from '../components/app/RankPredictorIntro';
 import ReadinessCard from '../components/app/ReadinessCard';
 import rankPredictorIntroMp4 from '../assets/rank-predictor-intro.mp4';
+import rankPredictorIntroMobileMp4 from '../assets/rank-predictor-intro-mobile.mp4';
+
+/** The two entry animations: a 16:9 landscape clip for desktop/tablet-width
+ *  viewports and a 9:16 portrait clip for mobile-width ones (see
+ *  INTRO_MOBILE_QUERY — the site's md breakpoint, not a new one). */
+const INTRO_CLIPS = {
+  landscape: rankPredictorIntroMp4,
+  portrait: rankPredictorIntroMobileMp4,
+};
 
 /**
  * Integrated student dashboard: identity, tests and results come from the
@@ -48,12 +61,22 @@ const Dashboard: React.FC = () => {
   // Rank Predictor entry flourish: state lives here (not in the overlay) so a
   // duplicate click while it plays is swallowed and navigation on completion
   // unmounts everything in one step. Re-entering the dashboard resets it, so
-  // the animation plays on every visit.
-  const [introActive, setIntroActive] = useState(false);
+  // the animation plays on every visit. The clip is captured at click time —
+  // landscape or portrait per the then-current viewport — so a resize across
+  // the mobile breakpoint mid-playback can never swap or restart the video.
+  const [intro, setIntro] = useState<IntroClip | null>(null);
   const goPredictor = useCallback(() => navigate('/predictor'), [navigate]);
   const reduceMotionQuery = useMemo(
     () => (typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null),
     [],
+  );
+  const mobileIntroQuery = useMemo(
+    () => (typeof window.matchMedia === 'function' ? window.matchMedia(INTRO_MOBILE_QUERY) : null),
+    [],
+  );
+  const currentIntroClip = useCallback(
+    () => pickIntroClip(INTRO_CLIPS, isMobileIntroViewport(mobileIntroQuery)),
+    [mobileIntroQuery],
   );
   const introPrefetchAllowed = useCallback(
     () =>
@@ -66,48 +89,60 @@ const Dashboard: React.FC = () => {
 
   // Hover/focus on the CTA is a strong intent signal — warm immediately.
   const warmIntroIfAllowed = useCallback(() => {
-    if (introPrefetchAllowed()) warmIntroVideo(rankPredictorIntroMp4);
-  }, [introPrefetchAllowed]);
+    if (introPrefetchAllowed()) warmIntroVideo(currentIntroClip().url);
+  }, [introPrefetchAllowed, currentIntroClip]);
 
   const handleRankPredictorClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
     // Modified/middle clicks keep the browser's native open-in-new-tab etc.
     if (!isPlainActivation(event)) return;
     event.preventDefault();
     const decision = decideTransitionStart({
-      active: introActive,
+      active: intro !== null,
       reducedMotion: prefersReducedMotion(reduceMotionQuery),
     });
     if (decision === 'start') {
-      setIntroActive(true);
+      setIntro(currentIntroClip());
     } else if (decision === 'navigate-now') {
       goPredictor();
     }
     // 'ignore' — a transition is already playing; swallow the repeat click.
   };
 
-  // Warm the intro clip once the dashboard settles so the transition can
-  // start without a visible stall. Deferred to idle and skipped entirely on
-  // metered/2g connections and for reduced-motion students (they skip the
-  // animation); hovering/focusing the button warms it immediately.
+  // Warm the clip the current viewport would play once the dashboard settles,
+  // so the transition can start without a visible stall. Deferred to idle and
+  // skipped entirely on metered/2g connections and for reduced-motion students
+  // (they skip the animation); hovering/focusing the button warms it
+  // immediately. A resize/rotate across the mobile breakpoint fires the
+  // matchMedia change event and warms the newly selected clip too (the warm
+  // single-flight is per clip, so this stays one background load each) — but
+  // never mid-playback: the clip is frozen at click time, so the other clip
+  // can never be shown and warming it would only burn bandwidth.
   useEffect(() => {
     if (!introPrefetchAllowed()) return;
     let cancelled = false;
     const warm = () => {
-      if (!cancelled) warmIntroVideo(rankPredictorIntroMp4);
+      if (!cancelled && intro === null) warmIntroVideo(currentIntroClip().url);
     };
+    let stopWarmScheduler: () => void;
     if (typeof window.requestIdleCallback === 'function') {
       const id = window.requestIdleCallback(warm, { timeout: 4000 });
-      return () => {
-        cancelled = true;
-        window.cancelIdleCallback(id);
-      };
+      stopWarmScheduler = () => window.cancelIdleCallback(id);
+    } else {
+      const id = window.setTimeout(warm, 1500);
+      stopWarmScheduler = () => window.clearTimeout(id);
     }
-    const id = window.setTimeout(warm, 1500);
+    const query = mobileIntroQuery;
+    if (query && typeof query.addEventListener === 'function') {
+      query.addEventListener('change', warm);
+    }
     return () => {
       cancelled = true;
-      window.clearTimeout(id);
+      stopWarmScheduler();
+      if (query && typeof query.removeEventListener === 'function') {
+        query.removeEventListener('change', warm);
+      }
     };
-  }, [introPrefetchAllowed]);
+  }, [introPrefetchAllowed, currentIntroClip, mobileIntroQuery, intro]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -292,7 +327,9 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Rank Predictor entry flourish — fixed overlay, above the navbar. */}
-      {introActive && <RankPredictorIntro videoUrl={rankPredictorIntroMp4} onComplete={goPredictor} />}
+      {intro && (
+        <RankPredictorIntro videoUrl={intro.url} orientation={intro.orientation} onComplete={goPredictor} />
+      )}
     </section>
   );
 };
