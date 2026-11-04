@@ -71,107 +71,72 @@ function App() {
       <Router>
         <ScrollToHash />
         <div className="bg-[#0A0F14] min-h-screen text-[#F8FAFC] flex flex-col relative">
-          <Navbar />
+          {/* Navbar hidden for the temporary site blackout (see Routes below). */}
+          {/* <Navbar /> */}
           {/* The navbar is a fixed overlay; this single reservation guarantees
               every route's content starts below it (--nav-h is published by the
               Navbar from its measured height — see index.css for fallbacks). */}
           <main className="flex-grow pt-[var(--nav-h)]">
             <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/app-link" element={<AppLink />} />
-              <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
-              <Route
-                path="/platform-choice"
-                element={
-                  <Suspense fallback={<RouteFallback />}>
-                    <RequireAuth><PlatformChoice /></RequireAuth>
-                  </Suspense>
-                }
-              />
-              <Route
-                path="/readiness"
-                element={
-                  <Suspense fallback={<RouteFallback />}>
-                    <RequireAuth><Readiness /></RequireAuth>
-                  </Suspense>
-                }
-              />
-              <Route path="/daily-pyq" element={<RequireAuth><DailyPyq /></RequireAuth>} />
-              <Route path="/daily-pyq/history" element={<RequireAuth><DailyPyqHistory /></RequireAuth>} />
-              <Route path="/mini-gt/history" element={<RequireAuth><MiniGtHistory /></RequireAuth>} />
-              <Route path="/mini-cct/history" element={<Navigate to="/mini-gt/history" replace />} />
-              <Route path="/tests" element={<RequireAuth><Tests /></RequireAuth>} />
-              <Route path="/tests/:quizId" element={<RequireAuth><TestDetail /></RequireAuth>} />
-              <Route path="/tests/:quizId/attempt" element={<RequireAuth><TestAttempt /></RequireAuth>} />
-              <Route path="/tests/:quizId/results/:attemptId" element={<RequireAuth><TestResults /></RequireAuth>} />
-              <Route
-                path="/predictor"
-                element={
-                  <Suspense fallback={<RouteFallback />}>
-                    <RequireAuth intercept={<SignInGate />}>
-                      <Predictor />
-                    </RequireAuth>
-                  </Suspense>
-                }
-              />
-              <Route
-                path="/predictor/history"
-                element={
-                  <Suspense fallback={<RouteFallback />}>
-                    <RequireAuth intercept={<SignInGate />}>
-                      <PredictorHistory />
-                    </RequireAuth>
-                  </Suspense>
-                }
-              />
-              <Route
-                path="/predictor/history/:id"
-                element={
-                  <Suspense fallback={<RouteFallback />}>
-                    <RequireAuth intercept={<SignInGate />}>
-                      <PredictorHistory />
-                    </RequireAuth>
-                  </Suspense>
-                }
-              />
+              {/* -------------------------------------------------------------
+                TEMPORARY SITE BLACKOUT (owner request, 2026-11-05).
+                Every route below is deliberately unmounted; the catch-all at
+                the end renders the 404 page for EVERY URL. Navbar, Footer and
+                the WhatsApp button are commented out too (further below), so
+                the whole site reads as gone. The website API is blacked out
+                the same way in server/server.js.
+
+                RESTORE: uncomment the routes + chrome below and redeploy.
+              ------------------------------------------------------------- */}
+              {/* <Route path="/" element={<Home />} /> */}
+              {/* <Route path="/app-link" element={<AppLink />} /> */}
+              {/* <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} /> */}
+              {/* <Route path="/platform-choice" element={<Suspense fallback={<RouteFallback />}><RequireAuth><PlatformChoice /></RequireAuth></Suspense>} /> */}
+              {/* <Route path="/readiness" element={<Suspense fallback={<RouteFallback />}><RequireAuth><Readiness /></RequireAuth></Suspense>} /> */}
+              {/* <Route path="/daily-pyq" element={<RequireAuth><DailyPyq /></RequireAuth>} /> */}
+              {/* <Route path="/daily-pyq/history" element={<RequireAuth><DailyPyqHistory /></RequireAuth>} /> */}
+              {/* <Route path="/mini-gt/history" element={<RequireAuth><MiniGtHistory /></RequireAuth>} /> */}
+              {/* <Route path="/mini-cct/history" element={<Navigate to="/mini-gt/history" replace />} /> */}
+              {/* <Route path="/tests" element={<RequireAuth><Tests /></RequireAuth>} /> */}
+              {/* <Route path="/tests/:quizId" element={<RequireAuth><TestDetail /></RequireAuth>} /> */}
+              {/* <Route path="/tests/:quizId/attempt" element={<RequireAuth><TestAttempt /></RequireAuth>} /> */}
+              {/* <Route path="/tests/:quizId/results/:attemptId" element={<RequireAuth><TestResults /></RequireAuth>} /> */}
+              {/* <Route path="/predictor" element={<Suspense fallback={<RouteFallback />}><RequireAuth intercept={<SignInGate />}><Predictor /></RequireAuth></Suspense>} /> */}
+              {/* <Route path="/predictor/history" element={<Suspense fallback={<RouteFallback />}><RequireAuth intercept={<SignInGate />}><PredictorHistory /></RequireAuth></Suspense>} /> */}
+              {/* <Route path="/predictor/history/:id" element={<Suspense fallback={<RouteFallback />}><RequireAuth intercept={<SignInGate />}><PredictorHistory /></RequireAuth></Suspense>} /> */}
               {/* Legacy GT predictor retired at Phase 8 (spec §1/§18): exactly
                   one predictor is ever live — old links land on the new one. */}
-              <Route path="/gt-predictor" element={<Navigate to="/predictor" replace />} />
-              <Route
-                path="/admin"
-                element={
-                  <Suspense fallback={<RouteFallback />}>
-                    <Admin />
-                  </Suspense>
-                }
-              />
+              {/* <Route path="/gt-predictor" element={<Navigate to="/predictor" replace />} /> */}
+              {/* <Route path="/admin" element={<Suspense fallback={<RouteFallback />}><Admin /></Suspense>} /> */}
               {/* Free Login User Dashboard (Feature 08) moved into the Admin
                   Portal as its "Free Users" tab — old links land there. */}
-              <Route path="/mentor-dashboard" element={<Navigate to="/admin?tab=free-users" replace />} />
-              <Route path="/blogs" element={<Blogs />} />
-              <Route path="/blogs/search" element={<Blogs />} />
-              <Route path="/blogs/category/:categorySlug" element={<Blogs />} />
-              <Route path="/blogs/tag/:tagSlug" element={<Blogs />} />
-              <Route path="/blogs/author/:authorId" element={<Blogs />} />
-              <Route path="/blog/:slug" element={<BlogPost />} />
-              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-              <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
-              <Route path="/refund-policy" element={<RefundPolicy />} />
-              <Route path="/disclaimer" element={<Disclaimer />} />
+              {/* <Route path="/mentor-dashboard" element={<Navigate to="/admin?tab=free-users" replace />} /> */}
+              {/* <Route path="/blogs" element={<Blogs />} /> */}
+              {/* <Route path="/blogs/search" element={<Blogs />} /> */}
+              {/* <Route path="/blogs/category/:categorySlug" element={<Blogs />} /> */}
+              {/* <Route path="/blogs/tag/:tagSlug" element={<Blogs />} /> */}
+              {/* <Route path="/blogs/author/:authorId" element={<Blogs />} /> */}
+              {/* <Route path="/blog/:slug" element={<BlogPost />} /> */}
+              {/* <Route path="/privacy-policy" element={<PrivacyPolicy />} /> */}
+              {/* <Route path="/terms-and-conditions" element={<TermsAndConditions />} /> */}
+              {/* <Route path="/refund-policy" element={<RefundPolicy />} /> */}
+              {/* <Route path="/disclaimer" element={<Disclaimer />} /> */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
-          <Footer />
+          {/* Footer + WhatsApp hidden for the temporary site blackout (see
+              the Routes block above). */}
+          {/* <Footer /> */}
           {/* z-40 (below the navbar's mobile-menu scrim and modal backdrops)
               keeps the floating button from painting over an open menu. */}
-          <a
+          {/* <a
             href="https://wa.me/919116303037?text=Hey!%20I%20would%20like%20to%20know%20more%20about%20the%20mentorship%20program!"
             target="_blank"
             rel="noopener noreferrer"
             className="fixed bottom-6 right-6 z-40 transition-transform duration-300 hover:scale-110 block w-14 h-14"
           >
             <img src={waIcon} alt="WhatsApp" className="w-full h-full object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.35)]" />
-          </a>
+          </a> */}
         </div>
       </Router>
     </AppAuthProvider>
