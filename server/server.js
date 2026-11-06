@@ -89,42 +89,33 @@ app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 app.use(cookieParser());
 
 // Routes
-// ---------------------------------------------------------------------------
-// TEMPORARY API BLACKOUT (owner request, 2026-11-05). Every router below is
-// deliberately UNMOUNTED: all /api/* traffic falls through to the 404
-// catch-all near the bottom of this file ({ msg: 'Not found' }), matching the
-// site-wide blackout in client/src/App.tsx. The requires above stay live on
-// purpose so nothing else changes at boot.
-//
-// RESTORE: uncomment every app.use line in this block and redeploy.
-// ---------------------------------------------------------------------------
-// app.use('/api/auth', authRoutes);
-// app.use('/api/blogs', blogRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/blogs', blogRoutes);
 
 // Eyeconic App (mentorship) integration — student identity + quiz data.
 // The App API (Render) stays the single source of truth; these routes proxy
 // it with the student's App JWT held in an encrypted HttpOnly session.
 // Degrade gracefully (503) when the integration env is not configured so
 // blog/CRM deployments keep working without the new variables.
-// app.use('/api/app-auth', appAuthRoutes);
-// app.use('/api/app', appProxyRoutes);
+app.use('/api/app-auth', appAuthRoutes);
+app.use('/api/app', appProxyRoutes);
 
 // Free Login User Dashboard (Feature 08) — mentor/admin-only analytics over
 // the free-user population. Sits beside the student proxy: same App session,
 // but gated to mentor/admin roles here AND re-authorized by the App API on
 // every call; merges this server's own predictor collections into the data.
-// app.use('/api/mentor-dashboard', mentorDashboardRoutes);
+app.use('/api/mentor-dashboard', mentorDashboardRoutes);
 
 // Rank & Branch Predictor — Phase 7 API over the Phase 3–6 engine, with
 // every served prediction persisted (Phase 9 built in). Authed by the same
 // App student session as the proxy surface; needs Mongo for persistence.
-// app.use('/api/predictor', predictorRoutes);
+app.use('/api/predictor', predictorRoutes);
 
 // Platform Choice Recommender (Feature 06) — three tiered platform
 // recommendations from a configurable scoring matrix (platformChoice/config).
 // Same App student session; merges Mini GT signals (App API) with this
 // server's predictor collections; recommendations are persisted before serving.
-// app.use('/api/platform-choice', platformChoiceRoutes);
+app.use('/api/platform-choice', platformChoiceRoutes);
 if (!isIntegrationConfigured()) {
   console.warn(
     'App integration not configured — set APP_API_BASE_URL, APP_INTEGRATION_TOKEN and SESSION_SECRET to enable student sign-in and quizzes.'
