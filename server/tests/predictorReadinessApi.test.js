@@ -799,11 +799,16 @@ describe('readiness API — target-year + target-session selection (calendar rul
     // The persisted record is distinguishable from a 2027 check…
     expect(doc.request).toMatchObject({ targetYear: 2028 });
     expect(doc.calendar).toMatchObject({ targetYear: 2028, session: '2028' });
-    // …and re-derives verified against the SAME year, not the nearest exam
-    // (the frozen-minted cookie is still readable at the real clock).
+    // …and re-derives verified against the SAME year, not the nearest exam.
+    // The frozen-minted cookie carries a 7-day expiresAt from 2026-10-01 —
+    // at the real clock it expired on 2026-10-08 (this GET began failing
+    // for every run after that purely from time passing; found 2026-11-14
+    // during the 2027-01 distribution ingestion). The re-derivation check
+    // is about the persisted targetYear, not cookie reuse — so the GET
+    // authenticates the SAME user with a fresh real-clock cookie.
     const got = await request(app)
       .get(`/api/predictor/readiness/${res.body.readinessId}`)
-      .set('Cookie', frozenCookie);
+      .set('Cookie', await login());
     expect(got.status).toBe(200);
     expect(got.body.verified).toBe(true);
     expect(got.body.result.calendar).toMatchObject({ targetYear: 2028, session: '2028' });
