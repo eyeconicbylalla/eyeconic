@@ -181,6 +181,20 @@ def main():
     check(by_rank.get(226) == g26["anchor_rank226_micros"]
           and by_rank.get(1525) == g26["anchor_rank1525_micros"],
           "inicet dist 2026-01: official page-1 anchors (rank 226 -> 99.6254026, rank 1525 -> 97.3533118)")
+    # 2027-01 (manual grab 2026-11-14, Notification 304/2026 — NO S.No column
+    # layout): counts + page-1 anchors reproduce exactly (rank 322 / 23698).
+    d27 = json.loads((PD / "distribution/ini-cet-2027-01/v1/rank-percentile.json").read_text(encoding="utf-8"))
+    g27 = gd["s2027_01"]
+    by_rank27 = {r[0]: r[1] for r in d27["rows"]}
+    check(d27["validation"]["rows"] == g27["rows"]
+          and d27["validation"]["max_rank"] == g27["max_rank"]
+          and d27["validation"]["rank_gaps"] == g27["rank_gaps"]
+          and abs(d27["validation"]["min_percentile"] - g27["min_pct"]) < 1e-9
+          and d27["rows"][0][1] == 100_000_000,
+          "inicet dist 2027-01: golden counts + rank-1 percentile 100.0")
+    check(by_rank27.get(322) == g27["anchor_rank322_micros"]
+          and by_rank27.get(23698) == g27["anchor_rank23698_micros"],
+          "inicet dist 2027-01: official page-1 anchors (rank 322 -> 99.4865211, rank 23698 -> 61.5573357)")
 
     for sess, gg in (("2025-07", gi["counselling_2025_07"]), ("2023-01", gi["counselling_2023_01"]),
                      ("2026-01", gi["counselling_2026_01"])):

@@ -27,7 +27,7 @@ PARSED = ROOT / "data" / "parsed" / "aiims"
 RAWLOG = ROOT / "data" / "raw" / "aiims" / "download-log.json"
 PD = ROOT / "server" / "predictor-data"
 
-DIST_SESSIONS = ["2021-07", "2022-01", "2023-07", "2024-01", "2025-01", "2025-07", "2026-01"]
+DIST_SESSIONS = ["2021-07", "2022-01", "2023-07", "2024-01", "2025-01", "2025-07", "2026-01", "2027-01"]
 # complete round sets only (1st + 2nd + open). 2026-01's set completed
 # 2026-09-21 (manual browser grab of Notifications 327/2025 + 02/2026 + 69/2026).
 COUNS_SESSIONS = ["2023-01", "2024-01", "2024-07", "2025-01", "2025-07", "2026-01"]

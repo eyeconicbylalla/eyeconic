@@ -256,17 +256,28 @@ def parse_result(pdf: Path, session: str):
             continue
         if section is None:
             continue
-        # S.No Roll [Category] [Applied-Under] [PWBD] Rank Percentile
+        # [S.No] Roll [Category] [Applied-Under] [PWBD] Rank Percentile
+        # S.No is OPTIONAL: every session through 2026-01 publishes it, but
+        # 2027-01 dropped the column (rows start at the roll number). For
+        # historical lines the optional group still captures it exactly as
+        # before (verified byte-identical); for sno-less lines the group
+        # backtracks to None — a leading number can never be split between
+        # the two groups because the split requires whitespace and rolls
+        # (6-10 digits, prefix 82...) never contain it.
         # 2026-01 publishes percentiles with up to 7 decimals (77.9197591);
         # every earlier session used <= 6. {1,7} matches both — verified:
         # it leaves all historical parses byte-identical and yields 0 bad
         # lines on the 2026-01 file (32,374 rows).
         m = re.match(
-            r"^\s*(\d{1,6})\s+(\d{6,10})\s+((?:[A-Za-z*./-]+\s+){0,3}?)(\d{1,6})\s+(\d{1,3}\.\d{1,7})\s*$",
+            r"^\s*(?:(\d{1,6})\s+)?(\d{6,10})\s+((?:[A-Za-z*./-]+\s+){0,3}?)(\d{1,6})\s+(\d{1,3}\.\d{1,7})\s*$",
             line,
         )
         if not m:
-            if re.match(r"^\s*\d{1,6}\s+\d{6,10}\s+\S", line):
+            # row-shaped but unparseable: with S.No, or the 2027-01 sno-less
+            # shape (roll first, then letters — scoped so wrapped text or
+            # roll-only fragments never false-positive)
+            if re.match(r"^\s*\d{1,6}\s+\d{6,10}\s+\S", line) or \
+                    re.match(r"^\s*\d{6,10}\s+[A-Za-z*./-]", line):
                 bad.append((ln, line.strip()))
             continue
         sno, roll, middle, rank, pct = m.groups()
@@ -275,7 +286,7 @@ def parse_result(pdf: Path, session: str):
         except ValueError:
             bad.append((ln, line.strip()))
             continue
-        rows.append({"sno": int(sno), "roll": roll, "category": cat,
+        rows.append({"sno": int(sno) if sno is not None else None, "roll": roll, "category": cat,
                      "applied_under": applied, "pwbd": pwbd,
                      "rank": int(rank), "percentile": float(pct), "section": section})
     if not rows or len(rows) < 1000:
@@ -331,6 +342,14 @@ SESSIONS = {
     # round set, so this session's counselling snapshot can be built.
     "2026-01": {"result": "result.pdf",
                 "rounds": {"1st": "round-1st.pdf", "2nd": "round-2nd.pdf", "open": "round-open.pdf"}},
+    # January 2027 session (manual grab 2026-11-14): result = Notification
+    # 304/2026 (06-11-2026), CBT held 01-11-2026, 880 pages. LAYOUT CHANGE:
+    # this session publishes NO S.No column — rows start at the roll number
+    # (the row regex below makes sno OPTIONAL for this; historical sessions
+    # always carry it, and their parses stay byte-identical, verified by
+    # before/after hashes at ingestion time). Counselling rounds had not
+    # started at ingestion time — result only.
+    "2027-01": {"result": "result.pdf"},
 }
 
 # Old-portal wayback round files for 2021/2022 (renamed in place by this run):

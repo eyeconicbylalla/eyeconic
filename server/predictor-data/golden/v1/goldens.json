@@ -89,7 +89,8 @@
      "2024-01",
      "2025-01",
      "2025-07",
-     "2026-01"
+     "2026-01",
+     "2027-01"
     ],
     "s2025_07": {
      "rows": 46884,
@@ -114,6 +115,17 @@
      "source": "manual browser grab 2026-09-21 (Notification 250/2025); page-1 anchors pinned below",
      "anchor_rank226_micros": 99625403,
      "anchor_rank1525_micros": 97353312
+    },
+    "s2027_01": {
+     "rows": 32495,
+     "max_rank": 33862,
+     "rank_gaps": 1367,
+     "min_pct": 45.4152516,
+     "first_pct": 100.0,
+     "first_rank": 1,
+     "source": "manual grab 2026-11-14 (Notification 304/2026, CBT 01-11-2026); LAYOUT CHANGE: no S.No column; page-1 anchors pinned below (rank 322 / rank 23698)",
+     "anchor_rank322_micros": 99486521,
+     "anchor_rank23698_micros": 61557336
     }
    },
    "counselling_2025_07": {
