@@ -90,7 +90,7 @@ console.log(`  ${neetChecked.toLocaleString('en-US')} closings verified (0 viola
 // ---- INI-CET -----------------------------------------------------------------
 
 console.log('INI-CET — inverse-ladder round trip + span states over every counselling closing rank');
-const priorModel = buildPriorModel(store.loadIniCetPrior().data, EXAMS.INI_CET.pattern);
+const priorModel = buildPriorModel(store.loadIniCetPrior(EXAMS.INI_CET.prior.file).data, EXAMS.INI_CET.pattern);
 const iniPattern = EXAMS.INI_CET.pattern;
 const bestAir = Math.min(...priorModel.airSpan);
 const worstAir = Math.max(...priorModel.airSpan);
@@ -107,15 +107,20 @@ console.log(`  ladder inverse identity over marks ${priorModel.marksSpan[0].toFi
 let iniIn = 0;
 let iniAbove = 0;
 let iniBelow = 0;
-for (const session of ['2023-01', '2024-01', '2024-07', '2025-01', '2025-07', '2026-01']) {
+// prior-model corrects span (v1: 110–160 Hazra; v2 since Phase C: 110–169.88
+// r/INICET) — never hardcode the endpoints, the model carries them.
+const spanLow = Math.min(...priorModel.correctsSpan);
+const spanHigh = Math.max(...priorModel.correctsSpan);
+for (const session of ['2023-01', '2024-01', '2024-07', '2025-01', '2025-07', '2026-01', '2026-07']) {
   const idx = buildCounsellingIndex(store.loadIniCetCounselling(session).data);
   for (const row of idx.rows) {
     const r = row.closing;
     const e = requiredCorrectsIniCet({ closingRanks: [r], priorModel, pattern: iniPattern }).perClosing[0];
     if (e.state === 'in-ladder') {
       iniIn += 1;
-      check(`s${session} r${r}`, r >= bestAir && r <= worstAir && e.corrects >= 110 && e.corrects <= 160,
-        `state=${e.state} corrects=${e.corrects}`);
+      check(`s${session} r${r}`, r >= bestAir && r <= worstAir
+        && e.corrects >= Math.floor(spanLow) && e.corrects <= Math.ceil(spanHigh),
+        `state=${e.state} corrects=${e.corrects}`); // ceil: D5 rounds the rung up (169.88 -> 170)
     } else if (e.state === 'above-ladder') {
       iniAbove += 1;
       check(`s${session} r${r}`, r < bestAir && e.corrects === null, 'above-ladder must be strictly better than the best rung');

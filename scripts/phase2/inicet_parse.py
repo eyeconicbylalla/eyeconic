@@ -33,8 +33,15 @@ CATS = {"UR", "EWS", "OBC", "SC", "ST"}
 # with [-PWBD] [-roster] [/COURSE-TAG] (EWS-10/OPH), course seats (UR-MRC),
 # sponsored (IP-n), institute pool (INST-n), open-round non-clinical (OCS),
 # preference/domicile earmarks (UR-AIIMS-Preference, UR-Karnataka Domicile).
+# July-2026 prints sponsored/foreign seats as LITERAL title-case tokens
+# ("Sponsored", "Foreign National" — prior sessions printed IP-n or nothing);
+# matched case-insensitively, family uppercased, annotation kept raw (the
+# RESTRICTED pool routes on mixed-case "Preference"/"Domicile").
 # Category = leading family; the annotation is preserved raw.
-SEAT_RE = re.compile(r"^(UR|OBC|SC|ST|EWS|IP|PWBD|INST|OCS)(?:[-/ ]?(.+))?$")
+SEAT_RE = re.compile(
+    r"^(UR|OBC|SC|ST|EWS|IP|PWBD|INST|OCS|SPONSORED|(?:FOREIGN|BHUTANI)(?:\s+NATIONAL)?)(?:[-/ ]?(.+))?$",
+    re.I,
+)
 
 # Round data row: roll, rank, [category], [applied/pwbd tokens], specialty, institute, seat
 ROW_RE = re.compile(
@@ -137,15 +144,18 @@ def parse_data_line(line: str):
         return None
     roll, rank, mid = lm.groups()
 
-    # seat token after the institute (absent on Foreign-National rows)
+    # seat token after the institute (absent on Foreign-National rows of
+    # pre-2026 sessions; Jul-2026 prints "Sponsored"/"Foreign National")
     seat_str = tail.strip()
     seat_cat, seat_pwd, annotation = None, False, None
     if seat_str and seat_str != "NA":
         sm = SEAT_RE.match(seat_str)
         if not sm:
             return ("BAD", f"unrecognized seat token {seat_str!r}")
-        seat_cat = sm.group(1)
-        seat_pwd = "PWBD" in seat_str
+        seat_cat = sm.group(1).upper()
+        if seat_cat.startswith(("FOREIGN", "BHUTANI")):
+            seat_cat = "FOREIGN"  # canonical family ("Foreign/Bhutani National")
+        seat_pwd = "PWBD" in seat_str.upper()
         annotation = (sm.group(2) or "").strip() or None
 
     # leading tokens of `mid`: category / applied-under / pwbd; rest = specialty
@@ -170,13 +180,13 @@ def parse_data_line(line: str):
         return ("BAD", "no specialty after middle tokens")
 
     pool = "GENERAL"
-    if seat_cat == "IP" or "SPONSORED" in " ".join(applied).upper() or "SPON" in " ".join(applied).upper():
+    if seat_cat in ("IP", "SPONSORED") or "SPONSORED" in " ".join(applied).upper() or "SPON" in " ".join(applied).upper():
         pool = "SPONSORED"
     elif seat_cat == "INST":
         pool = "INSTITUTE"
     elif seat_cat == "OCS":
         pool = "OCS"
-    elif seat_cat is None or "FOREIGN" in " ".join(applied).upper():
+    elif seat_cat is None or seat_cat == "FOREIGN" or "FOREIGN" in " ".join(applied).upper():
         pool = "FOREIGN"
     elif annotation and ("Domicile" in annotation or "Preference" in annotation):
         pool = "RESTRICTED"
@@ -196,6 +206,18 @@ def parse_round(pdf: Path, session: str, round_name: str):
     rows, status_rows, bad = [], [], []
     for ln, line in enumerate(text.splitlines(), 1):
         if PAGE_RE.search(line) or "Result Notification" in line:
+            continue
+        # July-2026 layout: foreign/sponsored candidates are listed in their
+        # OWN sections AFTER MDS ("1.3. Foreign/Sponsored MDMS Courses",
+        # "1.4. Foreign/Sponsored MDS Course") — without this they would
+        # inherit the MDS tag (a rank-44421 "MDS" row is impossible: the MDS
+        # rank space tops out ~3.1k). These headers re-set the section; pool
+        # routing still sends every such row to a non-general pool.
+        if re.search(r"Foreign/Sponsored\s+MDMS\s+Courses?\b", line, re.I):
+            section = "MDMS"
+            continue
+        if re.search(r"Foreign/Sponsored\s+MDS\s+Courses?\b", line, re.I):
+            section = "MDS"
             continue
         if MDS_SECTION_RE.search(line):
             section = "MDS"
@@ -341,6 +363,12 @@ SESSIONS = {
     # (open, 21-02-2026). 1st + 2nd + open = the complete online-counselling
     # round set, so this session's counselling snapshot can be built.
     "2026-01": {"result": "result.pdf",
+                "rounds": {"1st": "round-1st.pdf", "2nd": "round-2nd.pdf", "open": "round-open.pdf"}},
+    # July 2026 session (manual grab 2026-11-15): result = Notification
+    # 175/2026 (23-05-2026, CBT held 16-05-2026, no S.No column like 2027-01);
+    # rounds = Notifications 205/2026 (1st, 24-06-2026), 216/2026 (2nd,
+    # 10-07-2026), 261/2026 (open, 21-08-2026) — complete round set.
+    "2026-07": {"result": "result.pdf",
                 "rounds": {"1st": "round-1st.pdf", "2nd": "round-2nd.pdf", "open": "round-open.pdf"}},
     # January 2027 session (manual grab 2026-11-14): result = Notification
     # 304/2026 (06-11-2026), CBT held 01-11-2026, 880 pages. LAYOUT CHANGE:

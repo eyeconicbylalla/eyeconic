@@ -8,8 +8,8 @@
  */
 const store = require('../../predictor/store');
 
-const DIST_SESSIONS = ['2021-07', '2022-01', '2023-07', '2024-01', '2025-01', '2025-07', '2026-01'];
-const COUNS_SESSIONS = ['2023-01', '2024-01', '2024-07', '2025-01', '2025-07', '2026-01'];
+const DIST_SESSIONS = ['2021-07', '2022-01', '2023-07', '2024-01', '2025-01', '2025-07', '2026-01', '2026-07'];
+const COUNS_SESSIONS = ['2023-01', '2024-01', '2024-07', '2025-01', '2025-07', '2026-01', '2026-07'];
 
 describe('INI-CET snapshot store (M2 Phase 1)', () => {
   it('loads every distribution session hash-verified with monotone percentiles', () => {
@@ -103,8 +103,8 @@ describe('INI-CET snapshot store (M2 Phase 1)', () => {
   });
 
   it('is a hard failure to load a session the store does not carry', () => {
-    // 2026-01 joined the store 2026-09-21 (manual-grab distribution; anchor
-    // stays 2025-07) — 2026-07 is the not-carried example now.
-    expect(() => store.loadIniCetDistribution('2026-07')).toThrow(/not listed in MANIFEST/);
+    // 2026-01 joined the store 2026-09-21; 2026-07 joined 2026-11-15 (Phase E
+    // backfill) — 2027-07 is the not-carried example now (next July session).
+    expect(() => store.loadIniCetDistribution('2027-07')).toThrow(/not listed in MANIFEST/);
   });
 });

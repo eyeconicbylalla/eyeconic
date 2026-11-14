@@ -181,6 +181,20 @@ def main():
     check(by_rank.get(226) == g26["anchor_rank226_micros"]
           and by_rank.get(1525) == g26["anchor_rank1525_micros"],
           "inicet dist 2026-01: official page-1 anchors (rank 226 -> 99.6254026, rank 1525 -> 97.3533118)")
+    # 2026-07 (manual grab 2026-11-15, Notification 175/2026): counts + page-1
+    # anchors reproduce exactly (rank 1858 / 44157). UNIQUE gap-free rank space.
+    d276 = json.loads((PD / "distribution/ini-cet-2026-07/v1/rank-percentile.json").read_text(encoding="utf-8"))
+    g276 = gd["s2026_07"]
+    by_rank276 = {r[0]: r[1] for r in d276["rows"]}
+    check(d276["validation"]["rows"] == g276["rows"]
+          and d276["validation"]["max_rank"] == g276["max_rank"]
+          and d276["validation"]["rank_gaps"] == g276["rank_gaps"] == 0
+          and abs(d276["validation"]["min_percentile"] - g276["min_pct"]) < 1e-9
+          and d276["rows"][0][1] == 100_000_000,
+          "inicet dist 2026-07: golden counts + rank-1 percentile 100.0")
+    check(by_rank276.get(1858) == g276["anchor_rank1858_micros"]
+          and by_rank276.get(44157) == g276["anchor_rank44157_micros"],
+          "inicet dist 2026-07: official page-1 anchors (rank 1858 -> 98.0221518, rank 44157 -> 52.3820877); gap-free rank space 1..48437")
     # 2027-01 (manual grab 2026-11-14, Notification 304/2026 — NO S.No column
     # layout): counts + page-1 anchors reproduce exactly (rank 322 / 23698).
     d27 = json.loads((PD / "distribution/ini-cet-2027-01/v1/rank-percentile.json").read_text(encoding="utf-8"))
@@ -197,7 +211,7 @@ def main():
           "inicet dist 2027-01: official page-1 anchors (rank 322 -> 99.4865211, rank 23698 -> 61.5573357)")
 
     for sess, gg in (("2025-07", gi["counselling_2025_07"]), ("2023-01", gi["counselling_2023_01"]),
-                     ("2026-01", gi["counselling_2026_01"])):
+                     ("2026-01", gi["counselling_2026_01"]), ("2026-07", gi["counselling_2026_07"])):
         cs = json.loads((PD / f"counselling/ini-cet-{sess}/v1/closing-ranks.json").read_text(encoding="utf-8"))
         yy, mm = sess.split("-")
         check(cs["snapshot_id"] == f"DS-INICET-COUNSELLING-{yy}{mm}-v1", f"inicet couns {sess}: snapshot id")
@@ -224,9 +238,20 @@ def main():
           and c26["load_stats"]["seats_by_pool"]["GENERAL"] == g26c["general_pool"]
           and len(c26["institutes"]) == g26c["institutes"]
           and len(c26["courses"]) == g26c["specialties"],
-          "inicet couns 2026-01: final-state merge pins (2618 from 1611/1274/754, 2218 general-pool)")
+          "inicet couns 2026-01: final-state merge pins (2740 from 1720/1306/760, 2218 general-pool; load_stats corrected 2026-11-15 — closing-rank rows unchanged)")
     check(max(r[5] for r in c26["rows"]) <= 31511,
           "inicet couns 2026-01: closing ranks within the qualified rank space (max <= 31511)")
+    # 2026-07 (complete manual-grab round set, Notifications 205/216/261 of 2026)
+    c276 = json.loads((PD / "counselling/ini-cet-2026-07/v1/closing-ranks.json").read_text(encoding="utf-8"))
+    g276c = gi["counselling_2026_07"]
+    check(c276["load_stats"]["final_rows"] == g276c["final_rows"]
+          and c276["load_stats"]["rows_from"] == g276c["rows_from"]
+          and c276["load_stats"]["seats_by_pool"]["GENERAL"] == g276c["general_pool"]
+          and len(c276["institutes"]) == g276c["institutes"]
+          and len(c276["courses"]) == g276c["specialties"],
+          "inicet couns 2026-07: final-state merge pins (2653 from 1649/1234/656, 2043 general-pool)")
+    check(max(r[5] for r in c276["rows"]) <= 48437,
+          "inicet couns 2026-07: closing ranks within the qualified rank space (max <= 48437)")
     anchors = gi["anchors_2025_07"]
 
     def find_group(cs, inst, spec, cat):
@@ -260,6 +285,20 @@ def main():
     r28 = find_group(c26, "JIPMER PUDUCHERRY", "GENERAL MEDICINE", "UR")
     check(r28 is not None and r28[5] == a26["genmed_jipmer_ur"]["closing"] and r28[6] == a26["genmed_jipmer_ur"]["opening"],
           "inicet couns 2026-01: JIPMER GenMed UR anchor (opening 1 — overall rank 1 held this seat)")
+
+    # 2026-07 official anchors (Notification 205/2026 page 1: rank 1 = SC candidate
+    # holding AIIMS ND Medicine seat UR-1, ranks 2/3 = AIIMS ND Medicine UR-2/UR-3)
+    a276 = gi["anchors_2026_07"]
+    r276 = find_group(c276, "AIIMS NEW DELHI", "GENERAL MEDICINE", "UR")
+    check(r276 is not None and r276[5] == a276["genmed_aiimsnd_ur"]["closing"]
+          and r276[6] == a276["genmed_aiimsnd_ur"]["opening"] and r276[7] == a276["genmed_aiimsnd_ur"]["count"],
+          "inicet couns 2026-07: AIIMS ND GenMed UR anchor (closing 3 / opening 1 / 3 seats — page-1 ranks 1-3)")
+    r277 = find_group(c276, "AIIMS NEW DELHI", "RADIODIAGNOSIS", "UR")
+    check(r277 is not None and r277[5] == a276["radiodiagnosis_aiimsnd_ur"]["closing"],
+          "inicet couns 2026-07: AIIMS ND Radiodiagnosis UR anchor (closing 4)")
+    r278 = find_group(c276, "JIPMER PUDUCHERRY", "GENERAL MEDICINE", "UR")
+    check(r278 is not None and r278[5] == a276["genmed_jipmer_ur"]["closing"] and r278[6] == a276["genmed_jipmer_ur"]["opening"],
+          "inicet couns 2026-07: JIPMER GenMed UR anchor (opening 13 / closing 54 / 7 seats)")
 
     # --- INI-CET crowd priors (Phase 5 weak-step bridge; v2 current + v1 legacy) ---
     for gkey, label in (("inicet_prior_v2", "inicet prior v2 (2027-01)"), ("inicet_prior", "inicet prior v1 (legacy 2025-07)")):
