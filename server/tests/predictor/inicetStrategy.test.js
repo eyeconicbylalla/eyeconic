@@ -208,18 +208,18 @@ describe('INI-CET Phase 6 — branch/college matching over official AIIMS allotm
     ).toThrow(PredictorError);
   });
 
-  it('matches mid ranks across all 6 sessions with unique session tags (§12)', () => {
+  it('matches mid ranks across all 7 sessions with unique session tags (§12)', () => {
     const result = branchesFor([500, 2000], 'UR');
     expect(result.stage).toBe('BRANCHES');
     expect(result.quota).toBe('INI');
-    expect(result.years).toHaveLength(6);
+    expect(result.years).toHaveLength(7);
     // session-aware year tags: YYYYMM, unique + sortable (Jan/Jul distinct)
-    expect(result.years.map((y) => y.year)).toEqual([202301, 202401, 202407, 202501, 202507, 202601]);
+    expect(result.years.map((y) => y.year)).toEqual([202301, 202401, 202407, 202501, 202507, 202601, 202607]);
     expect(result.years.every((y) => typeof y.session === 'string' && /^\d{4}-\d{2}$/.test(y.session))).toBe(true);
-    expect(result.dataCoverage.years).toEqual([202301, 202401, 202407, 202501, 202507, 202601]);
-    expect(result.dataCoverage.snapshotIds).toHaveLength(6);
+    expect(result.dataCoverage.years).toEqual([202301, 202401, 202407, 202501, 202507, 202601, 202607]);
+    expect(result.dataCoverage.snapshotIds).toHaveLength(7);
     const matched = result.years.filter((y) => y.counts.total > 0);
-    expect(matched.length).toBe(6);
+    expect(matched.length).toBe(7);
     const rows = matched.flatMap((y) => Object.values(y.rows).flat());
     expect(rows.length).toBeGreaterThan(50);
     for (const row of rows) {
@@ -298,13 +298,13 @@ describe('INI-CET — product gate OPEN (M2 UI step)', () => {
     expect(r.method.version).toBe('inicet-branch-p7-v1');
     expect(r.method.stage).toBe('BRANCHES');
     expect(r.method.datasetSnapshots.distribution).toBe('DS-INICET-DISTRIBUTION-202701-v1');
-    expect(r.method.datasetSnapshots.counselling).toHaveLength(6);
+    expect(r.method.datasetSnapshots.counselling).toHaveLength(7);
     expect(r.input.quota).toBe('INI');
     expect(r.input.quotaLabel).toBe('Single INI counselling pool');
     expect(r.estimate.transfer.mode).toBe('TIER_3_CROWD_PRIOR_PRIMARY');
     expect(r.rank.session).toBe('2027-01');
     expect(r.branches.coverage === 'MATCHED' || r.branches.coverage === 'PARTIAL').toBe(true);
-    expect(r.branches.dataCoverage.years).toEqual([202301, 202401, 202407, 202501, 202507, 202601]);
+    expect(r.branches.dataCoverage.years).toEqual([202301, 202401, 202407, 202501, 202507, 202601, 202607]);
   });
 
   it('reserved categories get the UR-only-prior caution in the engine result (§9)', () => {

@@ -36,9 +36,11 @@ const NOW_EXHAUSTED = new Date('2028-11-13T06:00:00Z'); // past every seeded dat
 const REQ = {
   NEET_PG: { QUALIFY: 86, ANY_SEAT: 66, STRONG: 160 },
   // Phase C prior v2 (2026-11-14): ANY_SEAT (44,418) is beyond the ladder
-  // floor (21,000) ⇒ conservative 110c; STRONG (rank 4) now sits exactly on
-  // the ladder's TOP rung (170c) — in-ladder where the v1 era was open-ended.
-  INI_CET: { ANY_SEAT: 110, STRONG: 170 },
+  // floor (21,000) ⇒ conservative 110c. Phase E (2026-11-15): the trailing-4
+  // window slid to 2025-01..2026-07 and STRONG tightened to AIR 3 — ABOVE
+  // the ladder's top rung (AIR 4 at 169.88c) ⇒ open-ended null with
+  // ladderEndCorrects 169.88 (v1-era shape, now carrying the ceiling value).
+  INI_CET: { ANY_SEAT: 110, STRONG: null },
 };
 
 function thrownBy(fn) {
@@ -238,7 +240,7 @@ describe('Readiness Score — Phase 3 domain (§10 pipeline)', () => {
       expect(r.target.evidence).not.toBeNull();
     });
 
-    test('INI-CET: ANY_SEAT below-ladder ⇒ conservative 110c floor + note; STRONG sits ON the v2 top rung (§18.5)', () => {
+    test('INI-CET: ANY_SEAT below-ladder ⇒ conservative 110c floor + note; STRONG above the v2 top rung (§18.5)', () => {
       const r = computeReadiness(gts('INI_CET', 110), { now: NOW_0926 });
       const byId = Object.fromEntries(r.anchors.map((a) => [a.id, a]));
       expect(byId.ANY_SEAT).toMatchObject({
@@ -248,15 +250,18 @@ describe('Readiness Score — Phase 3 domain (§10 pipeline)', () => {
         bounded: true,
       });
       expect(byId.ANY_SEAT.note).toMatch(/beyond the crowd ladder's floor rung/i);
-      // Phase C: the v2 ladder's best reported rung is AIR 4 at 169.88
-      // corrects — the STRONG anchor (rank 4) resolves exactly there instead
-      // of the v1 era's open-ended above-ladder statement.
+      // Phase E (2026-11-15): the trailing-4 window slid to 2025-01..2026-07
+      // and Jul-2026's AIIMS ND GenMed closed at AIR 3 — better than the v2
+      // ladder's best reported rung (AIR 4 at 169.88c). STRONG is open-ended
+      // again (above-ladder, ladderEndCorrects carries the 169.88 ceiling).
       expect(byId.STRONG).toMatchObject({
-        rank: 4,
-        requiredCorrects: 170,
-        requiredState: 'in-ladder',
-        bounded: false,
+        rank: 3,
+        requiredCorrects: null,
+        requiredState: 'above-ladder',
+        bounded: true,
+        ladderEndCorrects: 169.88,
       });
+      expect(byId.STRONG.note).toMatch(/better than the crowd ladder's best rung/i);
       // The CONTEXT anchor never breaks the default-target math.
       expect(r.target.id).toBe('ANY_SEAT');
       expect(r.gap.requiredCorrects).toBe(110);

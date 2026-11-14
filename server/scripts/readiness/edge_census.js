@@ -303,7 +303,11 @@ function runDomainCensus() {
     const r = computeReadiness(gts('INI_CET', 110), { now: NOW_0926 });
     const s = r.anchors.find((x) => x.id === 'STRONG');
     assertEq(s.requiredCorrects, null, 'open-ended');
-    assertEq(s.ladderEndCorrects, 160, 'ladder end echoed');
+    // v1 Hazra era: ceiling 160c. Phase C v2 ladder: top rung AIR 4 at 169.88c
+    // (STRONG was in-ladder then). Phase E (2026-11-15): trailing-4 window slid
+    // to 2025-01..2026-07, Jul-2026 GenMed closed at AIR 3 ⇒ above-ladder again,
+    // ceiling echoed from the v2 ladder.
+    assertEq(s.ladderEndCorrects, 169.88, 'ladder end echoed');
     assertEq(r.target.id, 'ANY_SEAT', 'target unchanged');
   });
 

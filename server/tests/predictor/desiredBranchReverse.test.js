@@ -26,7 +26,7 @@ const store = require('../../predictor/store');
 const distModel = buildDistributionModel(store.loadNeetPgDistribution().data);
 const priorModel = buildPriorModel(store.loadIniCetPrior(EXAMS.INI_CET.prior.file).data, EXAMS.INI_CET.pattern);
 const neetIdx = [2024, 2025].map((y) => buildCounsellingIndex(store.loadNeetPgCounselling(y).data));
-const iniIdx = ['2023-01', '2024-01', '2024-07', '2025-01', '2025-07', '2026-01'].map((s) =>
+const iniIdx = ['2023-01', '2024-01', '2024-07', '2025-01', '2025-07', '2026-01', '2026-07'].map((s) =>
   buildCounsellingIndex(store.loadIniCetCounselling(s).data)
 );
 

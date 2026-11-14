@@ -298,14 +298,17 @@ describe('readiness API — POST /readiness (persist before serve)', () => {
     });
     const anySeat = r.anchors.find((a) => a.id === 'ANY_SEAT');
     expect(anySeat.note).toMatch(/beyond the crowd ladder's floor rung/i);
-    // Phase C v2 ladder: STRONG = AIR 4 sits exactly on the top rung (170c)
-    // — in-ladder where the v1 (Hazra) era was open-ended; still context-only.
+    // Phase E (2026-11-15): trailing-4 window slid to 2025-01..2026-07 and
+    // STRONG tightened to AIR 3 (AIIMS ND GenMed, Jul-2026) — ABOVE the v2
+    // ladder's top rung (AIR 4 at 169.88c) ⇒ open-ended with the ceiling
+    // carried in ladderEndCorrects; still context-only.
     const strong = r.anchors.find((a) => a.id === 'STRONG');
     expect(strong).toMatchObject({
-      rank: 4,
-      requiredCorrects: 170,
-      requiredState: 'in-ladder',
-      bounded: false,
+      rank: 3,
+      requiredCorrects: null,
+      requiredState: 'above-ladder',
+      bounded: true,
+      ladderEndCorrects: 169.88,
     });
     // Crowd prior always flagged; UR caveat always noted (§6.4/§6.5).
     expect(r.warnings.map((w) => w.code)).toContain('CROWD_SOURCED_PRIOR');

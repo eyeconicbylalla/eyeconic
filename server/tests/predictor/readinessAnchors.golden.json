@@ -1,6 +1,6 @@
 {
   "anchorSetRuleId": "readiness-anchors-v1",
-  "generatedAt": "2026-09-26",
+  "generatedAt": "2026-11-14",
   "anchors": {
     "anchorSetRuleId": "readiness-anchors-v1",
     "NEET_PG": {
@@ -85,10 +85,10 @@
         "source": {
           "kind": "counselling",
           "snapshotIds": [
-            "DS-INICET-COUNSELLING-202407-v1",
             "DS-INICET-COUNSELLING-202501-v1",
             "DS-INICET-COUNSELLING-202507-v1",
-            "DS-INICET-COUNSELLING-202601-v1"
+            "DS-INICET-COUNSELLING-202601-v1",
+            "DS-INICET-COUNSELLING-202607-v1"
           ],
           "filters": {
             "quota": "INI",
@@ -99,22 +99,12 @@
         },
         "evidence": {
           "sessionsScanned": [
-            "2024-07",
             "2025-01",
             "2025-07",
-            "2026-01"
+            "2026-01",
+            "2026-07"
           ],
           "perSessionMax": [
-            {
-              "session": "2024-07",
-              "snapshotId": "DS-INICET-COUNSELLING-202407-v1",
-              "rank": 40967,
-              "holder": {
-                "institute": "AIIMS MANGALAGIRI",
-                "course": "PHYSIOLOGY"
-              },
-              "rowsMatched": 273
-            },
             {
               "session": "2025-01",
               "snapshotId": "DS-INICET-COUNSELLING-202501-v1",
@@ -144,6 +134,16 @@
                 "course": "ANATOMY"
               },
               "rowsMatched": 325
+            },
+            {
+              "session": "2026-07",
+              "snapshotId": "DS-INICET-COUNSELLING-202607-v1",
+              "rank": 37704,
+              "holder": {
+                "institute": "JIPMER PUDUCHERRY",
+                "course": "ANATOMY"
+              },
+              "rowsMatched": 299
             }
           ],
           "holder": {
@@ -156,15 +156,15 @@
       "STRONG": {
         "id": "STRONG",
         "role": "context",
-        "rank": 4,
+        "rank": 3,
         "definition": "The tightest (best) UR closing rank among General Medicine groups across the trailing 4 INI-CET counselling sessions.",
         "source": {
           "kind": "counselling",
           "snapshotIds": [
-            "DS-INICET-COUNSELLING-202407-v1",
             "DS-INICET-COUNSELLING-202501-v1",
             "DS-INICET-COUNSELLING-202507-v1",
-            "DS-INICET-COUNSELLING-202601-v1"
+            "DS-INICET-COUNSELLING-202601-v1",
+            "DS-INICET-COUNSELLING-202607-v1"
           ],
           "filters": {
             "quota": "INI",
@@ -174,7 +174,7 @@
           "trailingSessions": 4
         },
         "evidence": {
-          "rowsMatched": 66,
+          "rowsMatched": 72,
           "courseVariantsMatched": [
             "GENERAL MEDICINE"
           ],
@@ -182,7 +182,7 @@
             "institute": "AIIMS NEW DELHI",
             "course": "GENERAL MEDICINE"
           },
-          "holderSession": "2025-07"
+          "holderSession": "2026-07"
         }
       }
     }

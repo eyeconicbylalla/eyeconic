@@ -163,38 +163,40 @@ describe('engine.predictRequired — NEET PG (official reverse chain)', () => {
 });
 
 describe('engine.predictRequired — INI-CET (crowd-ladder reverse chain)', () => {
-  it('full result: golden target [4, 2910], both ends resolvable on the v2 ladder', () => {
+  it('full result: golden target [3, 2910], likely end resolvable on the v2 ladder', () => {
     const r = engine.predictRequired({ exam: 'INI_CET', branchKey: INI_GM, category: 'UR' });
     expect(r.method.version).toBe('desired-inicet-v2');
     expect(r.method.datasetSnapshots).toMatchObject({
       prior: 'PR-INICET-CORRECTS-AIR-202701-v1',
       distribution: null,
     });
-    expect(r.method.datasetSnapshots.counselling).toHaveLength(6);
-    expect(r.target.targetRankRange).toEqual([4, 2910]);
-    // v2 (Phase C): the ladder's top rung reaches AIR 4 itself — the safe end
-    // is now a finite 170c target where the v1 era was bounded-above (null);
-    // the likely end needs 139c (was 134c — same closings, fresher ladder).
+    expect(r.method.datasetSnapshots.counselling).toHaveLength(7);
+    expect(r.target.targetRankRange).toEqual([3, 2910]);
+    // Phase E (2026-11-15): Jul-2026 tightened the GenMed UR tight end to
+    // closing 3 — above the v2 ladder's best rung (AIR 4 at 169.88c), so the
+    // safe end is open-ended again (bounded-above null); the likely end still
+    // needs 139c for closing 2910.
     expect(r.required.perClosing.map((e) => [e.closing, e.state, e.corrects])).toEqual([
-      [4, 'in-ladder', 170],
+      [3, 'above-ladder', null],
       [2910, 'in-ladder', 139],
     ]);
     expect(r.warnings.map((w) => w.code)).toContain('CROWD_SOURCED_PRIOR');
     expect(r.warnings.map((w) => w.code)).not.toContain('PRIOR_UR_ONLY'); // UR query
   });
 
-  it('D7 gap: finite safe end on the v2 ladder — WITHIN_REACH at the likely boundary', () => {
+  it('D7 gap: bounded-above safe end — WITHIN_REACH at the likely boundary', () => {
     const within = engine.predictRequired({ exam: 'INI_CET', branchKey: INI_GM, category: 'UR', gts: gts(140, 138) });
     expect(within.gap).toEqual({
-      status: 'WITHIN_REACH', // mean 139 = likely target exactly; safe 170 not yet reached
-      gapToSafe: -31,
+      status: 'WITHIN_REACH', // mean 139 = likely target exactly; safe end open-ended
+      gapToSafe: null,
       gapToLikely: 0,
-      bounded: { safe: false, likely: false },
+      bounded: { safe: true, likely: false },
     });
     const below = engine.predictRequired({ exam: 'INI_CET', branchKey: INI_GM, category: 'UR', gts: gts(120) });
     expect(below.gap.status).toBe('BELOW_TARGET');
-    expect(below.gap.gapToSafe).toBe(-50); // both ends finite on the v2 ladder
-    expect(below.gap.bounded.safe).toBe(false);
+    expect(below.gap.gapToSafe).toBeNull(); // safe end above the ladder — no finite gap exists
+    expect(below.gap.gapToLikely).toBe(-19); // 139c likely target − 120c mean
+    expect(below.gap.bounded.safe).toBe(true);
   });
 
   it('reserved category adds the UR-only-prior warning (§9)', () => {

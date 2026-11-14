@@ -20,7 +20,7 @@ const { DESIRED_BRANCH } = require('../../predictor/config');
 // ---- real indexes (committed, hash-verified store) ---------------------------
 
 const neetIdx = [2024, 2025].map((y) => buildCounsellingIndex(store.loadNeetPgCounselling(y).data));
-const iniIdx = ['2023-01', '2024-01', '2024-07', '2025-01', '2025-07', '2026-01'].map((s) =>
+const iniIdx = ['2023-01', '2024-01', '2024-07', '2025-01', '2025-07', '2026-01', '2026-07'].map((s) =>
   buildCounsellingIndex(store.loadIniCetCounselling(s).data)
 );
 
@@ -125,20 +125,21 @@ describe('buildBranchCatalog — NEET PG (committed snapshots, AIQ pool)', () =>
 describe('buildBranchCatalog — INI-CET (committed snapshots, INI pool)', () => {
   const catalog = buildBranchCatalog({ indexes: iniIdx, quota: 'INI' });
 
-  it('carries the six YYYYMM session tags with session strings (Jan/Jul distinct)', () => {
-    expect(catalog.builtFrom.map((b) => b.year)).toEqual([202301, 202401, 202407, 202501, 202507, 202601]);
+  it('carries the seven YYYYMM session tags with session strings (Jan/Jul distinct)', () => {
+    expect(catalog.builtFrom.map((b) => b.year)).toEqual([202301, 202401, 202407, 202501, 202507, 202601, 202607]);
     expect(catalog.builtFrom.map((b) => b.session)).toEqual([
-      '2023-01', '2024-01', '2024-07', '2025-01', '2025-07', '2026-01',
+      '2023-01', '2024-01', '2024-07', '2025-01', '2025-07', '2026-01', '2026-07',
     ]);
-    expect(catalog.branches).toHaveLength(105); // golden
+    expect(catalog.branches).toHaveLength(109); // golden (2026-07 backfill: +4 course keys)
   });
 
-  it('covers GENERAL MEDICINE in all six sessions', () => {
+  it('covers GENERAL MEDICINE in all seven sessions', () => {
     const gm = catalog.branches.find((b) => b.key === 'general medicine');
     expect(gm).toBeDefined();
     expect(gm.display).toBe('GENERAL MEDICINE');
-    expect(Object.keys(gm.perYear)).toEqual(['202301', '202401', '202407', '202501', '202507', '202601']);
+    expect(Object.keys(gm.perYear)).toEqual(['202301', '202401', '202407', '202501', '202507', '202601', '202607']);
     expect(gm.perYear['202507'].groups).toBe(65); // golden
+    expect(gm.perYear['202607'].groups).toBe(72); // golden (Phase E backfill)
   });
 });
 
@@ -204,17 +205,18 @@ describe('resolveTarget — NEET PG real data (D1 target semantics)', () => {
 });
 
 describe('resolveTarget — INI-CET real data (session semantics)', () => {
-  it('UR non-PwD General Medicine across six sessions; AIIMS-New-Delhi tight end (golden)', () => {
+  it('UR non-PwD General Medicine across seven sessions; AIIMS-New-Delhi tight end (golden)', () => {
     const t = resolveTarget({
       indexes: iniIdx, branchKey: 'general medicine', category: 'UR', pwd: false, quota: 'INI',
     });
     expect(t.coverage).toBe('MATCHED');
-    expect(t.targetRankRange).toEqual([4, 2910]);
-    // matches the pinned inicetStore golden: AIIMS ND GenMed UR closes at 4 (Jul-2025)
-    expect(t.tightest).toMatchObject({ closing: 4, year: 202507, session: '2025-07', institute: 'AIIMS NEW DELHI' });
+    expect(t.targetRankRange).toEqual([3, 2910]);
+    // matches the pinned validator golden: AIIMS ND GenMed UR closes at 3 in
+    // Jul-2026 (page-1 ranks 1-3 held the three seats); Jul-2025 closed at 4
+    expect(t.tightest).toMatchObject({ closing: 3, year: 202607, session: '2026-07', institute: 'AIIMS NEW DELHI' });
     expect(t.loosest).toMatchObject({ closing: 2910, year: 202601, session: '2026-01' });
     const sess = t.years.map((y) => y.session);
-    expect(sess).toEqual(['2023-01', '2024-01', '2024-07', '2025-01', '2025-07', '2026-01']);
+    expect(sess).toEqual(['2023-01', '2024-01', '2024-07', '2025-01', '2025-07', '2026-01', '2026-07']);
     // every year entry is session-tagged with its own snapshot id
     for (const y of t.years) {
       expect(y.snapshotId).toMatch(/^DS-INICET-COUNSELLING-\d{6}-v1$/);

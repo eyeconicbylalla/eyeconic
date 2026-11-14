@@ -26,16 +26,17 @@ describe('Readiness Score — Phase 1 anchors', () => {
     expect(derived.NEET_PG.ANY_SEAT.rank).toBe(182260);
     expect(derived.NEET_PG.STRONG.rank).toBe(13);
     expect(derived.INI_CET.ANY_SEAT.rank).toBe(44418);
-    expect(derived.INI_CET.STRONG.rank).toBe(4);
+    expect(derived.INI_CET.STRONG.rank).toBe(3);
   });
 
   test('cross-check vs independent DBP goldens (tight ends of the GenMed UR spans)', () => {
     // DBP Phase 1 goldens: NEET PG GenMed UR 2025 span [13, 9511];
-    // INI-CET GenMed UR across sessions span [4, 2910]. The readiness STRONG
-    // anchors are exactly those tight ends — an independent derivation path
-    // agreeing on the same official data.
+    // INI-CET GenMed UR across sessions span [3, 2910] (tight end moved to
+    // Jul-2026 in the Phase E backfill: AIIMS ND closed at rank 3). The
+    // readiness STRONG anchors are exactly those tight ends — an independent
+    // derivation path agreeing on the same official data.
     expect(derived.NEET_PG.STRONG.rank).toBe(13);
-    expect(derived.INI_CET.STRONG.rank).toBe(4);
+    expect(derived.INI_CET.STRONG.rank).toBe(3);
     expect(derived.NEET_PG.STRONG.evidence.courseVariantsMatched).toEqual(['M.D. (GENERAL MEDICINE)']);
     expect(derived.INI_CET.STRONG.evidence.holder.institute).toBe('AIIMS NEW DELHI');
   });
@@ -50,7 +51,10 @@ describe('Readiness Score — Phase 1 anchors', () => {
 
   test('INI-CET ANY_SEAT: trailing-4 window, per-session maxima, deepest session recorded', () => {
     const a = derived.INI_CET.ANY_SEAT;
-    expect(a.evidence.sessionsScanned).toEqual(['2024-07', '2025-01', '2025-07', '2026-01']);
+    // Phase E (2026-11-15): 2026-07 entered the window, 2024-07 slid out.
+    // ANY_SEAT itself is unchanged — 2026-07's deepest UR close (37,704)
+    // stays above 2025-07's 44,418.
+    expect(a.evidence.sessionsScanned).toEqual(['2025-01', '2025-07', '2026-01', '2026-07']);
     const perSession = Object.fromEntries(a.evidence.perSessionMax.map((p) => [p.session, p.rank]));
     expect(Math.max(...Object.values(perSession))).toBe(a.rank);
     expect(a.evidence.holderSession).toBe('2025-07');

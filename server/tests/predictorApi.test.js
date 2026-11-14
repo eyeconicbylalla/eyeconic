@@ -612,7 +612,7 @@ describe('predictor API — INI-CET predictions (M2: live end-to-end)', () => {
     expect(p.rank.session).toBe('2027-01');
     expect(p.rank.rankRange[0]).toBeLessThan(p.rank.rankRange[1]);
     expect(p.branches.coverage === 'MATCHED' || p.branches.coverage === 'PARTIAL').toBe(true);
-    expect(p.branches.dataCoverage.years).toEqual([202301, 202401, 202407, 202501, 202507, 202601]);
+    expect(p.branches.dataCoverage.years).toEqual([202301, 202401, 202407, 202501, 202507, 202601, 202607]);
     for (const y of p.branches.years) {
       expect(y.counts.total).toBeGreaterThanOrEqual(0);
       expect(y.rows).toBeUndefined(); // paginated endpoint serves rows
@@ -690,14 +690,14 @@ describe('predictor API — Desired Branch (Feature 02: reverse flow, D6 persist
     expect(res.body.roundConvention).toContain('final state');
   });
 
-  it('serves the INI-CET catalog with six session tags', async () => {
+  it('serves the INI-CET catalog with seven session tags', async () => {
     const cookie = await login();
     const res = await request(app).get('/api/predictor/branches?exam=INI_CET').set('Cookie', cookie);
     expect(res.status).toBe(200);
     expect(res.body.builtFrom.map((b) => b.session)).toEqual([
-      '2023-01', '2024-01', '2024-07', '2025-01', '2025-07', '2026-01',
+      '2023-01', '2024-01', '2024-07', '2025-01', '2025-07', '2026-01', '2026-07',
     ]);
-    expect(res.body.branches).toHaveLength(105);
+    expect(res.body.branches).toHaveLength(109); // Phase E: +4 course keys from Jul-2026
     expect(res.body.branches.find((b) => b.key === INI_GM)).toBeTruthy();
   });
 

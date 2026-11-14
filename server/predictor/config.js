@@ -148,15 +148,18 @@ const EXAMS = {
       // Final-state closing ranks per session (M2 Phase 1; complete round
       // sets only). Sessions are the counselling "years" for INI-CET — the
       // shared matcher tags them YYYYMM so Jan/Jul stay distinct.
-      // 2026-01 added 2026-09-21 (manual-grab round set, Notifications
-      // 327/2025 + 02/2026 + 69/2026). The distribution ANCHOR stays
-      // 2025-07 (Option A) — only the branch-matching coverage extends.
+      // 2026-01 added 2026-09-21 (Notifications 327/2025 + 02/2026 + 69/2026);
+      // 2026-07 added 2026-11-15, Phase E backfill (Notifications 205/2026 +
+      // 216/2026 + 261/2026). The distribution ANCHOR stays 2027-01 (Phase C)
+      // — only the branch-matching coverage extends. Adding a session also
+      // slides the readiness ANY_SEAT/STRONG trailing-4 window (by design).
       { session: '2023-01', snapshotId: 'DS-INICET-COUNSELLING-202301-v1', examYear: 2023 },
       { session: '2024-01', snapshotId: 'DS-INICET-COUNSELLING-202401-v1', examYear: 2024 },
       { session: '2024-07', snapshotId: 'DS-INICET-COUNSELLING-202407-v1', examYear: 2024 },
       { session: '2025-01', snapshotId: 'DS-INICET-COUNSELLING-202501-v1', examYear: 2025 },
       { session: '2025-07', snapshotId: 'DS-INICET-COUNSELLING-202507-v1', examYear: 2025 },
       { session: '2026-01', snapshotId: 'DS-INICET-COUNSELLING-202601-v1', examYear: 2026 },
+      { session: '2026-07', snapshotId: 'DS-INICET-COUNSELLING-202607-v1', examYear: 2026 },
     ],
     prior: {
       // Phase C (2026-11-14): v2 = r/INICET Nov-2026 compilation, 18 pooled
