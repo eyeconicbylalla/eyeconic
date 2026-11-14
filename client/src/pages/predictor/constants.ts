@@ -211,3 +211,40 @@ export const DESIRED_WARNING_SHORT: Record<string, string> = {
   PRIOR_UR_ONLY:
     'Reserved category: the rank → marks step is weaker still (its priors cover UR only).',
 };
+
+/**
+ * Phase D outcome-capture campaigns — gentle, time-boxed nudges on the result
+ * page (plan 2026-11-14). A campaign makes the collapsed outcome card louder
+ * for the exam whose results just came out; it never changes what is
+ * collected (the §15 consent flow is untouched). Windows are IST-ish dates
+ * (results day → counselling end) and are compared in local time — close
+ * enough for a nudge, no timezone machinery warranted.
+ */
+export interface OutcomeCampaign {
+  from: string; // ISO date, results announced
+  to: string; // ISO date, nudge retires (counselling wraps)
+  examDate: string; // human phrase for the exam sitting
+  ctaNote: string; // small reassurance line under the CTA
+}
+
+export const OUTCOME_CAMPAIGNS: Record<string, OutcomeCampaign> = {
+  INI_CET: {
+    from: '2026-11-06', // Result Notification 304/2026 (06-11-2026)
+    to: '2027-02-28', // open round of the Jan-2027 counselling expected done
+    examDate: '1 November 2026',
+    ctaNote: 'Takes a minute · voluntary · edit or withdraw anytime',
+  },
+};
+
+/** The active campaign for an exam, or null outside its window. */
+export function activeOutcomeCampaign(
+  exam: string,
+  now: Date = new Date()
+): OutcomeCampaign | null {
+  const campaign = OUTCOME_CAMPAIGNS[exam];
+  if (!campaign) return null;
+  const t = now.getTime();
+  return t >= new Date(campaign.from).getTime() && t <= new Date(campaign.to).getTime()
+    ? campaign
+    : null;
+}

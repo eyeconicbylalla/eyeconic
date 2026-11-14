@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Loader2, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { errorField, predictorEndpoints, predictorErrorMessage } from '../../lib/predictorClient';
 import type { OutcomeRecordResponse, OutcomeSubmission, PredictionResult } from '../../types/predictor';
 import { fmtRank } from './format';
-import { OUTCOME_MAX_SCORE } from './constants';
+import { OUTCOME_MAX_SCORE, activeOutcomeCampaign } from './constants';
 
 /**
  * Outcome capture (§15, §18 Phases 10a+10b) — the consent-based post-exam
@@ -537,7 +537,37 @@ const OutcomeCard: React.FC<{ predictionId: string; result: PredictionResult }> 
     );
   }
 
-  // Collapsed intro (nothing recorded yet).
+  // Collapsed intro (nothing recorded yet). During a Phase D campaign window
+  // (results just out for this exam) the intro is the gentle nudge itself —
+  // louder copy, primary action — while the consent flow it opens is exactly
+  // the same §15 flow as always.
+  const campaign = activeOutcomeCampaign(result.exam);
+  if (campaign) {
+    return (
+      <div
+        className="bg-[#18222E] border border-[#18B6A4]/35 rounded-2xl p-6 mt-6"
+        data-anim="fade-up"
+        data-outcome-campaign={result.exam}
+      >
+        <span className="sr-only" aria-live="polite">{announce}</span>
+        <h3 className="font-semibold text-[#F8FAFC] flex items-center gap-2">
+          <Sparkles size={16} className="text-[#4DD7C8]" />
+          Wrote the {result.exam === 'INI_CET' ? 'INI-CET' : 'exam'} on {campaign.examDate}? Your result just came out
+        </h3>
+        <p className="text-sm text-[#CBD5E1] mt-2">
+          Add your actual AIR or percentile below — every shared result pairs a real outcome with this
+          prediction and makes the next range sharper, for you and for everyone after you.
+        </p>
+        <div className="flex flex-wrap items-center gap-3 mt-4">
+          <button type="button" onClick={() => openForm()} className="btn btn-primary text-sm px-4 py-2">
+            <Plus size={14} className="mr-1.5" /> Add my actual result
+          </button>
+          <span className="text-[11px] text-[#94A3B8]">{campaign.ctaNote}</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-[#18222E] border border-white/[0.06] rounded-2xl p-6 mt-6" data-anim="fade-up">
       <span className="sr-only" aria-live="polite">{announce}</span>
