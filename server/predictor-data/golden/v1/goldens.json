@@ -199,7 +199,30 @@
    "anchors": {
     "corrects_140": 1000,
     "corrects_120": 10000
-   }
+   },
+   "file": "priors/inicet/v1/hazra-corrects-air.json",
+   "source": "Hazra Jul-2025 ladder (retired anchor era \u2014 kept for legacy re-derivation)"
+  },
+  "inicet_prior_v2": {
+   "file": "priors/inicet/v2/corrects-air-202701.json",
+   "prior_id": "PR-INICET-CORRECTS-AIR-202701-v1",
+   "ur_only": true,
+   "points": 18,
+   "source_points": 39,
+   "corrects_span": [
+    110.0,
+    169.88
+   ],
+   "air_span": [
+    4,
+    21000
+   ],
+   "anchors": {
+    "corrects_125.0": 8900,
+    "corrects_141.75": 1911,
+    "corrects_110.0": 21000
+   },
+   "note": "r/INICET Nov-2026 compilation, pooled by scripts/phaseC/build_inicet_prior_v2.py; corrects_span [floor,best] ascends, air_span [bestAir,worstAir] like v1"
   }
  }
 }

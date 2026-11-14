@@ -261,23 +261,28 @@ def main():
     check(r28 is not None and r28[5] == a26["genmed_jipmer_ur"]["closing"] and r28[6] == a26["genmed_jipmer_ur"]["opening"],
           "inicet couns 2026-01: JIPMER GenMed UR anchor (opening 1 — overall rank 1 held this seat)")
 
-    # --- INI-CET crowd prior (Phase 5 weak-step bridge) ----------------------
-    gp = gold.get("inicet_prior")
-    if gp:
-        prior = json.loads((PD / "priors/inicet/v1/hazra-corrects-air.json").read_text(encoding="utf-8"))
+    # --- INI-CET crowd priors (Phase 5 weak-step bridge; v2 current + v1 legacy) ---
+    for gkey, label in (("inicet_prior_v2", "inicet prior v2 (2027-01)"), ("inicet_prior", "inicet prior v1 (legacy 2025-07)")):
+        gp = gold.get(gkey)
+        if not gp:
+            continue
+        prior = json.loads((PD / gp["file"]).read_text(encoding="utf-8"))
         pts = sorted(prior["runtime_points"], key=lambda p: -p["corrects"])
-        check(prior["snapshot_id"] == gp["prior_id"], "inicet prior: snapshot id")
+        check(prior["snapshot_id"] == gp["prior_id"], f"{label}: snapshot id")
         check(prior["source"]["type"] == "crowd-sourced" and prior["source"]["ur_only"] is gp["ur_only"],
-              "inicet prior: crowd-sourced + UR-only provenance")
+              f"{label}: crowd-sourced + UR-only provenance")
         check(len(pts) == gp["points"] and all(pts[i]["air"] < pts[i + 1]["air"] for i in range(len(pts) - 1)),
-              "inicet prior: 7 monotone ladder points")
+              f"{label}: {gp['points']} monotone ladder points")
         check([pts[-1]["corrects"], pts[0]["corrects"]] == gp["corrects_span"]
               and [pts[0]["air"], pts[-1]["air"]] == gp["air_span"],
-              "inicet prior: spans pinned")
-        a = gp["anchors"]
+              f"{label}: spans pinned")
         by_c = {p["corrects"]: p["air"] for p in pts}
-        check(by_c[140] == a["corrects_140"] and by_c[120] == a["corrects_120"],
-              "inicet prior: ladder anchors (140c->1000, 120c->10000)")
+        for ckey, cval in gp["anchors"].items():
+            c = float(ckey.replace("corrects_", ""))
+            check(by_c.get(c) == cval, f"{label}: ladder anchor {ckey} -> {cval}")
+        if "source_points" in gp:
+            check(len(prior.get("source_points", [])) == gp["source_points"],
+                  f"{label}: source-point traceability ({gp['source_points']} reported rows)")
 
     print()
     if failures:
