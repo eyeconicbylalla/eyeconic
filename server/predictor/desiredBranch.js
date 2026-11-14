@@ -489,8 +489,10 @@ function requiredCorrectsNeetPg({ closingRanks, distModel, pattern, patternVersi
  *   closingRanks: number[]
  *   priorModel:   buildPriorModel output (crowd corrects↔AIR ladder)
  *   pattern:      EXAMS.INI_CET.pattern
+ *   ruleId:       optional stored-era rule id (anchorHistory profile) — the
+ *                 current DESIRED_BRANCH.RULES.INI_CET_REQUIRED otherwise
  */
-function requiredCorrectsIniCet({ closingRanks, priorModel, pattern }) {
+function requiredCorrectsIniCet({ closingRanks, priorModel, pattern, ruleId, sourceLabel } = {}) {
   assertClosingRanks(closingRanks);
   if (!priorModel || typeof priorModel.marksForAir !== 'function') {
     throw new TypeError('requiredCorrectsIniCet needs a built prior model');
@@ -541,9 +543,10 @@ function requiredCorrectsIniCet({ closingRanks, priorModel, pattern }) {
     };
   });
 
+  const label = sourceLabel || 'crowd-sourced compilations';
   return {
     stage: 'REQUIRED_CORRECTS',
-    rule: DESIRED_BRANCH.RULES.INI_CET_REQUIRED,
+    rule: ruleId || DESIRED_BRANCH.RULES.INI_CET_REQUIRED,
     prior: {
       priorId: priorModel.priorId,
       provenance: 'crowd-sourced (UR-only) — the load-bearing step in this direction',
@@ -554,7 +557,7 @@ function requiredCorrectsIniCet({ closingRanks, priorModel, pattern }) {
     },
     perClosing,
     notes: [
-      'AIIMS has never published INI-CET marks. The AIR→marks step uses a crowd-sourced ladder (Dr Mayukh Hazra compilations, UR-only) as a labelled prior — an estimate with no official ground truth. Do not read the corrects numbers as exact thresholds.',
+      `AIIMS has never published INI-CET marks. The AIR→marks step uses a crowd-sourced ladder (${label}, UR-only) as a labelled prior — an estimate with no official ground truth. Do not read the corrects numbers as exact thresholds.`,
       `Ladder rungs span AIR ${bestAir.toLocaleString('en-US')}–${worstAir.toLocaleString('en-US')} (≈${bestCorrects}–${floorCorrects} corrects, ${priorModel.points} points); closings outside that span get bounded statements, never extrapolated numbers.`,
       'Required corrects follow from the exam pattern under the same assumptions as the forward predictor (all questions attempted, full-length, difficulty parity).',
       NOTES.ESTIMATE_DISCLAIMER,
@@ -728,11 +731,13 @@ function buildDesiredBranchResult({
   }
   if (kind === 'INI_CET' && required) {
     // §9 labelling — in the reverse direction the crowd ladder is the
-    // load-bearing step (AIIMS has never published marks)
+    // load-bearing step (AIIMS has never published marks). The source label
+    // is era-specific (config priorSourceLabel) so a stored-era re-derivation
+    // reproduces its original string byte-for-byte.
     warnings.push({
       code: 'CROWD_SOURCED_PRIOR',
       note:
-        'AIIMS has never published INI-CET marks. The rank→marks step behind these required-corrects numbers uses a crowd-sourced ladder (Dr Mayukh Hazra compilations) as a labelled prior — an estimate with no official ground truth.',
+        `AIIMS has never published INI-CET marks. The rank→marks step behind these required-corrects numbers uses a crowd-sourced ladder (${examConfig.priorSourceLabel || 'crowd-sourced compilations'}) as a labelled prior — an estimate with no official ground truth.`,
     });
     if (validated.category.value !== 'UR') {
       warnings.push({

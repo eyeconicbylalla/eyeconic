@@ -400,9 +400,9 @@ const DesiredMethodology: React.FC<{ res: DesiredData }> = ({ res }) => {
               ) : null}
               {r.required?.prior ? (
                 <li>
-                  Rank → required marks: a crowd-sourced ladder (Dr Mayukh Hazra compilations, UR-only) —
-                  AIIMS publishes no INI-CET marks, so this step is an estimate with no official ground
-                  truth.
+                  Rank → required marks: a crowd-sourced ladder (community compilations of student
+                  self-reports, UR-only) — AIIMS publishes no INI-CET marks, so this step is an estimate
+                  with no official ground truth.
                 </li>
               ) : null}
               {r.current ? (

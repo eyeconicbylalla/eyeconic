@@ -602,14 +602,14 @@ describe('predictor API — INI-CET predictions (M2: live end-to-end)', () => {
     expect(res.body.predictionId).toBeTruthy();
 
     const p = res.body.prediction;
-    expect(p.method.version).toBe('inicet-branch-p6.v1');
+    expect(p.method.version).toBe('inicet-branch-p7-v1');
     expect(p.method.stage).toBe('BRANCHES');
-    expect(p.method.datasetSnapshots.distribution).toBe('DS-INICET-DISTRIBUTION-202507-v1');
+    expect(p.method.datasetSnapshots.distribution).toBe('DS-INICET-DISTRIBUTION-202701-v1');
     expect(p.method.datasetSnapshots.counselling).toContain('DS-INICET-COUNSELLING-202507-v1');
     expect(p.input.quota).toBe('INI');
     expect(p.estimate.transfer.mode).toBe('TIER_3_CROWD_PRIOR_PRIMARY');
     expect(p.estimate.warnings.map((w) => w.code)).toContain('CROWD_SOURCED_PRIOR');
-    expect(p.rank.session).toBe('2025-07');
+    expect(p.rank.session).toBe('2027-01');
     expect(p.rank.rankRange[0]).toBeLessThan(p.rank.rankRange[1]);
     expect(p.branches.coverage === 'MATCHED' || p.branches.coverage === 'PARTIAL').toBe(true);
     expect(p.branches.dataCoverage.years).toEqual([202301, 202401, 202407, 202501, 202507, 202601]);
@@ -670,7 +670,7 @@ describe('predictor API — INI-CET predictions (M2: live end-to-end)', () => {
     expect(got.status).toBe(200);
     expect(got.body.integrity.matches).toBe(true);
     expect(got.body.prediction.exam).toBe('INI_CET');
-    expect(got.body.prediction.methodVersion).toBe('inicet-branch-p6.v1');
+    expect(got.body.prediction.methodVersion).toBe('inicet-branch-p7-v1');
   });
 });
 
@@ -758,8 +758,8 @@ describe('predictor API — Desired Branch (Feature 02: reverse flow, D6 persist
       .send({ exam: 'INI_CET', branchKey: INI_GM, category: 'OBC' });
     expect(res.status).toBe(201);
     const r = res.body.result;
-    expect(r.method.version).toBe('desired-inicet-v1');
-    expect(r.method.datasetSnapshots.prior).toBe('PR-INICET-HAZRA-CORRECTS-AIR-v1');
+    expect(r.method.version).toBe('desired-inicet-v2');
+    expect(r.method.datasetSnapshots.prior).toBe('PR-INICET-CORRECTS-AIR-202701-v1');
     expect(r.target.years.every((y) => y.session && y.snapshotId)).toBe(true);
     const codes = r.warnings.map((w) => w.code);
     expect(codes).toContain('CROWD_SOURCED_PRIOR');
@@ -843,7 +843,7 @@ describe('predictor API — Desired Branch (Feature 02: reverse flow, D6 persist
     const got = await request(app).get(`/api/predictor/desired-branch/${id}`).set('Cookie', cookie);
     expect(got.status).toBe(200);
     expect(got.body.integrity.matches).toBe(true);
-    expect(got.body.result.methodVersion).toBe('desired-inicet-v1');
+    expect(got.body.result.methodVersion).toBe('desired-inicet-v2');
     expect(got.body.result.request).toBeUndefined(); // request stays server-side here
     // §9 case 19: clean retrieval re-derives from the stored request and verifies
     expect(got.body.verified).toBe(true);

@@ -35,8 +35,22 @@ const {
  * until then; the strategy is exercised directly by the Phase 5/6 tests,
  * exactly like Phase 3/4 tested stages before Phase 7 mounted the API.
  */
-function createIniCetStrategy({ loadDistribution, loadPrior, loadCounselling } = {}) {
-  const config = EXAMS.INI_CET;
+function createIniCetStrategy({ loadDistribution, loadPrior, loadCounselling, profile } = {}) {
+  // Current config, or a RETIRED anchor/prior profile (EXAMS.INI_CET
+  // .anchorHistory — Phase C 2026-11-14) when re-deriving stored records:
+  // the profile swaps the methodVersion, the distribution anchor and the
+  // crowd prior; pattern and counselling history are shared across eras.
+  const config = profile
+    ? {
+        ...EXAMS.INI_CET,
+        methodVersion: profile.methodVersion,
+        distribution: profile.distribution,
+        prior: profile.prior,
+        desiredMethodVersion: profile.desiredMethodVersion,
+        desiredRuleId: profile.desiredRuleId,
+        priorSourceLabel: profile.priorSourceLabel,
+      }
+    : EXAMS.INI_CET;
   let cachedRpModel = null;
   let cachedPriorModel = null;
   let cachedCounselling = null;
@@ -58,7 +72,7 @@ function createIniCetStrategy({ loadDistribution, loadPrior, loadCounselling } =
       if (typeof loadPrior !== 'function') {
         throw stepNotImplemented('INI-CET prior loader', 'wire via createPredictorEngine (store)');
       }
-      const { data } = loadPrior();
+      const { data } = loadPrior(config.prior.file);
       cachedPriorModel = buildPriorModel(data, config.pattern);
     }
     return cachedPriorModel;
@@ -102,6 +116,7 @@ function createIniCetStrategy({ loadDistribution, loadPrior, loadCounselling } =
         priorModel: priorModel(),
         rpModel: rpModel(),
         category: validated.category, // UR-only prior warning for reserved categories (§9)
+        sourceLabel: config.priorSourceLabel,
       });
       estimate.performance.patternVersion = validated.exam.patternVersion;
       return estimate;
@@ -140,7 +155,7 @@ function createIniCetStrategy({ loadDistribution, loadPrior, loadCounselling } =
     resolveDesiredBranch(validated) {
       return buildDesiredBranchResult({
         examConfig: config,
-        methodVersion: DESIRED_BRANCH.METHOD_VERSION_INI_CET,
+        methodVersion: config.desiredMethodVersion || DESIRED_BRANCH.METHOD_VERSION_INI_CET,
         kind: 'INI_CET',
         indexes: counsellingIndexes(),
         validated,
@@ -149,6 +164,8 @@ function createIniCetStrategy({ loadDistribution, loadPrior, loadCounselling } =
             closingRanks,
             priorModel: priorModel(),
             pattern: config.pattern,
+            ...(config.desiredRuleId ? { ruleId: config.desiredRuleId } : {}),
+            ...(config.priorSourceLabel ? { sourceLabel: config.priorSourceLabel } : {}),
           }),
         reverseDataMeta: { prior: priorModel().priorId },
       });

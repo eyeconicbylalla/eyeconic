@@ -283,7 +283,7 @@ describe('readiness API — POST /readiness (persist before serve)', () => {
     expect(ENGINE_STATES).toEqual(['READY', 'MODERATELY_READY', 'BARELY_READY']);
   });
 
-  it('preserves the INI-CET Hazra-prior limitation exactly (§6.4, §9.3.1, §18.5)', async () => {
+  it('preserves the INI-CET crowd-prior limitation exactly (§6.4, §9.3.1, §18.5)', async () => {
     const cookie = await login();
     const res = await postReadiness(cookie, { exam: 'INI_CET', gts: [{ corrects: 95 }] });
     expect(res.status).toBe(201);
@@ -298,13 +298,14 @@ describe('readiness API — POST /readiness (persist before serve)', () => {
     });
     const anySeat = r.anchors.find((a) => a.id === 'ANY_SEAT');
     expect(anySeat.note).toMatch(/beyond the crowd ladder's floor rung/i);
-    // STRONG = AIR 4 is above the ladder ⇒ open-ended context row, never the target.
+    // Phase C v2 ladder: STRONG = AIR 4 sits exactly on the top rung (170c)
+    // — in-ladder where the v1 (Hazra) era was open-ended; still context-only.
     const strong = r.anchors.find((a) => a.id === 'STRONG');
     expect(strong).toMatchObject({
       rank: 4,
-      requiredCorrects: null,
-      requiredState: 'above-ladder',
-      ladderEndCorrects: 160,
+      requiredCorrects: 170,
+      requiredState: 'in-ladder',
+      bounded: false,
     });
     // Crowd prior always flagged; UR caveat always noted (§6.4/§6.5).
     expect(r.warnings.map((w) => w.code)).toContain('CROWD_SOURCED_PRIOR');
@@ -941,7 +942,7 @@ describe('readiness API — §18.3 extremes + own rate budget', () => {
     const r = res.body.result;
     expect(r.state).toBe('READY'); // G = 110 − 200 = −90
     expect(r.standing.coverage).toBe('above-prior');
-    expect(r.standing.rank.rankRange).toEqual([1, 10]); // honest ladder-best-rung bound
+    expect(r.standing.rank.rankRange).toEqual([1, 5]); // honest ladder-best-rung bound (v2 top rung AIR 4)
     expect(r.notes.some((n) => n.startsWith('You already clear the target bar'))).toBe(true);
   });
 

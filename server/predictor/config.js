@@ -90,7 +90,16 @@ const EXAMS = {
     available: true,
     milestone: 'M2',
     strategy: 'iniCet',
-    methodVersion: 'inicet-branch-p6.v1',
+    /**
+     * Anchor/prior migration 2026-11-14 (Phase C): the corrects→AIR crowd
+     * ladder moved from the Hazra Jul-2025 compilation to the r/INICET
+     * Nov-2026 compilation (39 self-reports, session-coherent with the
+     * official DS-INICET-DISTRIBUTION-202701-v1 result PDF). Phase B drift
+     * evidence: same marks bought ~8× better ranks on the old ladder at the
+     * top (docs/RANK_PREDICTOR_PHASEB_DRIFT_MEMO.md). The Jul-2025 pair
+     * remains committed below for re-deriving stored records byte-identically.
+     */
+    methodVersion: 'inicet-branch-p7-v1',
     patternVersion: '200 marks (+1/-1/3)',
     pattern: { totalQuestions: 200, positive: 1, negative: 1 / 3, maxMarks: 200, version: '200 marks (+1/-1/3)' },
     quotaScope: {
@@ -98,14 +107,43 @@ const EXAMS = {
       label: 'Single INI counselling pool',
     },
     distribution: {
-      // M2 Phase 1 snapshot anchor — the SAME session the crowd prior's
-      // runtime points were compiled for (2025-07), so prior↔official stay
-      // session-coherent.
-      dir: 'distribution/ini-cet-2025-07/v1',
-      snapshotId: 'DS-INICET-DISTRIBUTION-202507-v1',
-      session: '2025-07',
-      examYear: 2025,
+      // Phase C anchor — official rank↔percentile rows of the Nov-2026 exam
+      // (Notification 304/2026), the SAME session the v2 prior's runtime
+      // points were compiled for, so prior↔official stay session-coherent.
+      dir: 'distribution/ini-cet-2027-01/v1',
+      snapshotId: 'DS-INICET-DISTRIBUTION-202701-v1',
+      session: '2027-01',
+      examYear: 2027,
     },
+    /**
+     * Retired anchor/prior profiles, keyed by the forward methodVersion that
+     * served them (the INI-CET analogue of NEET PG's patternHistory — spec §10:
+     * historical versions are never overwritten). Used ONLY to re-derive
+     * stored predictions/queries byte-identically (GET /predictions/:id,
+     * /predictions/:id/branches, /desired-branch/:id); new requests always
+     * run the current anchor/prior above.
+     */
+    anchorHistory: [
+      {
+        methodVersion: 'inicet-branch-p6.v1',
+        desiredMethodVersion: 'desired-inicet-v1',
+        desiredRuleId: 'inicet-required-inverse-ladder-v1',
+        distribution: {
+          dir: 'distribution/ini-cet-2025-07/v1',
+          snapshotId: 'DS-INICET-DISTRIBUTION-202507-v1',
+          session: '2025-07',
+          examYear: 2025,
+        },
+        prior: {
+          id: 'PR-INICET-HAZRA-CORRECTS-AIR-v1',
+          file: 'priors/inicet/v1/hazra-corrects-air.json',
+        },
+        // exact strings of the era — part of re-derived result hashes
+        priorSourceLabel: 'Dr Mayukh Hazra compilations',
+        retiredAt: '2026-11-14',
+        note: 'Hazra Jul-2025 ladder era (M2 launch → 2026-11-14): 7 UR-only points, corrects 110–160.',
+      },
+    ],
     counselling: [
       // Final-state closing ranks per session (M2 Phase 1; complete round
       // sets only). Sessions are the counselling "years" for INI-CET — the
@@ -121,9 +159,19 @@ const EXAMS = {
       { session: '2026-01', snapshotId: 'DS-INICET-COUNSELLING-202601-v1', examYear: 2026 },
     ],
     prior: {
-      id: 'PR-INICET-HAZRA-CORRECTS-AIR-v1',
-      file: 'priors/inicet/v1/hazra-corrects-air.json',
+      // Phase C (2026-11-14): v2 = r/INICET Nov-2026 compilation, 18 pooled
+      // rungs over 39 self-reports, no-skip-equivalent corrects 110–169.88.
+      id: 'PR-INICET-CORRECTS-AIR-202701-v1',
+      file: 'priors/inicet/v2/corrects-air-202701.json',
     },
+    /**
+     * Short source label interpolated into warning/note strings. Lives in
+     * config (NOT in the hash-locked prior files) so each era's strings stay
+     * exactly reproducible: the anchorHistory entry below carries the OLD
+     * label, and desired-branch re-derivation compares result hashes
+     * byte-for-byte.
+     */
+    priorSourceLabel: 'r/INICET community compilations (Nov-2026)',
   },
 };
 
@@ -279,7 +327,9 @@ const LOW_GT_COUNT = Object.freeze({
  */
 const DESIRED_BRANCH = Object.freeze({
   METHOD_VERSION_NEET_PG: 'desired-neetpg-v2',
-  METHOD_VERSION_INI_CET: 'desired-inicet-v1',
+  // v2 (2026-11-14): reverse targets ride the Phase C prior v2 + 2027-01
+  // anchor (the inverse ladder is the load-bearing reverse step).
+  METHOD_VERSION_INI_CET: 'desired-inicet-v2',
   /**
    * Rule ids for the reverse rank→required-corrects step (versioned like the
    * tier rule ids in TRANSFER — part of every stored reverse result).
@@ -290,7 +340,8 @@ const DESIRED_BRANCH = Object.freeze({
    */
   RULES: Object.freeze({
     NEET_PG_REQUIRED: 'neetpg-required-fraction-parity-v2',
-    INI_CET_REQUIRED: 'inicet-required-inverse-ladder-v1',
+    // v2 (2026-11-14): inverse ladder over the Phase C prior v2 rungs.
+    INI_CET_REQUIRED: 'inicet-required-inverse-ladder-v2',
   }),
   /**
    * HIGH_VARIABILITY_RATIO flags target ranges whose loosest historical
@@ -325,7 +376,10 @@ const DESIRED_BRANCH = Object.freeze({
  */
 const READINESS = Object.freeze({
   METHOD_VERSION_NEET_PG: 'readiness-neetpg-v1',
-  METHOD_VERSION_INI_CET: 'readiness-inicet-v1',
+  // v2 (2026-11-14): INI readiness rows ride the Phase C prior v2 + 2027-01
+  // anchor. Stored v1 readiness records re-derive under the current engine
+  // and surface the standard verified:false + diff annotation (by design).
+  METHOD_VERSION_INI_CET: 'readiness-inicet-v2',
   /** Time-allowance rule id (§9.4): BUDGET = RATE × min(monthsRemaining, CAP). */
   TIME_ALLOWANCE_RULE_ID: 'readiness-linear-monthly-v1',
   /** Anchor-set rule id (§21): bumped when any anchor definition changes. */

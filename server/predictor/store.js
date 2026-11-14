@@ -103,9 +103,17 @@ function loadIniCetCounselling(session) {
 /**
  * INI-CET crowd prior (corrects→AIR ladder, UR-only — the §9 weak-step
  * bridge; hash-verified like every other store file).
+ *
+ * The file is passed by the caller (config-driven since Phase C: the
+ * current EXAMS.INI_CET.prior.file, or an anchorHistory profile's prior for
+ * re-deriving stored records) — the loader itself stays config-blind.
+ * @param {string} file manifest-relative prior path (e.g. 'priors/inicet/v2/corrects-air-202701.json')
  */
-function loadIniCetPrior() {
-  return loadSnapshot('priors/inicet/v1/hazra-corrects-air.json');
+function loadIniCetPrior(file) {
+  if (typeof file !== 'string' || !file.startsWith('priors/')) {
+    throw dataIntegrity('loadIniCetPrior needs an explicit prior file path (config-driven).', { file });
+  }
+  return loadSnapshot(file);
 }
 
 /** Test hook: drop cached parses (hash failures stay rare-path only). */

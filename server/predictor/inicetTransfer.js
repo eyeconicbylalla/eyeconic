@@ -132,8 +132,11 @@ function round(value, digits) {
  *   rpModel:     buildRankPercentileModel(...) over the official distribution
  *   category:    validated category (or null) — reserved categories get the
  *                UR-only-prior warning here (§9: weaker still for them)
+ *   sourceLabel: era-specific prior source label (config priorSourceLabel;
+ *                forward results are never re-derived, but the warning names
+ *                its source accurately for the era that produced it)
  */
-function buildIniCetEstimate({ perGt, pattern, priorModel, rpModel, category }) {
+function buildIniCetEstimate({ perGt, pattern, priorModel, rpModel, category, sourceLabel }) {
   const values = perGt.map((g) => g.selected.corrects);
   const n = values.length;
   const centerCorrects = mean(values);
@@ -214,7 +217,7 @@ function buildIniCetEstimate({ perGt, pattern, priorModel, rpModel, category }) 
   warnings.push({
     code: 'CROWD_SOURCED_PRIOR',
     note:
-      'AIIMS has never published INI-CET marks. The corrects→percentile step uses a crowd-sourced ladder (Dr Mayukh Hazra compilations) as a labelled prior — an estimate with no official ground truth. The percentile→rank step, in contrast, is an exact lookup over official AIIMS results.',
+      `AIIMS has never published INI-CET marks. The corrects→percentile step uses a crowd-sourced ladder (${sourceLabel || 'crowd-sourced compilations'}) as a labelled prior — an estimate with no official ground truth. The percentile→rank step, in contrast, is an exact lookup over official AIIMS results.`,
   });
   if (category && category.value !== 'UR') {
     warnings.push({

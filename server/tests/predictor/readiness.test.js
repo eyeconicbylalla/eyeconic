@@ -35,7 +35,10 @@ const NOW_EXHAUSTED = new Date('2028-11-13T06:00:00Z'); // past every seeded dat
 // fraction parity, then the exact inverse; INI: crowd-ladder ends).
 const REQ = {
   NEET_PG: { QUALIFY: 86, ANY_SEAT: 66, STRONG: 160 },
-  INI_CET: { ANY_SEAT: 110, STRONG: null }, // STRONG = above-ladder (open-ended)
+  // Phase C prior v2 (2026-11-14): ANY_SEAT (44,418) is beyond the ladder
+  // floor (21,000) ⇒ conservative 110c; STRONG (rank 4) now sits exactly on
+  // the ladder's TOP rung (170c) — in-ladder where the v1 era was open-ended.
+  INI_CET: { ANY_SEAT: 110, STRONG: 170 },
 };
 
 function thrownBy(fn) {
@@ -208,7 +211,7 @@ describe('Readiness Score — Phase 3 domain (§10 pipeline)', () => {
       expect(r.gap.gapCorrects).toBe(-90);
       expect(r.standing.coverage).toBe('above-prior');
       expect(r.standing.rank.rankRange[0]).toBe(1); // honest ladder-best-rung bound
-      expect(r.standing.rank.rankRange[1]).toBe(10);
+      expect(r.standing.rank.rankRange[1]).toBe(5); // v2 top rung AIR 4 -> percentile tie-bracket to 5
       expect(r.notes.some((n) => n.startsWith('You already clear the target bar'))).toBe(true);
     });
 
@@ -235,7 +238,7 @@ describe('Readiness Score — Phase 3 domain (§10 pipeline)', () => {
       expect(r.target.evidence).not.toBeNull();
     });
 
-    test('INI-CET: ANY_SEAT below-ladder ⇒ conservative 110c floor + note; STRONG above-ladder ⇒ open-ended (§18.5)', () => {
+    test('INI-CET: ANY_SEAT below-ladder ⇒ conservative 110c floor + note; STRONG sits ON the v2 top rung (§18.5)', () => {
       const r = computeReadiness(gts('INI_CET', 110), { now: NOW_0926 });
       const byId = Object.fromEntries(r.anchors.map((a) => [a.id, a]));
       expect(byId.ANY_SEAT).toMatchObject({
@@ -245,15 +248,16 @@ describe('Readiness Score — Phase 3 domain (§10 pipeline)', () => {
         bounded: true,
       });
       expect(byId.ANY_SEAT.note).toMatch(/beyond the crowd ladder's floor rung/i);
+      // Phase C: the v2 ladder's best reported rung is AIR 4 at 169.88
+      // corrects — the STRONG anchor (rank 4) resolves exactly there instead
+      // of the v1 era's open-ended above-ladder statement.
       expect(byId.STRONG).toMatchObject({
         rank: 4,
-        requiredCorrects: null,
-        requiredState: 'above-ladder',
-        bounded: true,
-        ladderEndCorrects: 160,
+        requiredCorrects: 170,
+        requiredState: 'in-ladder',
+        bounded: false,
       });
-      expect(byId.STRONG.note).toMatch(/ladder cannot resolve how many/i);
-      // The open-ended CONTEXT anchor never breaks the default-target math.
+      // The CONTEXT anchor never breaks the default-target math.
       expect(r.target.id).toBe('ANY_SEAT');
       expect(r.gap.requiredCorrects).toBe(110);
     });
@@ -570,7 +574,7 @@ describe('Readiness Score — R9 crash-fix regression (§18.3, decision R9)', ()
     const p = iniPredict(200);
     expect(p.estimate.percentile.coverage).toBe('above-prior');
     expect(p.rank.rankRange[0]).toBe(1);
-    expect(p.rank.rankRange[1]).toBe(10); // ladder best rung — worst plausible rank bound
+    expect(p.rank.rankRange[1]).toBe(5); // v2 ladder best rung AIR 4 — tie-bracket bound
     expect(p.rank.worstBeyondData).toBe(false);
   });
 
@@ -578,15 +582,17 @@ describe('Readiness Score — R9 crash-fix regression (§18.3, decision R9)', ()
     const p = iniPredict(20);
     expect(p.estimate.percentile.coverage).toBe('below-prior');
     expect(p.rank.bestRank).toBeGreaterThan(0);
-    expect(p.rank.bestRank).toBeLessThanOrEqual(28000); // ladder floor rung bound
+    expect(p.rank.bestRank).toBe(21020); // v2 floor rung AIR 21,000 → percentile tie-bracket
     expect(p.rank.worstRank).toBeNull();
   });
 
-  test('control (previously working path) is unchanged: 150/200 ⇒ above-prior with a resolved worst rank', () => {
+  test('control (previously working path) stays crash-free: 150/200 ⇒ full coverage on the v2 ladder', () => {
+    // v1 era: 150±15 corrects exited the old ladder's 146.7-mark top ⇒
+    // above-prior. The v2 ladder reaches 169.88 corrects, so the same input
+    // now resolves a full bounded range (the R9 crash path stays 200/200).
     const p = iniPredict(150);
-    expect(p.estimate.percentile.coverage).toBe('above-prior');
-    expect(p.rank.bestRank).toBe(1);
+    expect(p.estimate.percentile.coverage).toBe('full');
+    expect(p.rank.rankRange).toEqual([19, 4026]);
     expect(p.rank.worstRank).not.toBeNull();
-    expect(p.rank.worstRank).toBeLessThan(28000);
   });
 });

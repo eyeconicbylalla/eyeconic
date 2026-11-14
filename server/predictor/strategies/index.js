@@ -34,11 +34,11 @@ function buildStrategies({
   };
 
   /**
-   * Retired pattern profiles (§10 pattern history; NEET PG migration
-   * 2026-09-24). `legacyEntry(examId, methodVersion)` returns the
-   * patternHistory entry whose forward OR desired method version matches —
+   * Retired profiles (§10 version history; NEET PG pattern migration
+   * 2026-09-24, INI-CET anchor/prior migration 2026-11-14).
+   * `legacyEntry(examId, methodVersion)` returns the patternHistory OR
+   * anchorHistory entry whose forward OR desired method version matches —
    * used only to re-derive STORED predictions/queries byte-identically.
-   * INI-CET has no retired profiles (its methodology is unchanged).
    *
    * Both helpers are NON-ENUMERABLE so the registry's own contract holds:
    * Object.keys(registry) lists exactly the exam ids.
@@ -47,9 +47,10 @@ function buildStrategies({
   const legacyEntry = (examId, methodVersion) => {
     if (typeof methodVersion !== 'string' || !examId) return null;
     const exam = EXAMS[examId];
-    if (!exam || !Array.isArray(exam.patternHistory)) return null;
+    if (!exam) return null;
+    const histories = [...(exam.patternHistory || []), ...(exam.anchorHistory || [])];
     return (
-      exam.patternHistory.find(
+      histories.find(
         (e) => e.methodVersion === methodVersion || e.desiredMethodVersion === methodVersion
       ) || null
     );
@@ -60,10 +61,22 @@ function buildStrategies({
       const entry = legacyEntry(examId, methodVersion);
       if (!entry) return null;
       if (!legacyCache.has(entry.methodVersion)) {
-        legacyCache.set(
-          entry.methodVersion,
-          createNeetPgStrategy({ loadDistribution, loadCounselling, cohortProvider, profile: entry })
-        );
+        if (examId === EXAMS.INI_CET.id) {
+          legacyCache.set(
+            entry.methodVersion,
+            createIniCetStrategy({
+              loadDistribution: loadIniCetDistribution,
+              loadPrior: loadIniCetPrior,
+              loadCounselling: loadIniCetCounselling,
+              profile: entry,
+            })
+          );
+        } else {
+          legacyCache.set(
+            entry.methodVersion,
+            createNeetPgStrategy({ loadDistribution, loadCounselling, cohortProvider, profile: entry })
+          );
+        }
       }
       return legacyCache.get(entry.methodVersion);
     },

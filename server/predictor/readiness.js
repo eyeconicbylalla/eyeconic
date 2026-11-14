@@ -633,7 +633,11 @@ const defaultDeps = {
   },
   priorModel() {
     if (!this._priorModel) {
-      this._priorModel = buildPriorModel(store.loadIniCetPrior().data, EXAMS.INI_CET.pattern);
+      // config-driven since Phase C (loadIniCetPrior takes the prior file)
+      this._priorModel = buildPriorModel(
+        store.loadIniCetPrior(EXAMS.INI_CET.prior.file).data,
+        EXAMS.INI_CET.pattern
+      );
     }
     return this._priorModel;
   },

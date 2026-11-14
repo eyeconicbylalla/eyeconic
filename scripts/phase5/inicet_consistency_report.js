@@ -37,7 +37,7 @@ const check = (name, ok, detail = '') => {
 
 function main() {
   const pattern = EXAMS.INI_CET.pattern;
-  const prior = store.loadIniCetPrior().data;
+  const prior = store.loadIniCetPrior(EXAMS.INI_CET.prior.file).data;
   const rp = buildRankPercentileModel(store.loadIniCetDistribution(EXAMS.INI_CET.distribution.session).data);
   const pm = buildPriorModel(prior, pattern);
 
@@ -45,23 +45,32 @@ function main() {
   console.log(`INI-CET PHASE 5 CONSISTENCY (prior ${pm.priorId} x official ${rp.snapshotId})`);
   console.log('='.repeat(78));
 
-  // 1 — monotone + span
-  check('prior: 7 monotone points, span 110..160 corrects', pm.points === 7
-    && pm.correctsSpan[0] === 110 && pm.correctsSpan[1] === 160);
+  // 1 — monotone + span (v2: 18 pooled rungs over 39 reports, 110..169.88)
+  check('prior: 18 monotone points, span 110..169.88 corrects', pm.points === 18
+    && pm.correctsSpan[0] === 110 && pm.correctsSpan[1] === 169.88);
   check('prior: UR-only flag carried', pm.urOnly === true);
 
-  // 2 — cross-session drift (Nov-2025 Telegram marks points vs runtime ladder)
+  // 2 — cross-check points. v1 era: independent Telegram marks points — must
+  // agree within one crowd-noise band (/2..x2). v2 era points are EXCLUDED
+  // OUTLIERS (expect:'outlier') — the check asserts the exclusion was
+  // justified: drift OUTSIDE the band.
   for (const cp of prior.cross_check_points) {
     const corrects = (cp.marks + (pattern.totalQuestions * pattern.negative))
       / (pattern.positive + pattern.negative);
     const ladderAir = pm.airForMarks(cp.marks);
     const drift = ladderAir === null ? null : cp.air / ladderAir;
     const inSpan = cp.marks >= pm.marksSpan[0] && cp.marks <= pm.marksSpan[1];
+    const kind = cp.expect === 'outlier' ? 'excluded outlier' : 'independent point';
     console.log(`info  cross-check ${cp.session}: ${cp.marks} marks (= ${corrects.toFixed(1)} corrects) `
-      + `-> ${cp.air.toLocaleString('en-US')} AIR (Telegram) vs ladder `
+      + `-> ${cp.air.toLocaleString('en-US')} AIR (${kind}) vs ladder `
       + `${ladderAir === null ? 'outside span' : Math.round(ladderAir).toLocaleString('en-US')} `
       + `${drift ? `(drift x${drift.toFixed(2)})` : ''}`);
-    if (ladderAir !== null) {
+    if (cp.expect === 'outlier') {
+      if (ladderAir !== null) {
+        check(`cross-check ${cp.session} @${cp.marks}m correctly excluded (drift outside /2..x2)`,
+          drift < 0.5 || drift > 2, `drift ${drift} is INSIDE the band — re-examine the exclusion`);
+      }
+    } else if (ladderAir !== null) {
       check(`cross-check ${cp.session} @${cp.marks}m within crowd-noise band (/2..x2)`,
         drift >= 0.5 && drift <= 2, `drift ${drift}`);
     } else {
@@ -74,9 +83,9 @@ function main() {
   const maxAir = pm.airSpan[1];
   check(`prior max AIR ${maxAir} inside official session (last rank ${rp.lastRank})`, maxAir <= rp.lastRank);
 
-  // 4 — official round trip on sampled listed ranks
+  // 4 — official round trip on sampled listed ranks (2027-01 session sizes)
   let rtOk = true;
-  for (const r of [1, 2, 500, 10000, 28000, 46884]) {
+  for (const r of [1, 2, 500, 10000, 21000, 32495]) {
     const iv = rp.percentileForRank(r);
     // the stored percentile at r must invert to a rank bracket CONTAINING r
     const back = rp.rankForPercentile(iv.lo);

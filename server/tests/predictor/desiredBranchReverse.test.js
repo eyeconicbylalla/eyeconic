@@ -24,7 +24,7 @@ const { EXAMS, DESIRED_BRANCH } = require('../../predictor/config');
 const store = require('../../predictor/store');
 
 const distModel = buildDistributionModel(store.loadNeetPgDistribution().data);
-const priorModel = buildPriorModel(store.loadIniCetPrior().data, EXAMS.INI_CET.pattern);
+const priorModel = buildPriorModel(store.loadIniCetPrior(EXAMS.INI_CET.prior.file).data, EXAMS.INI_CET.pattern);
 const neetIdx = [2024, 2025].map((y) => buildCounsellingIndex(store.loadNeetPgCounselling(y).data));
 const iniIdx = ['2023-01', '2024-01', '2024-07', '2025-01', '2025-07', '2026-01'].map((s) =>
   buildCounsellingIndex(store.loadIniCetCounselling(s).data)
@@ -152,6 +152,10 @@ describe('requiredCorrectsNeetPg — composed reverse resolver (real distributio
 
 describe('requiredCorrectsIniCet — composed reverse resolver (crowd ladder)', () => {
   it('goldens inside the ladder: closing → marks → ceiled corrects', () => {
+    // v2 ladder goldens (Phase C, r/INICET Nov-2026 compilation): the same
+    // closings need materially MORE corrects than the v1 era (AIR 100: 159c
+    // vs 150c; AIR 2910: 139c vs 134c) — the Nov-2026 session bought worse
+    // ranks per mark (Phase B drift memo).
     const r = requiredCorrectsIniCet({
       closingRanks: [100, 224, 2910],
       priorModel,
@@ -160,19 +164,28 @@ describe('requiredCorrectsIniCet — composed reverse resolver (crowd ladder)', 
     expect(r.stage).toBe('REQUIRED_CORRECTS');
     expect(r.rule).toBe(DESIRED_BRANCH.RULES.INI_CET_REQUIRED);
     expect(r.perClosing).toEqual([
-      { closing: 100, marks: 133.33, corrects: 150, state: 'in-ladder', bounded: false },
-      { closing: 224, marks: 128.66, corrects: 147, state: 'in-ladder', bounded: false },
-      { closing: 2910, marks: 111.18, corrects: 134, state: 'in-ladder', bounded: false },
+      { closing: 100, marks: 145.22, corrects: 159, state: 'in-ladder', bounded: false },
+      { closing: 224, marks: 140.61, corrects: 156, state: 'in-ladder', bounded: false },
+      { closing: 2910, marks: 117.61, corrects: 139, state: 'in-ladder', bounded: false },
     ]);
   });
 
   it('above-ladder: corrects null, best-rung context echoed (D7 bounded-above)', () => {
-    const r = requiredCorrectsIniCet({ closingRanks: [4], priorModel, pattern: EXAMS.INI_CET.pattern });
+    // The v2 ladder's best rung reaches AIR 4 itself — a closing of 3 is the
+    // honest above-ladder case now (closing 4 sits exactly on the rung).
+    const r = requiredCorrectsIniCet({ closingRanks: [3], priorModel, pattern: EXAMS.INI_CET.pattern });
     const e = r.perClosing[0];
     expect(e).toMatchObject({
-      closing: 4, marks: null, corrects: null, state: 'above-ladder', bounded: true, ladderEndCorrects: 160,
+      closing: 3, marks: null, corrects: null, state: 'above-ladder', bounded: true, ladderEndCorrects: 169.88,
     });
-    expect(e.note).toContain('More than 160 corrects');
+    expect(e.note).toContain('More than 169.88 corrects');
+  });
+
+  it('the top rung itself resolves exactly: closing 4 → the ladder ceiling (Phase C)', () => {
+    const r = requiredCorrectsIniCet({ closingRanks: [4], priorModel, pattern: EXAMS.INI_CET.pattern });
+    expect(r.perClosing[0]).toMatchObject({
+      closing: 4, marks: 159.84, corrects: 170, state: 'in-ladder', bounded: false,
+    });
   });
 
   it('below-ladder: the floor rung’s corrects as a conservative target (D7 bounded-below)', () => {
@@ -185,17 +198,23 @@ describe('requiredCorrectsIniCet — composed reverse resolver (crowd ladder)', 
   });
 
   it('echoes the crowd-sourced provenance and the UR-only caveat (§9 labelling)', () => {
-    const r = requiredCorrectsIniCet({ closingRanks: [100], priorModel, pattern: EXAMS.INI_CET.pattern });
+    // sourceLabel is passed by the strategy (era-specific config string);
+    // here we exercise the interpolation the strategy relies on.
+    const r = requiredCorrectsIniCet({
+      closingRanks: [100], priorModel, pattern: EXAMS.INI_CET.pattern,
+      sourceLabel: EXAMS.INI_CET.priorSourceLabel,
+    });
     expect(r.prior).toMatchObject({
-      priorId: 'PR-INICET-HAZRA-CORRECTS-AIR-v1',
+      priorId: 'PR-INICET-CORRECTS-AIR-202701-v1',
       urOnly: true,
-      points: 7,
-      correctsSpan: [110, 160],
+      points: 18,
+      correctsSpan: [110, 169.88],
     });
     expect(r.prior.provenance).toContain('load-bearing');
     const all = r.notes.join(' ');
     expect(all).toContain('never published INI-CET marks');
     expect(all).toContain('never extrapolated');
+    expect(all).toContain('r/INICET community compilations (Nov-2026)');
   });
 
   it('validates its inputs', () => {
@@ -217,7 +236,7 @@ describe('requiredCorrectsIniCet — composed reverse resolver (crowd ladder)', 
         if (e.state === 'in-ladder') {
           inLadder += 1;
           expect(e.corrects).toBeGreaterThanOrEqual(110);
-          expect(e.corrects).toBeLessThanOrEqual(160);
+          expect(e.corrects).toBeLessThanOrEqual(170); // v2 ceiling: ceil(169.88)
           // display-rounded marks stay within the ladder span (± the 2dp
           // rounding step — e.g. the AIR-10 rung rounds 146.666… → 146.67)
           expect(e.marks).toBeGreaterThanOrEqual(priorModel.marksSpan[0] - 0.01);

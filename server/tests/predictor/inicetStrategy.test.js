@@ -87,12 +87,31 @@ describe('INI-CET Phase 5 — official rank-percentile model', () => {
 });
 
 describe('INI-CET Phase 5 — crowd prior (the weak step)', () => {
-  it('loads hash-verified with the UR-only crowd provenance', () => {
-    const { snapshotId, data } = store.loadIniCetPrior();
-    expect(snapshotId).toBe('PR-INICET-HAZRA-CORRECTS-AIR-v1');
+  it('loads the v2 prior hash-verified with the UR-only crowd provenance (Phase C)', () => {
+    const { snapshotId, data } = store.loadIniCetPrior(EXAMS.INI_CET.prior.file);
+    expect(snapshotId).toBe('PR-INICET-CORRECTS-AIR-202701-v1');
     expect(data.source.type).toBe('crowd-sourced');
     expect(data.source.ur_only).toBe(true);
+    expect(data.runtime_points).toHaveLength(18);
+    expect(data.source_points).toHaveLength(39); // full traceability of the pooled reports
+    expect(data.session).toBe('2027-01'); // session-coherent with the distribution anchor
+  });
+
+  it('the retired v1 Hazra prior remains committed and loadable (legacy re-derivation)', () => {
+    const legacy = EXAMS.INI_CET.anchorHistory[0];
+    const { snapshotId, data } = store.loadIniCetPrior(legacy.prior.file);
+    expect(snapshotId).toBe('PR-INICET-HAZRA-CORRECTS-AIR-v1');
     expect(data.runtime_points).toHaveLength(7);
+    expect(legacy.methodVersion).toBe('inicet-branch-p6.v1');
+  });
+
+  it('2027-01 official model: rank 1 at 100.0, 32,495 rows, last rank 33,862', () => {
+    const rp27 = buildRankPercentileModel(store.loadIniCetDistribution('2027-01').data);
+    expect(rp27.snapshotId).toBe('DS-INICET-DISTRIBUTION-202701-v1');
+    expect(rp27.session).toBe('2027-01');
+    expect(rp27.percentileForRank(1).lo).toBe(100);
+    expect(rp27.rows).toBe(32495);
+    expect(rp27.lastRank).toBe(33862);
   });
 });
 
@@ -113,20 +132,20 @@ describe('INI-CET Phase 5 — estimate + rank range (strategy level)', () => {
     expect(estimate.performance.marksRange[1]).toBeGreaterThan(113.2);
     // rank stage
     expect(rank.stage).toBe('RANK_RANGE');
-    expect(rank.session).toBe('2025-07');
+    expect(rank.session).toBe('2027-01');
     expect(rank.bestRank).toBeLessThan(rank.worstRank);
     expect(rank.bestRank).toBeGreaterThan(0);
-    expect(rank.definition).toMatch(/official AIIMS 2025-07 result distribution/);
+    expect(rank.definition).toMatch(/official AIIMS 2027-01 result distribution/);
     expect(rank.definition).toMatch(/crowd-sourced prior/); // uncertainty inherited, stated
   });
 
   it('anchors near the ladder ends after official normalization', () => {
     // 1-GT width ±15 corrects: the range [120..150] has its best end at 150c
-    // (ladder AIR 100) and worst end at 120c (ladder AIR 10,000) — official
-    // normalization must land both ends in those neighbourhoods.
+    // (≈133.3 marks → v2 ladder ≈AIR 476 → official tie-bracket 553) and worst
+    // end at 120c (≈106.7 marks → ≈AIR 6,035 → official ≈12,139).
     const { rank } = runEstimate([135]);
-    expect(rank.bestRank).toBeGreaterThan(30);
-    expect(rank.bestRank).toBeLessThan(400);
+    expect(rank.bestRank).toBeGreaterThan(400);
+    expect(rank.bestRank).toBeLessThan(800);
     expect(rank.worstRank).toBeGreaterThan(5000);
     expect(rank.worstRank).toBeLessThan(20000);
   });
@@ -163,12 +182,12 @@ describe('INI-CET Phase 5 — estimate + rank range (strategy level)', () => {
 
   it('echoes verified snapshot ids for prediction records (§17)', () => {
     const meta = ini.distributionMeta();
-    expect(meta.snapshotId).toBe('DS-INICET-DISTRIBUTION-202507-v1');
-    expect(meta.priorId).toBe('PR-INICET-HAZRA-CORRECTS-AIR-v1');
+    expect(meta.snapshotId).toBe('DS-INICET-DISTRIBUTION-202701-v1');
+    expect(meta.priorId).toBe('PR-INICET-CORRECTS-AIR-202701-v1');
   });
 
   it('carries its own method version, separate from NEET PG (§5.3 traceability)', () => {
-    expect(ini.methodVersion).toBe('inicet-branch-p6.v1');
+    expect(ini.methodVersion).toBe('inicet-branch-p7-v1'); // Phase C anchor/prior swap (2026-11-14)
     expect(strategies.NEET_PG.methodVersion).toBe('neetpg-branch-720-v1'); // bumped by the 180Q/720 migration
   });
 });
@@ -276,14 +295,14 @@ describe('INI-CET — product gate OPEN (M2 UI step)', () => {
     const engine = createPredictorEngine();
     const r = engine.predict({ exam: 'INI_CET', gts: gts(130, 140), category: 'UR' });
     expect(r.exam).toBe('INI_CET');
-    expect(r.method.version).toBe('inicet-branch-p6.v1');
+    expect(r.method.version).toBe('inicet-branch-p7-v1');
     expect(r.method.stage).toBe('BRANCHES');
-    expect(r.method.datasetSnapshots.distribution).toBe('DS-INICET-DISTRIBUTION-202507-v1');
+    expect(r.method.datasetSnapshots.distribution).toBe('DS-INICET-DISTRIBUTION-202701-v1');
     expect(r.method.datasetSnapshots.counselling).toHaveLength(6);
     expect(r.input.quota).toBe('INI');
     expect(r.input.quotaLabel).toBe('Single INI counselling pool');
     expect(r.estimate.transfer.mode).toBe('TIER_3_CROWD_PRIOR_PRIMARY');
-    expect(r.rank.session).toBe('2025-07');
+    expect(r.rank.session).toBe('2027-01');
     expect(r.branches.coverage === 'MATCHED' || r.branches.coverage === 'PARTIAL').toBe(true);
     expect(r.branches.dataCoverage.years).toEqual([202301, 202401, 202407, 202501, 202507, 202601]);
   });
@@ -316,24 +335,27 @@ describe('INI-CET — product gate OPEN (M2 UI step)', () => {
 });
 
 describe('INI-CET crowd prior — inverse ladder marksForAir (Desired Branch Phase 2)', () => {
-  // Ladder rungs (golden): 160c→AIR10, 150c→100, 140c→1000, 135c→2500,
-  // 130c→4000, 120c→10000, 110c→28000. marks = c − (200−c)/3.
-  const prior = buildPriorModel(store.loadIniCetPrior().data, EXAMS.INI_CET.pattern);
+  // v2 ladder rungs (golden): 169.88c'→AIR4, 167.88c'→8, 164.5c'→20, 162c'→43,
+  // 158.25c'→120, 156.88c'→175, 152.75c'→358, 147.38c'→820, 144.62c'→1197,
+  // 141.75c'→1911, 136.38c'→3615, 132.88c'→4747, 125c'→8900, 122.75c'→10300,
+  // 120.12c'→12262, 116.5c'→13600, 113c'→18771, 110c'→21000 (no-skip-
+  // equivalent corrects; marks = c − (200−c)/3).
+  const prior = buildPriorModel(store.loadIniCetPrior(EXAMS.INI_CET.prior.file).data, EXAMS.INI_CET.pattern);
 
   it('exact rungs return their rung marks exactly', () => {
-    expect(prior.marksForAir(10)).toEqual({ marks: 160 - 40 / 3 }); // 160 corrects
-    expect(prior.marksForAir(28000)).toEqual({ marks: 80 }); // 110 corrects
-    expect(prior.marksForAir(100)).toEqual({ marks: 150 - 50 / 3 }); // 150 corrects
+    expect(prior.marksForAir(4)).toEqual({ marks: 159.84 }); // 169.88 equivalent corrects
+    expect(prior.marksForAir(21000)).toEqual({ marks: 80 }); // 110 corrects (ladder floor)
+    expect(prior.marksForAir(8900)).toEqual({ marks: 100 }); // 125 corrects
   });
 
-  it('interpolates in log(AIR) space between rungs (golden: AIR 2910 → ≈111.18 marks)', () => {
+  it('interpolates in log(AIR) space between rungs (golden: AIR 2910 → ≈117.61 marks)', () => {
     const res = prior.marksForAir(2910);
-    expect(res.marks).toBeCloseTo(111.1792740898199, 9);
+    expect(res.marks).toBeCloseTo(117.609986578729, 9);
   });
 
   it('states: better than the best rung → above-ladder; beyond the floor → below-ladder', () => {
-    expect(prior.marksForAir(4)).toEqual({ state: 'above-ladder' });
-    expect(prior.marksForAir(9.99)).toEqual({ state: 'above-ladder' });
+    expect(prior.marksForAir(3)).toEqual({ state: 'above-ladder' });
+    expect(prior.marksForAir(3.99)).toEqual({ state: 'above-ladder' });
     expect(prior.marksForAir(40000)).toEqual({ state: 'below-ladder' });
     expect(() => prior.marksForAir('x')).toThrow(TypeError);
   });
@@ -351,7 +373,7 @@ describe('INI-CET crowd prior — inverse ladder marksForAir (Desired Branch Pha
   });
 
   it('forward rungs still resolve exactly after the exact-rung special case', () => {
-    for (const p of [{ c: 140, air: 1000 }, { c: 120, air: 10000 }, { c: 160, air: 10 }, { c: 110, air: 28000 }]) {
+    for (const p of [{ c: 141.75, air: 1911 }, { c: 125, air: 8900 }, { c: 169.88, air: 4 }, { c: 110, air: 21000 }]) {
       // compute marks EXACTLY as the model does (its own float expression) —
       // a hand-written (200−c)/3 differs in the last bit and would miss the
       // exact-rung branch
@@ -361,11 +383,35 @@ describe('INI-CET crowd prior — inverse ladder marksForAir (Desired Branch Pha
 
   it('monotone: a better (smaller) AIR never needs fewer marks', () => {
     let prev = -Infinity;
-    for (let air = 28000; air >= 10; air -= 37) {
+    for (let air = 21000; air >= 4; air -= 37) {
       const res = prior.marksForAir(air);
       if (res.state) continue;
       expect(res.marks).toBeGreaterThanOrEqual(prev);
       prev = res.marks;
     }
+  });
+});
+
+describe('INI-CET anchorHistory — legacy re-derivation routes (Phase C)', () => {
+  const engine = createPredictorEngine();
+  const gtsOne = (c) => gts(c);
+
+  it('a stored inicet-branch-p6.v1 methodVersion re-derives on the Jul-2025 pair', () => {
+    const legacy = engine.predict({ exam: 'INI_CET', gts: gtsOne(130) }, { methodVersion: 'inicet-branch-p6.v1' });
+    expect(legacy.method.version).toBe('inicet-branch-p6.v1');
+    expect(legacy.method.datasetSnapshots.distribution).toBe('DS-INICET-DISTRIBUTION-202507-v1');
+    expect(legacy.estimate.transfer.priorId).toBe('PR-INICET-HAZRA-CORRECTS-AIR-v1');
+    expect(legacy.rank.session).toBe('2025-07');
+    // v1 golden: 130c ±15 → best end ≈AIR 302 / worst ≈16,789 (the v2 ladder
+    // gives [553, 12139] for the same input — the era separation is visible)
+    expect(legacy.rank.rankRange).toEqual([302, 16789]);
+  });
+
+  it('current predictions use the 2027-01 pair and never the legacy profile', () => {
+    const current = engine.predict({ exam: 'INI_CET', gts: gtsOne(130) });
+    expect(current.method.version).toBe('inicet-branch-p7-v1');
+    expect(current.method.datasetSnapshots.distribution).toBe('DS-INICET-DISTRIBUTION-202701-v1');
+    expect(current.estimate.transfer.priorId).toBe('PR-INICET-CORRECTS-AIR-202701-v1');
+    expect(current.rank.session).toBe('2027-01');
   });
 });
