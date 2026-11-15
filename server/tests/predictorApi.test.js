@@ -33,6 +33,10 @@ const STUDENT = {
 const STUDENT2 = { ...STUDENT, _id: '507f1f77bcf86cd799439099', name: 'Second Student', email: 'student2@example.com' };
 
 // Grand Tests on the App side (analytics/me shape; score = correct count).
+// The feed carries the App's FULL current testType enum — daily (Daily PYQ),
+// mini (Mini GT) and weekly quizzes are listed by analytics/me but MUST be
+// excluded by the /gts grand-only filter (Quiz.testType enum in the app repo:
+// daily | weekly | grand | mini).
 const GT1 = '507f1f77bcf86cd799439022';
 const GT2 = '507f1f77bcf86cd799439033';
 const ANALYTICS_ATTEMPTS = [
@@ -67,6 +71,22 @@ const ANALYTICS_ATTEMPTS = [
     totalQuestions: 20,
     skipped: 0,
     endTime: '2026-09-02T10:00:00.000Z',
+  },
+  {
+    _id: '507f1f77bcf86cd7994d0005',
+    quiz: { _id: '507f1f77bcf86cd799439055', title: 'Mini GT 01', testType: 'mini', totalMarks: 120 },
+    score: 18,
+    totalQuestions: 30,
+    skipped: 2,
+    endTime: '2026-09-03T10:00:00.000Z',
+  },
+  {
+    _id: '507f1f77bcf86cd7994d0006',
+    quiz: { _id: '507f1f77bcf86cd799439066', title: 'Weekly 01', testType: 'weekly', totalMarks: 100 },
+    score: 41,
+    totalQuestions: 50,
+    skipped: 1,
+    endTime: '2026-09-04T10:00:00.000Z',
   },
 ];
 
@@ -342,8 +362,11 @@ describe('predictor API — Bearer auth (mentorship app)', () => {
       .get('/api/predictor/gts')
       .set('Authorization', `Bearer ${STUDENT_TOKEN}`);
     expect(res.status).toBe(200);
-    expect(res.body.gts.length).toBe(2); // GT1 + GT2 from the mock analytics feed
+    // The mock feed carries 6 attempts over 4 quizzes (grand x2, daily, mini,
+    // weekly) — only the two grand quizzes may reach the auto-fill.
+    expect(res.body.gts.length).toBe(2); // GT1 + GT2; daily/mini/weekly excluded
     expect(res.body.gts.every((g) => g.provenance === 'auto-captured')).toBe(true);
+    expect(res.body.gts.map((g) => g.title).sort()).toEqual(['Grand Test 01', 'Grand Test 02']);
   });
 
   it('maps a GT-feed upstream auth failure to 401 APP_SESSION_REQUIRED', async () => {
